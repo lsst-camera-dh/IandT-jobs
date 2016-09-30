@@ -1,0 +1,17 @@
+Simulated TS8 traveler:
+* Prerequisites:
+  * Populated raft with hardware id "ScienceRaft-xx" registered in
+    the eT tables.
+
+* Acquisition jobs: Fe55, dark, flat_pair, ppump, sflat, qe, spot
+  * Jobs will query eT tables for sensor ids for the raft
+  * Each job will simulate acquisition by CCS by copying queried single
+    sensor datasets from DC into the staging area.
+  * JH code will use the directory path policy string and fileref mechanism
+    to put files in the right locations and persist those locations in the
+    eT tables.
+
+* Analysis jobs: Fe55 (gain, psf), bright defects, dark defects, dark current,
+                 linearity, full well, traps, cte, prnu, QE, crosstalk
+  * standard dependency glob mechanism will be used to find datasets from
+    acq jobs.
