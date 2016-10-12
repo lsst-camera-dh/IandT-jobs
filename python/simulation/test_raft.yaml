@@ -1,12 +1,12 @@
-raft_id : Raft_0000
-sensor_type : E2V-CCD
+raft_id : 00
+sensor_type : e2v-CCD
 sensors :
-  slot_0 : E2V-CCD250-091
-  slot_1 : E2V-CCD250-094
-  slot_2 : E2V-CCD250-099
-  slot_3 : E2V-CCD250-104
-  slot_4 : E2V-CCD250-105
-  slot_5 : E2V-CCD250-106
-  slot_6 : E2V-CCD250-107
-  slot_7 : E2V-CCD250-112
-  slot_8 : E2V-CCD250-114
+  '00' : E2V-CCD250-091
+  '01' : E2V-CCD250-094
+  '02' : E2V-CCD250-099
+  '03' : E2V-CCD250-104
+  '04' : E2V-CCD250-105
+  '05' : E2V-CCD250-106
+  '06' : E2V-CCD250-107
+  '07' : E2V-CCD250-112
+  '08' : E2V-CCD250-114
