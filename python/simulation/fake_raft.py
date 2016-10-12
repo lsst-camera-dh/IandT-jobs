@@ -176,8 +176,6 @@ class RaftImages(object):
 
     Parameters
     ----------
-    single_sensor_file : str 
-        Name of the single-sensor file to be duplicated in the raft images
     raft_id : str
         Name of the raft, e.g., 'R22'.  This is used to evaluate coordinate
         keywords for focal plane coordinates
@@ -197,13 +195,11 @@ class RaftImages(object):
         extensions of the single_sensor_file
     '''
 
-    def __init__(self, single_sensor_file, raft_id, process_name, sensor_type,
+    def __init__(self, raft_id, process_name, sensor_type,
                  output_path):
         """
         Class constructor.
         """
-        self.single_sensor_file = single_sensor_file
-        self.file_suffix = get_file_suffix(self.single_sensor_file)
         self.raft_id = raft_id
         self.process_name = process_name
         self.sensor_type = sensor_type
@@ -215,7 +211,7 @@ class RaftImages(object):
             pass
 
 
-    def write_sensor_image(self, sensor_id, raft_id=None, clobber=True, dry_run=False):
+    def write_sensor_image(self, single_sensor_file, sensor_id, raft_id=None, clobber=True, dry_run=False):
         """
         Write a FITS image with pixel coordinates matching the specified
         sensor_id and raft_id.  The output file name is constructed from
@@ -223,6 +219,8 @@ class RaftImages(object):
 
         Parameters
         ----------
+        single_sensor_file : str
+            Name of the file to be copied
         sensor_id:  str
             Name of the sensor, e.g., 'E2V-CCD250-104' 
         clobber : bool, optional
@@ -230,17 +228,19 @@ class RaftImages(object):
         dry_run : bool, optional
             If true, just print output file names, but do not copy files
         """
+        file_suffix = get_file_suffix(single_sensor_file)
+
         out_raft = raft_id
         if out_raft is None:
             out_raft = self.raft_id
 
-        basename = "%s%s"%(sensor_id,self.file_suffix)
+        basename = "%s%s"%(sensor_id,file_suffix)
         outfilename = make_outfile_path(self.output_path,out_raft,sensor_id,self.process_name,basename)
         outdir = os.path.dirname(outfilename)
         print ("  Outfile = %s"%outfilename)
         if dry_run:
             return
-        output = fits.open(self.single_sensor_file) 
+        output = fits.open(single_sensor_file) 
 
         # FIXME, update the primary header keywords as needed
 
@@ -436,21 +436,22 @@ class Raft:
         """ Sensor associated with a particular slot """
         return self.__sensor_dict[slot]
 
-    def file_copy(self,inputfile,process_name,
-                  output_path,clobber=True,dry_run=False):
+    def file_copy(self,process_name,
+                  output_path,pattern='*.fits',
+                  clobber=True,dry_run=False):
         """ Copy a single input file to the correct output location for each sensor in this raft.
             Possibly updating FITS header infomation along the way.
 
         Parameters
         ----------
-        inputfile : str
-                    The file to be copied
-
         process_name : str
                     The name of the assoicated eTraveler process, used in making the output file name
               
         output_path : str
                     The prefix for the output file paths        
+
+        pattern : str
+                    Regular expression specifying which files to get
 
         clobber : bool, optional
                   Allow overwriting existing files
@@ -458,10 +459,12 @@ class Raft:
         dry_run : bool, optional
             If true, just print output file names, but do not copy files
          """        
-        writer = RaftImages(inputfile,self.__raft_id,process_name,self.sensor_type,output_path)
+        writer = RaftImages(self.__raft_id,process_name,self.sensor_type,output_path)
 
         for k,v in self.items():
-            writer.write_sensor_image(v,clobber=clobber,dry_run=dry_run)
+            template_files = self.get_template_files(process_name,pattern,slot=k)
+            for f in template_files:
+                writer.write_sensor_image(f,v,clobber=clobber,dry_run=dry_run)
             
             
     def get_template_files(self,process_name,pattern='*.fits',slot=None):        
@@ -487,37 +490,9 @@ class Raft:
         if slot is None:
             sn = self.sensor_names[0]
         else:
-            sn = self.sensor(slot)
+            sn = self.sensor(slot).sensor_id
 
         return get_template_files(sn,process_name,pattern)
-
-
-    def copy_files_for_process(self,process_name,outpath,pattern='*.fits',clobber=True,dry_run=False):
-        """ Copy sample version of all the files associated file with a eTraveler process to 
-            the expected output location for each sensor in this raft.
-            Possibly updating FITS header infomation along the way.
-
-        Parameters
-        ----------
-        process_name : str
-                    The name of the assoicated eTraveler process, used in making the output file name
-              
-        output_path : str
-                    The prefix for the output file paths        
-
-        pattern : str
-                    Regular expression specifying which files to get
- 
-        clobber : bool, optional
-                  Allow overwriting existing files
-
-        dry_run : bool, optional
-            If true, just print output file names, but do not copy files
-        """
-        template_files = self.get_template_files(process_name,pattern='*.fits')
-        for f in template_files:
-            print ("Input file = %s"%(f))
-            self.file_copy(f,process_name,outpath,clobber,dry_run)
 
 
 
@@ -528,7 +503,7 @@ if __name__ == '__main__':
     pattern = '*.fits'
 
     raft = Raft.create_from_yaml("test_raft.yaml")
-    raft.copy_files_for_process(process_name,outpath,pattern,dry_run=True)
+    raft.file_copy(process_name,outpath,pattern,dry_run=True)
 
 
 
