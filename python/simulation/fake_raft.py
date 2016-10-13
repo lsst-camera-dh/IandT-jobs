@@ -222,14 +222,14 @@ class RaftImages(object):
 
     def update_image_header(self, slot_name, ext_num, hdu):
         """
-        Update the image header for one of the readout sections
+        Update the image header for one of the readout segments
 
         Parameters
         ----------
         slot_name : str
             Name of the slot with in the raft
         ext_num:  int
-            Number of the HDU extension for this sectino
+            Number of the HDU extension for this segment
         hdu : fits.Image
             FITS image whose header is being updated
         """
