@@ -17,7 +17,7 @@ import yaml
 import astropy.io.fits as fits
 from datacat.error import DcClientException
 from DataCatalog import DataCatalog
-#import siteUtils
+# import siteUtils
 
 
 def make_datacat_path(**kwargs):
@@ -36,9 +36,9 @@ def make_outfile_path(**kwargs):
     Looking at LSSTTD-690 for rafts this should be
     <root_folder>/sraft<raft_id>/<process_name>/<job_id>/s<slot_name>/<file_string>
     """
-    return os.path.join(kwargs['root_folder'], "sraft%s"%(kwargs['raft_id']),
-                        "%04i"%(kwargs['run_id']), kwargs['process_name'],
-                        "%04i"%(kwargs['job_id']), "s%s"%(kwargs['slot_name']),
+    return os.path.join(kwargs['root_folder'], "sraft%s" % (kwargs['raft_id']),
+                        "%04i" % (kwargs['run_id']), kwargs['process_name'],
+                        "%04i" % (kwargs['job_id']), "s%s" % (kwargs['slot_name']),
                         kwargs['file_string'])
 
 
@@ -100,19 +100,19 @@ def get_template_files(root_folder, sensor_type, sensor_id, process_name, **kwar
                                    sensor_id=sensor_id)
 
     datacat = DataCatalog(folder=folder, site=kwargs.get('site', 'slac.lca.archive'))
-    query = '&&'.join(('LSST_NUM=="%s"'%sensor_id,
-                       'ProcessName=="%s"'%process_name))
+    query = '&&'.join(('LSST_NUM=="%s"' % sensor_id,
+                       'ProcessName=="%s"' % process_name))
     if image_type is not None:
-        query += '&& IMGTYPE == "%s"'%image_type
+        query += '&& IMGTYPE == "%s"' % image_type
     if test_type is not None:
-        query += '&& TESTTYPE == "%s"'%test_type
+        query += '&& TESTTYPE == "%s"' % test_type
 
     try:
         datasets = datacat.find_datasets(query)
     except DcClientException, msg:
         # Make the error message a bit more useful for debbuing
-        msg += "Folder = %s\n"%folder
-        msg += "Query = %s\n"%query
+        msg += "Folder = %s\n" % folder
+        msg += "Query = %s\n" % query
         raise DcClientException(msg)
 
     file_list = []
@@ -151,16 +151,16 @@ def parse_etraveler_response(rsp, validate):
             rsp_val = rsp[key]
             if isinstance(val, list):
                 if rsp_val not in val:
-                    errmsg = "eTraveler response does not match expectation for key %s: "%(key)
-                    errmsg += "%s not in %s"%(rsp_val, val)
+                    errmsg = "eTraveler response does not match expectation for key %s: " % (key)
+                    errmsg += "%s not in %s" % (rsp_val, val)
                     raise KeyError(errmsg)
             else:
                 if rsp_val != val:
-                    errmsg = "eTraveler response does not match expectation for key %s: "%(key)
-                    errmsg += "%s != %s"%(rsp_val, val)
+                    errmsg = "eTraveler response does not match expectation for key %s: " % (key)
+                    errmsg += "%s != %s" % (rsp_val, val)
                     raise ValueError(errmsg)
         except:
-            raise ValueError("eTraveler response does not include expected key %s"%(key))
+            raise ValueError("eTraveler response does not include expected key %s" % (key))
 
     child_esn = rsp['child_experimentSN']
     slot_name = rsp['slotName']
@@ -219,7 +219,6 @@ class RaftImages(object):
         """
         print ("Placeholder", self.raft_id, slot_name, hdu)
 
-
     def update_image_header(self, slot_name, ext_num, hdu):
         """
         Update the image header for one of the readout segments
@@ -234,7 +233,6 @@ class RaftImages(object):
             FITS image whose header is being updated
         """
         print ("Placeholder", self.raft_id, slot_name, ext_num, hdu)
-
 
     def write_sensor_image(self, single_sensor_file, slot_name, sensor_id, **kwargs):
         """
@@ -270,7 +268,7 @@ class RaftImages(object):
 
         clobber = kwargs.get('clobber', True)
         dry_run = kwargs.get('dry_run', False)
-        basename = "%s%s"%(sensor_id, file_suffix)
+        basename = "%s%s" % (sensor_id, file_suffix)
         outfilename = make_outfile_path(root_folder=self.output_path,
                                         raft_id=kwargs.get('raft_id', self.raft_id),
                                         run_id=kwargs.get('run_id', 1111),
@@ -280,7 +278,7 @@ class RaftImages(object):
                                         slot_name=slot_name,
                                         file_string=basename)
         outdir = os.path.dirname(outfilename)
-        print ("  Outfile = %s"%outfilename)
+        print ("  Outfile = %s" % outfilename)
         if dry_run:
             return
         output = fits.open(single_sensor_file)
@@ -297,6 +295,7 @@ class RaftImages(object):
 
         output.writeto(outfilename, clobber=clobber)
         output.close()
+
 
 class Sensor(object):
     '''
@@ -574,4 +573,3 @@ if __name__ == '__main__':
     RAFT.file_copy(PROCESS_NAME_IN, OUTPATH, root_folder=ROOT_FOLDER, dry_run=True,
                    test_type=TESTTYPE, image_type=IMGTYPE,
                    pattern=PATTERN)
-
