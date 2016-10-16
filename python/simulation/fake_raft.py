@@ -211,7 +211,7 @@ class RaftImages(object):
 
     def update_primary_header(self, slot_name, run_id, hdu):
         """
-        Update the primary image header
+        Update the primary image header to add run number, raft ID, and DETSIZE keyword
 
         Parameters
         ----------
@@ -224,6 +224,12 @@ class RaftImages(object):
 
         hdu.header['RUNNUM'] = run_id
         hdu.header['RAFTID'] = self.raft_id
+        if hdu.header['CCD_MANU'] == 'E2V':
+            hdu.header['DETSIZE'] = '[1:4096,1:4004]'
+        elif hdu.header['CCD_MANU'] == 'ITL':
+            hdu.header['DETSIZE'] = '[1:4072,1:4000]'
+        else:
+            raise RuntimeError("Sensor CCD_MANU keyword value not recognized")
         
     def update_image_header(self, slot_name, ext_num, hdu):
         """
@@ -248,22 +254,7 @@ class RaftImages(object):
         # values of DETSIZE for each type.  The image extension headers do not
         # include the sensor type explicitly
 
-        if hdu.header['DETSIZE'] == '[1:4072,1:4000]':
-            # pixel parameters for ITL sensors
-            dimv = 2000
-            dimh = 509
-            ccdax = 4000
-            ccday = 4072
-            ccdpx = 4198
-            ccdpy = 4198
-            gap_inx = 27
-            gap_iny = 27
-            gap_outx = 26
-            gap_outy = 26
-            preh = 3
-            overh = 32
-            overv = 48
-        elif hdu.header['DETSIZE'] == '[1:4096,1:4004]':
+        if hdu.header['DETSIZE'] == '[1:4096,1:4004]':
             # pixel parameters for e2v sensors
             dimv = 2002
             dimh = 512
@@ -278,6 +269,21 @@ class RaftImages(object):
             preh = 10
             overh = 22
             overv = 46
+        elif hdu.header['DETSIZE'] == '[1:4072,1:4000]':
+            # pixel parameters for ITL sensors
+            dimv = 2000
+            dimh = 509
+            ccdax = 4000
+            ccday = 4072
+            ccdpx = 4198
+            ccdpy = 4198
+            gap_inx = 27
+            gap_iny = 27
+            gap_outx = 26
+            gap_outy = 26
+            preh = 3
+            overh = 32
+            overv = 48
         else:
             raise RuntimeError("Sensor DETSIZE not recognized")
 
