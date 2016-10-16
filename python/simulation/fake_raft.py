@@ -23,7 +23,7 @@ from DataCatalog import DataCatalog
 def make_datacat_path(**kwargs):
     """ Build the data catalog path for a particular test on a particular sensor
 
-    Looking at LSSTTD-690 it appear that with run numbers the best we can do is
+    Looking at LCA-13501 it appears that with run numbers the best we can do is
     <root_folder>/<sensor_type>/<sensor_id>.
     """
     return os.path.join(kwargs['root_folder'], kwargs['sensor_type'],
@@ -33,12 +33,15 @@ def make_datacat_path(**kwargs):
 def make_outfile_path(**kwargs):
     """ Build the path for an output file for a particular test on a particular sensor
 
-    Looking at LSSTTD-690 for rafts this should be
-    <root_folder>/sraft<raft_id>/<process_name>/<job_id>/s<slot_name>/<file_string>
+    Looking at LCA-13501 for rafts this should be
+    <root_folder>/sraft<raft_id>/<process_name>/<job_id>/S<##>/<file_string>
+    where ## is the slot number in base 3
     """
     return os.path.join(kwargs['root_folder'], "sraft%s" % (kwargs['raft_id']),
                         "%04i" % (kwargs['run_id']), kwargs['process_name'],
-                        "%04i" % (kwargs['job_id']), "s%s" % (kwargs['slot_name']),
+                        "%04i" % (kwargs['job_id']), 
+                        "S%i" % (int(kwargs['slot_name']) / 3) +
+                        "%i" % (int(kwargs['slot_name']) % 3),
                         kwargs['file_string'])
 
 
@@ -206,33 +209,286 @@ class RaftImages(object):
         except OSError:
             pass
 
-    def update_primary_header(self, slot_name, hdu):
+    def update_primary_header(self, slot_name, run_id, hdu):
         """
         Update the primary image header
 
         Parameters
         ----------
         slot_name : str
-            Name of the slot with in the raft
+            Name of the slot within the raft
         hdu : fits.Image
             FITS image whose header is being updated
         """
-        print ("Placeholder", self.raft_id, slot_name, hdu)
+        # print ("Placeholder", self.raft_id, slot_name, run_id, hdu)
 
+        hdu.header['RUNNUM'] = run_id
+        hdu.header['RAFTID'] = self.raft_id
+        
     def update_image_header(self, slot_name, ext_num, hdu):
         """
-        Update the image header for one of the readout segments
+        Update the image header for one of the readout segments.  Adds raft-level 
+        coordinates (one set in Camera coordinates and one set rotated so the CCD
+        orientation has serial direction horizontal).  Adds rotated CCD coordinates
+        as well.  (Also rewrites amplifier and CCD-level Mosaic keywords.)
+        See LCA-13501
 
         Parameters
         ----------
         slot_name : str
-            Name of the slot with in the raft
+            Name of the slot within the raft
         ext_num:  int
             Number of the HDU extension for this segment
         hdu : fits.Image
             FITS image whose header is being updated
         """
-        print ("Placeholder", self.raft_id, slot_name, ext_num, hdu)
+        # print ("Placeholder", self.raft_id, slot_name, ext_num, hdu)
+        # The coordinate keyword values depend on the type of CCD
+        # Kind of awkward, but below the CCD type is identified by the assumed
+        # values of DETSIZE for each type.  The image extension headers do not
+        # include the sensor type explicitly
+
+        if hdu.header['DETSIZE'] == '[1:4072,1:4000]':
+            # pixel parameters for ITL sensors
+            dimv = 2000
+            dimh = 509
+            ccdax = 4000
+            ccday = 4072
+            ccdpx = 4198
+            ccdpy = 4198
+            gap_inx = 27
+            gap_iny = 27
+            gap_outx = 26
+            gap_outy = 26
+            preh = 3
+            overh = 32
+            overv = 48
+        elif hdu.header['DETSIZE'] == '[1:4096,1:4004]':
+            # pixel parameters for e2v sensors
+            dimv = 2002
+            dimh = 512
+            ccdax = 4004
+            ccday = 4096
+            ccdpx = 4197
+            ccdpy = 4200
+            gap_inx = 28
+            gap_iny = 25
+            gap_outx = 26.5
+            gap_outy = 25
+            preh = 10
+            overh = 22
+            overv = 46
+        else:
+            raise RuntimeError("Sensor DETSIZE not recognized")
+
+        # get the segment number
+        extname = hdu.header['EXTNAME']
+        seg = int(extname[-2:])
+
+        # Use assumed mapping between extension number and Segment number to evaluate
+        # segment 'coordinates':  Segment = Sx*10 + Sy (see LCA-13501)
+        Sarr = [10,11,12,13,14,15,16,17,07,06,05,04,03,02,01,00]
+        Sx = long(Sarr[seg]/10)
+        Sy = long(Sarr[seg] - Sx*10)
+
+        # Define the WCS and Mosaic keywords
+        WCSNAMEA = 'AMPLIFIER'
+        CTYPE1A = 'Seg_X   '
+        CTYPE2A = 'Seg_Y   '
+        WCSNAMEC = 'CCD     '
+        CTYPE1C = 'CCD_X   '
+        CTYPE2C = 'CCD_Y   '
+        WCSNAMER = 'RAFT    '
+        CTYPE1R = 'RAFT_X  '
+        CTYPE2R = 'RAFT_Y  '
+        WCSNAMEF = 'FOCAL_PLANE'
+        WCSNAMEB= 'CCD_SERPAR'
+        CTYPE1B = 'CCD_S   '
+        CTYPE2B = 'CCD_P   '
+        WCSNAMEQ= 'RAFT_SERPAR'
+        CTYPE1Q = 'RAFT_S  '  
+        CTYPE2Q = 'RAFT_P  ' 
+
+        if hdu.header['DETSIZE'] == '[1:4072,1:4000]':
+            # header coordinate parameters for ITL sensors
+            PC1_1A = 0
+            PC1_2A = 1 - 2 * Sx
+            PC2_1A = -1
+            PC2_2A = 0
+            CRPIX1A = 0
+            CRPIX2A = 0
+            CRVAL1A = Sx * (dimv + 1)
+            CRVAL2A = dimh + 1 - preh
+            PC1_1C = 0
+            PC1_2C = 1 - 2 * Sx
+            PC2_1C = -1
+            PC2_2C = 0
+            CRPIX1C = 0
+            CRPIX2C = 0
+            CRVAL1C = Sx *(2*dimv+1)
+            CRVAL2C = dimh+1+Sy *dimh - preh
+            PC1_1R = 0
+            PC1_2R = 1 - 2 * Sx
+            PC2_1R = -1
+            PC2_2R = 0
+            CRPIX1R = 0
+            CRPIX2R = 0
+            CRVAL1R = Sx * (2 * dimv + 1) + gap_outx + (ccdpx - ccdax)/2. + Cx*(2 * dimv + gap_inx + ccdpx - ccdax)
+            CRVAL2R = dimh + 1 + Sy * dimh + gap_outy + (ccdpy - ccday)/2. + Cy*(8 * dimh + gap_iny + ccdpy - ccday) - preh
+            PC1_1B = -1
+            PC1_2B = 0
+            PC2_1B = 0
+            PC2_2B = 1 - 2 * Sp
+            CDELT1B = 1
+            CDELT2B = 1
+            CRPIX1B = 0
+            CRPIX2B = 0
+            CRVAL1B = (Ss +1)*dimh+1 - preh
+            CRVAL2B = Sp * (2*dimv+1)
+            PC1_1Q = -1
+            PC1_2Q = 0
+            PC2_1Q = 0
+            PC2_2Q = 1 - 2 * Sp
+            CDELT1Q = 1
+            CDELT2Q = 1
+            CRPIX1Q = 0
+            CRPIX2Q = 0
+            CRVAL1Q=gap_outy+(ccdpy-ccday)/2. + Cs*(8*dimh+gap_iny+ccdpy -ccday)+(Ss +1)*dimh+1 - preh
+            CRVAL2Q= Sp *(2*dimv+1)+gap_outx+(ccdpx - ccdax)/2.+Cp*(2*dimv+gap_inx+ ccdpx - ccdax)
+            DTM1_1 = -1
+            DTM1_2 = 0
+            DTM2_1 = 0
+            DTM2_2 = 2*Sx - 1
+            DTV1 = (dimh+1) + Sy *dimh + preh
+            DTV2 = (2 * dimv + 1) * (1 - Sx)
+        elif hdu.header['DETSIZE'] == '[1:4096,1:4004]':
+            # header coordinate parameters for e2v sensors
+            PC1_1A = 0
+            PC1_2A = 1 - 2 * Sx
+            PC2_1A = 1 - 2 * Sx
+            PC2_2A = 0
+            CRPIX1A = 0
+            CRPIX2A = 0
+            CRVAL1A = Sx * (dimv + 1)
+            CRVAL2A = Sx * (dimh + 1) + (2*Sx - 1)*preh
+            PC1_1C = 0
+            PC1_2C = 1 - 2 * Sx
+            PC2_1C = 1 - 2 * Sx
+            PC2_2C = 0
+            CRPIX1C = 0
+            CRPIX2C = 0
+            CRVAL1C = Sx * (2*dimv+1)
+            CRVAL2C = Sx * (dimh+1) + Sy * dimh + (2*Sx - 1)*preh
+            PC1_1R = 0
+            PC1_2R = 1 - 2 * Sx
+            PC2_1R = 1 - 2 * Sx
+            PC2_2R = 0
+            CRPIX1R = 0
+            CRPIX2R = 0
+            CRVAL1R = Sx * (2 * dimv + 1) + gap_outx + (ccdpx - ccdax)/2. + Cx*(2 * dimv + gap_inx + ccdpx - ccdax)
+            CRVAL2R = Sx * (dimh + 1) + Sy * dimh + gap_outy + (ccdpy - ccday)/2. + Cy*(8 * dimh + gap_iny + ccdpy - ccday) + (2*Sx - 1)*preh
+            PC1_1B = 1 - 2*Sp
+            PC1_2B = 0
+            PC2_1B = 0
+            PC2_2B = 1 - 2 * Sp
+            CDELT1B = 1
+            CDELT2B = 1
+            CRPIX1B = 0
+            CRPIX2B = 0
+            CRVAL1B = Sp*(dimh + 1) + Ss*dimh + (2*Sp-1)*preh
+            CRVAL2B = Sp * (2*dimv+1)
+            PC1_1Q = 1 - 2*Sp
+            PC1_2Q = 0
+            PC2_1Q = 0
+            PC2_2Q = 1 - 2 * Sp
+            CDELT1Q = 1
+            CDELT2Q = 1
+            CRPIX1Q = 0
+            CRPIX2Q = 0
+            CRVAL1Q=gap_outy+(ccdpy-ccday)/2. + Cs*(8*dimh+gap_iny+ccdpy -ccday)+Sp*(dimh+1) + Ss*dimh
+            CRVAL2Q= Sp *(2*dimv+1)+gap_outx+(ccdpx - ccdax)/2.+Cp*(2*dimv+gap_inx+ ccdpx - ccdax)
+            DTM1_1 = 1 - 2*Sx
+            DTM1_2 = 0
+            DTM2_1 = 0
+            DTM2_2 = 2*Sx - 1
+            DTV1 = (dimh+1 + 2*preh)*Sx +Sy *dimh - preh
+            DTV2 = (2 * dimv + 1)*(1 - Sx)
+        else:
+            raise RuntimeError("Sensor DETSIZE not recognized")
+
+        hdu.header['DTM1_1'] = DTM1_1
+        hdu.header['DTM1_2'] = DTM1_2
+        hdu.header['DTM2_1'] = DTM2_1
+        hdu.header['DTM2_2'] = DTM2_2
+        hdu.header['DTV1'] = DTV1
+        hdu.header['DTV2'] = DTV2
+
+        hdu.header['WCSNAMEA'] = WCSNAMEA
+        hdu.header['CTYPE1A'] = CTYPE1A
+        hdu.header['CTYPE2A'] = CTYPE2A
+        hdu.header['CRVAL1A'] = CRVAL1A
+        hdu.header['CRVAL2A'] = CRVAL2A
+        hdu.header['PC1_1A'] = PC1_1A
+        hdu.header['PC1_2A'] = PC1_2A
+        hdu.header['PC2_1A'] = PC2_1A
+        hdu.header['PC2_2A'] = PC2_2A
+        hdu.header['CDELT1A'] = 1
+        hdu.header['CDELT2A'] = 1
+        hdu.header['CRPIX1A'] = CRPIX1A
+        hdu.header['CRPIX2A'] = CRPIX2A
+        hdu.header['WCSNAMEC'] = WCSNAMEC
+        hdu.header['CTYPE1C'] = CTYPE1C
+        hdu.header['CTYPE2C'] = CTYPE2C
+        hdu.header['CRVAL1C'] = CRVAL1C
+        hdu.header['CRVAL2C'] = CRVAL2C
+        hdu.header['PC1_1C'] = PC1_1C
+        hdu.header['PC1_2C'] = PC1_2C
+        hdu.header['PC2_1C'] = PC2_1C
+        hdu.header['PC2_2C'] = PC2_2C
+        hdu.header['CDELT1C'] = 1
+        hdu.header['CDELT2C'] = 1
+        hdu.header['CRPIX1C'] = CRPIX1C
+        hdu.header['CRPIX2C'] = CRPIX2C
+        hdu.header['WCSNAMER'] = WCSNAMER
+        hdu.header['CTYPE1R'] = CTYPE1R
+        hdu.header['CTYPE2R'] = CTYPE2R
+        hdu.header['CRVAL1R'] = CRVAL1R
+        hdu.header['CRVAL2R'] = CRVAL2R
+        hdu.header['PC1_1R'] = PC1_1R
+        hdu.header['PC1_2R'] = PC1_2R
+        hdu.header['PC2_1R'] = PC2_1R
+        hdu.header['PC2_2R'] = PC2_2R
+        hdu.header['CDELT1R'] = 1
+        hdu.header['CDELT2R'] = 1
+        hdu.header['CRPIX1R'] = CRPIX1R
+        hdu.header['CRPIX2R'] = CRPIX2R
+        hdu.header['WCSNAMEF'] = WCSNAMEF
+        hdu.header['WCSNAMEB'] = WCSNAMEB
+        hdu.header['CTYPE1B'] = CTYPE1B
+        hdu.header['CTYPE2B'] = CTYPE2B
+        hdu.header['CRVAL1B'] = CRVAL1B
+        hdu.header['CRVAL2B'] = CRVAL2B
+        hdu.header['PC1_1B'] = PC1_1B
+        hdu.header['PC1_2B'] = PC1_2B
+        hdu.header['PC2_1B'] = PC2_1B
+        hdu.header['PC2_2B'] = PC2_2B
+        hdu.header['CDELT1B'] = 1
+        hdu.header['CDELT2B'] = 1
+        hdu.header['CRPIX1B'] = CRPIX1B
+        hdu.header['CRPIX2B'] = CRPIX2B
+        hdu.header['WCSNAMEQ'] = WCSNAMEQ
+        hdu.header['CTYPE1Q'] = CTYPE1Q
+        hdu.header['CTYPE2Q'] = CTYPE2Q
+        hdu.header['CRVAL1Q'] = CRVAL1Q
+        hdu.header['CRVAL2Q'] = CRVAL2Q
+        hdu.header['PC1_1Q'] = PC1_1Q
+        hdu.header['PC1_2Q'] = PC1_2Q
+        hdu.header['PC2_1Q'] = PC2_1Q
+        hdu.header['PC2_2Q'] = PC2_2Q
+        hdu.header['CDELT1Q'] = 1
+        hdu.header['CDELT2Q'] = 1
+        hdu.header['CRPIX1Q'] = CRPIX1Q
+        hdu.header['CRPIX2Q'] = CRPIX2Q
 
     def write_sensor_image(self, single_sensor_file, slot_name, sensor_id, **kwargs):
         """
@@ -283,7 +539,7 @@ class RaftImages(object):
             return
         output = fits.open(single_sensor_file)
 
-        self.update_primary_header(slot_name, output[0])
+        self.update_primary_header(slot_name, run_id, output[0])
 
         for ext_num in range(1, 16):
             self.update_image_header(slot_name, ext_num, output[ext_num])
@@ -322,7 +578,7 @@ class Sensor(object):
 
     @property
     def raft_id(self):
-        """ Return the Name of the sensor, e.g., 'RAFT-000' """
+        """ Return the Name of the raft, e.g., 'RAFT-000' """
         return self.__raft_id
 
 
@@ -368,7 +624,7 @@ class Raft(object):
         Parameters
         ----------
         raft_id : str
-            Name of the raft, this must match the 'parent_experimentSN' field
+            Name of the raft; this must match the 'parent_experimentSN' field
             in the eTraveler db.
 
         Keyword Arguments
@@ -475,7 +731,7 @@ class Raft(object):
         Parameters
         ----------
         process_name : str
-            The name of the assoicated eTraveler process, used in making the output file name
+            The name of the associated eTraveler process, used in making the output file name
         output_path : str
             The prefix for the output file paths
         pattern : str
@@ -525,7 +781,7 @@ class Raft(object):
         root_folder : str
             Top level data catalog folder for search
         process_name : str
-            The name of the assoicated eTraveler process,
+            The name of the associated eTraveler process,
             used in making the output file name
         slot : str
             Use the sensor associated with this slot as the template
@@ -564,9 +820,11 @@ if __name__ == '__main__':
     OUTPATH = 'output/'
     TESTTYPE = 'FE55'
     IMGTYPE = 'BIAS'
+    #PROCESS_NAME_IN = 'fe55_acq'
     PROCESS_NAME_IN = 'vendorIngest'
     PROCESS_NAME_OUT = 'fe55_acq'
     PATTERN = '*.fits'
+    #ROOT_FOLDER = 'LSST/mirror/BNL-prod/prod'
     ROOT_FOLDER = 'LSST/mirror/SLAC-prod/prod'
 
     RAFT = Raft.create_from_yaml("test_raft.yaml")
