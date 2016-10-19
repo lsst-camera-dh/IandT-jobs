@@ -39,7 +39,7 @@ def make_outfile_path(**kwargs):
     """
     return os.path.join(kwargs['root_folder'], "sraft%s" % (kwargs['raft_id']),
                         "%04i" % (kwargs['run_id']), kwargs['process_name'],
-                        "%04i" % (kwargs['job_id']), 
+                        "%04i" % (kwargs['job_id']),
                         "%s" % (kwargs['slot_name']),
                         kwargs['file_string'])
 
@@ -113,7 +113,7 @@ def get_template_files(root_folder, sensor_type, sensor_id, process_name, **kwar
         datasets = datacat.find_datasets(query)
     except DcClientException as eobj:
         # Make the error message a bit more useful for debugging
-        msg += eobj.message + (":\nFolder = %s\n" % folder)
+        msg = eobj.message + (":\nFolder = %s\n" % folder)
         msg += "Query = %s\n" % query
         raise DcClientException(msg)
 
@@ -223,16 +223,17 @@ class RaftImages(object):
 
         hdu.header['RUNNUM'] = run_id
         hdu.header['RAFTID'] = self.raft_id
+        hdu.header['SLOT'] = slot_name
         if hdu.header['CCD_MANU'] == 'E2V':
             hdu.header['DETSIZE'] = '[1:4096,1:4004]'
         elif hdu.header['CCD_MANU'] == 'ITL':
             hdu.header['DETSIZE'] = '[1:4072,1:4000]'
         else:
             raise RuntimeError("Sensor CCD_MANU keyword value not recognized")
-        
-    def update_image_header(self, slot_name, ext_num, hdu):
+
+    def update_image_header(self, slot_name, hdu):
         """
-        Update the image header for one of the readout segments.  Adds raft-level 
+        Update the image header for one of the readout segments.  Adds raft-level
         coordinates (one set in Camera coordinates and one set rotated so the CCD
         orientation has serial direction horizontal).  Adds rotated CCD coordinates
         as well.  (Also rewrites amplifier and CCD-level Mosaic keywords.)
@@ -242,16 +243,16 @@ class RaftImages(object):
         ----------
         slot_name : str
         Name of the slot within the raft
-        ext_num:  int
         Number of the HDU extension for this segment
         hdu : fits.Image
         FITS image whose header is being updated
         """
-        # print ("Placeholder", self.raft_id, slot_name, ext_num, hdu)
-        # The coordinate keyword values depend on the type of CCD
+        # The coordinate keyword values depend on the type of CCD.
         # Kind of awkward, but below the CCD type is identified by the assumed
         # values of DETSIZE for each type.  The image extension headers do not
         # include the sensor type explicitly
+
+        hdu.header['SLOT'] = slot_name
 
         if hdu.header['DETSIZE'] == '[1:4096,1:4004]':
             # pixel parameters for e2v sensors
@@ -266,8 +267,6 @@ class RaftImages(object):
             gap_outx = 26.5
             gap_outy = 25
             preh = 10
-            overh = 22
-            overv = 46
         elif hdu.header['DETSIZE'] == '[1:4072,1:4000]':
             # pixel parameters for ITL sensors
             dimv = 2000
@@ -278,11 +277,9 @@ class RaftImages(object):
             ccdpy = 4198
             gap_inx = 27
             gap_iny = 27
-            gap_outx = 26
+            gap_outx = 26.0
             gap_outy = 26
             preh = 3
-            overh = 32
-            overv = 48
         else:
             raise RuntimeError("Sensor DETSIZE not recognized")
 
@@ -291,209 +288,231 @@ class RaftImages(object):
         seg = int(extname[-2:])
 
         # Use assumed mapping between extension number and Segment number to evaluate
-        # segment 'coordinates':  Segment = Sx*10 + Sy (see LCA-13501)
-        Sarr = [10,11,12,13,14,15,16,17,07,06,05,04,03,02,01,00]
-        Sx = long(Sarr[seg]/10)
-        Sy = long(Sarr[seg] - Sx*10)
+        # segment 'coordinates':  Segment = sx*10 + sy (see LCA-13501)
+        sarr = [10, 11, 12, 13, 14, 15, 16, 17, 07, 06, 05, 04, 03, 02, 01, 00]
+        sx = long(sarr[seg]/10)
+        sy = long(sarr[seg] - sx*10)
+        # For convenience of notation in LCA-13501 these are also defined as 'serial'
+        # and 'parallel' indices, with Segment = Sp*10 + Ss
+        sp = sx
+        ss = sy
+
+        # Extract the x and y location indexes in the raft from the slot name. Also
+        # define the serial and parallel versions
+        cx = int(slot_name[1:2])
+        cy = int(slot_name[2:3])
+        cp = cx
+        cs = cy
 
         # Define the WCS and Mosaic keywords
-        WCSNAMEA = 'AMPLIFIER'
-        CTYPE1A = 'Seg_X   '
-        CTYPE2A = 'Seg_Y   '
-        WCSNAMEC = 'CCD     '
-        CTYPE1C = 'CCD_X   '
-        CTYPE2C = 'CCD_Y   '
-        WCSNAMER = 'RAFT    '
-        CTYPE1R = 'RAFT_X  '
-        CTYPE2R = 'RAFT_Y  '
-        WCSNAMEF = 'FOCAL_PLANE'
-        WCSNAMEB= 'CCD_SERPAR'
-        CTYPE1B = 'CCD_S   '
-        CTYPE2B = 'CCD_P   '
-        WCSNAMEQ= 'RAFT_SERPAR'
-        CTYPE1Q = 'RAFT_S  '  
-        CTYPE2Q = 'RAFT_P  ' 
+        wcsnamea = 'AMPLIFIER'
+        ctype1a = 'Seg_X   '
+        ctype2a = 'Seg_Y   '
+        wcsnamec = 'CCD     '
+        ctype1c = 'CCD_X   '
+        ctype2c = 'CCD_Y   '
+        wcsnamer = 'RAFT    '
+        ctype1r = 'RAFT_X  '
+        ctype2r = 'RAFT_Y  '
+        wcsnamef = 'FOCAL_PLANE'
+        wcsnameb = 'CCD_SERPAR'
+        ctype1b = 'CCD_S   '
+        ctype2b = 'CCD_P   '
+        wcsnameq = 'RAFT_SERPAR'
+        ctype1q = 'RAFT_S  '
+        ctype2q = 'RAFT_P  '
 
         if hdu.header['DETSIZE'] == '[1:4072,1:4000]':
             # header coordinate parameters for ITL sensors
-            PC1_1A = 0
-            PC1_2A = 1 - 2 * Sx
-            PC2_1A = -1
-            PC2_2A = 0
-            CRPIX1A = 0
-            CRPIX2A = 0
-            CRVAL1A = Sx * (dimv + 1)
-            CRVAL2A = dimh + 1 - preh
-            PC1_1C = 0
-            PC1_2C = 1 - 2 * Sx
-            PC2_1C = -1
-            PC2_2C = 0
-            CRPIX1C = 0
-            CRPIX2C = 0
-            CRVAL1C = Sx *(2*dimv+1)
-            CRVAL2C = dimh+1+Sy *dimh - preh
-            PC1_1R = 0
-            PC1_2R = 1 - 2 * Sx
-            PC2_1R = -1
-            PC2_2R = 0
-            CRPIX1R = 0
-            CRPIX2R = 0
-            CRVAL1R = Sx * (2 * dimv + 1) + gap_outx + (ccdpx - ccdax)/2. + Cx*(2 * dimv + gap_inx + ccdpx - ccdax)
-            CRVAL2R = dimh + 1 + Sy * dimh + gap_outy + (ccdpy - ccday)/2. + Cy*(8 * dimh + gap_iny + ccdpy - ccday) - preh
-            PC1_1B = -1
-            PC1_2B = 0
-            PC2_1B = 0
-            PC2_2B = 1 - 2 * Sp
-            CDELT1B = 1
-            CDELT2B = 1
-            CRPIX1B = 0
-            CRPIX2B = 0
-            CRVAL1B = (Ss +1)*dimh+1 - preh
-            CRVAL2B = Sp * (2*dimv+1)
-            PC1_1Q = -1
-            PC1_2Q = 0
-            PC2_1Q = 0
-            PC2_2Q = 1 - 2 * Sp
-            CDELT1Q = 1
-            CDELT2Q = 1
-            CRPIX1Q = 0
-            CRPIX2Q = 0
-            CRVAL1Q=gap_outy+(ccdpy-ccday)/2. + Cs*(8*dimh+gap_iny+ccdpy -ccday)+(Ss +1)*dimh+1 - preh
-            CRVAL2Q= Sp *(2*dimv+1)+gap_outx+(ccdpx - ccdax)/2.+Cp*(2*dimv+gap_inx+ ccdpx - ccdax)
-            DTM1_1 = -1
-            DTM1_2 = 0
-            DTM2_1 = 0
-            DTM2_2 = 2*Sx - 1
-            DTV1 = (dimh+1) + Sy *dimh + preh
-            DTV2 = (2 * dimv + 1) * (1 - Sx)
+            pc1_1a = 0
+            pc1_2a = 1 - 2*sx
+            pc2_1a = -1
+            pc2_2a = 0
+            crpix1a = 0
+            crpix2a = 0
+            crval1a = sx*(dimv + 1)
+            crval2a = dimh + 1 - preh
+            pc1_1c = 0
+            pc1_2c = 1 - 2*sx
+            pc2_1c = -1
+            pc2_2c = 0
+            crpix1c = 0
+            crpix2c = 0
+            crval1c = sx*(2*dimv + 1)
+            crval2c = dimh + 1 + sy*dimh - preh
+            pc1_1r = 0
+            pc1_2r = 1 - 2*sx
+            pc2_1r = -1
+            pc2_2r = 0
+            crpix1r = 0
+            crpix2r = 0
+            crval1r = (sx*(2*dimv + 1) + gap_outx + (ccdpx - ccdax)/2.
+                       + cx*(2*dimv + gap_inx + ccdpx - ccdax))
+            crval2r = (dimh + 1 + sy*dimh + gap_outy + (ccdpy - ccday)/2.
+                       + cy*(8*dimh + gap_iny + ccdpy - ccday) - preh)
+            pc1_1b = -1
+            pc1_2b = 0
+            pc2_1b = 0
+            pc2_2b = 1 - 2*sp
+            cdelt1b = 1
+            cdelt2b = 1
+            crpix1b = 0
+            crpix2b = 0
+            crval1b = (ss + 1)*dimh + 1 - preh
+            crval2b = sp*(2*dimv + 1)
+            pc1_1q = -1
+            pc1_2q = 0
+            pc2_1q = 0
+            pc2_2q = 1 - 2*sp
+            cdelt1q = 1
+            cdelt2q = 1
+            crpix1q = 0
+            crpix2q = 0
+            crval1q = (gap_outy + (ccdpy - ccday)/2. + cs*(8*dimh + gap_iny
+                       + ccdpy - ccday) + (ss + 1)*dimh + 1 - preh)
+            crval2q = (sp*(2*dimv + 1) + gap_outx + (ccdpx - ccdax)/2.
+                       + cp*(2*dimv+gap_inx + ccdpx - ccdax))
+            dtm1_1 = -1
+            dtm1_2 = 0
+            dtm2_1 = 0
+            dtm2_2 = 2*sx - 1
+            dtv1 = (dimh + 1) + sy*dimh + preh
+            dtv2 = (2*dimv + 1)*(1 - sx)
         elif hdu.header['DETSIZE'] == '[1:4096,1:4004]':
             # header coordinate parameters for e2v sensors
-            PC1_1A = 0
-            PC1_2A = 1 - 2 * Sx
-            PC2_1A = 1 - 2 * Sx
-            PC2_2A = 0
-            CRPIX1A = 0
-            CRPIX2A = 0
-            CRVAL1A = Sx * (dimv + 1)
-            CRVAL2A = Sx * (dimh + 1) + (2*Sx - 1)*preh
-            PC1_1C = 0
-            PC1_2C = 1 - 2 * Sx
-            PC2_1C = 1 - 2 * Sx
-            PC2_2C = 0
-            CRPIX1C = 0
-            CRPIX2C = 0
-            CRVAL1C = Sx * (2*dimv+1)
-            CRVAL2C = Sx * (dimh+1) + Sy * dimh + (2*Sx - 1)*preh
-            PC1_1R = 0
-            PC1_2R = 1 - 2 * Sx
-            PC2_1R = 1 - 2 * Sx
-            PC2_2R = 0
-            CRPIX1R = 0
-            CRPIX2R = 0
-            CRVAL1R = Sx * (2 * dimv + 1) + gap_outx + (ccdpx - ccdax)/2. + Cx*(2 * dimv + gap_inx + ccdpx - ccdax)
-            CRVAL2R = Sx * (dimh + 1) + Sy * dimh + gap_outy + (ccdpy - ccday)/2. + Cy*(8 * dimh + gap_iny + ccdpy - ccday) + (2*Sx - 1)*preh
-            PC1_1B = 1 - 2*Sp
-            PC1_2B = 0
-            PC2_1B = 0
-            PC2_2B = 1 - 2 * Sp
-            CDELT1B = 1
-            CDELT2B = 1
-            CRPIX1B = 0
-            CRPIX2B = 0
-            CRVAL1B = Sp*(dimh + 1) + Ss*dimh + (2*Sp-1)*preh
-            CRVAL2B = Sp * (2*dimv+1)
-            PC1_1Q = 1 - 2*Sp
-            PC1_2Q = 0
-            PC2_1Q = 0
-            PC2_2Q = 1 - 2 * Sp
-            CDELT1Q = 1
-            CDELT2Q = 1
-            CRPIX1Q = 0
-            CRPIX2Q = 0
-            CRVAL1Q=gap_outy+(ccdpy-ccday)/2. + Cs*(8*dimh+gap_iny+ccdpy -ccday)+Sp*(dimh+1) + Ss*dimh
-            CRVAL2Q= Sp *(2*dimv+1)+gap_outx+(ccdpx - ccdax)/2.+Cp*(2*dimv+gap_inx+ ccdpx - ccdax)
-            DTM1_1 = 1 - 2*Sx
-            DTM1_2 = 0
-            DTM2_1 = 0
-            DTM2_2 = 2*Sx - 1
-            DTV1 = (dimh+1 + 2*preh)*Sx +Sy *dimh - preh
-            DTV2 = (2 * dimv + 1)*(1 - Sx)
+            pc1_1a = 0
+            pc1_2a = 1 - 2*sx
+            pc2_1a = 1 - 2*sx
+            pc2_2a = 0
+            crpix1a = 0
+            crpix2a = 0
+            crval1a = sx*(dimv + 1)
+            crval2a = sx*(dimh + 1) + (2*sx - 1)*preh
+            pc1_1c = 0
+            pc1_2c = 1 - 2*sx
+            pc2_1c = 1 - 2*sx
+            pc2_2c = 0
+            crpix1c = 0
+            crpix2c = 0
+            crval1c = sx*(2*dimv+1)
+            crval2c = sx*(dimh+1) + sy*dimh + (2*sx - 1)*preh
+            pc1_1r = 0
+            pc1_2r = 1 - 2*sx
+            pc2_1r = 1 - 2*sx
+            pc2_2r = 0
+            cdelt1r = 1
+            cdelt2r = 1
+            crpix1r = 0
+            crpix2r = 0
+            crval1r = (sx*(2*dimv + 1) + gap_outx + (ccdpx - ccdax)/2.
+                       + cx*(2*dimv + gap_inx + ccdpx - ccdax))
+            crval2r = (sx*(dimh + 1) + sy*dimh + gap_outy
+                       * (ccdpy - ccday)/2. + cy*(8*dimh + gap_iny + ccdpy
+                       - ccday) + (2*sx - 1)*preh)
+            pc1_1b = 1 - 2*sp
+            pc1_2b = 0
+            pc2_1b = 0
+            pc2_2b = 1 - 2*sp
+            cdelt1b = 1
+            cdelt2b = 1
+            crpix1b = 0
+            crpix2b = 0
+            crval1b = sp*(dimh + 1) + ss*dimh + (2*sp-1)*preh
+            crval2b = sp*(2*dimv+1)
+            pc1_1q = 1 - 2*sp
+            pc1_2q = 0
+            pc2_1q = 0
+            pc2_2q = 1 - 2*sp
+            cdelt1q = 1
+            cdelt2q = 1
+            crpix1q = 0
+            crpix2q = 0
+            crval1q = (gap_outy + (ccdpy - ccday)/2. + cs*(8*dimh + gap_iny
+                       + ccdpy - ccday) + sp*(dimh + 1) + ss*dimh)
+            crval2q = (sp*(2*dimv + 1) + gap_outx + (ccdpx - ccdax)/2.
+                       + cp*(2*dimv + gap_inx + ccdpx - ccdax))
+            dtm1_1 = 1 - 2*sx
+            dtm1_2 = 0
+            dtm2_1 = 0
+            dtm2_2 = 2*sx - 1
+            dtv1 = (dimh+1 + 2*preh)*sx + sy*dimh - preh
+            dtv2 = (2*dimv + 1)*(1 - sx)
         else:
             raise RuntimeError("Sensor DETSIZE not recognized")
 
-        hdu.header['DTM1_1'] = DTM1_1
-        hdu.header['DTM1_2'] = DTM1_2
-        hdu.header['DTM2_1'] = DTM2_1
-        hdu.header['DTM2_2'] = DTM2_2
-        hdu.header['DTV1'] = DTV1
-        hdu.header['DTV2'] = DTV2
+        hdu.header['DTM1_1'] = dtm1_1
+        hdu.header['DTM1_2'] = dtm1_2
+        hdu.header['DTM2_1'] = dtm2_1
+        hdu.header['DTM2_2'] = dtm2_2
+        hdu.header['DTV1'] = dtv1
+        hdu.header['DTV2'] = dtv2
 
-        hdu.header['WCSNAMEA'] = WCSNAMEA
-        hdu.header['CTYPE1A'] = CTYPE1A
-        hdu.header['CTYPE2A'] = CTYPE2A
-        hdu.header['CRVAL1A'] = CRVAL1A
-        hdu.header['CRVAL2A'] = CRVAL2A
-        hdu.header['PC1_1A'] = PC1_1A
-        hdu.header['PC1_2A'] = PC1_2A
-        hdu.header['PC2_1A'] = PC2_1A
-        hdu.header['PC2_2A'] = PC2_2A
+        hdu.header['WCSNAMEA'] = wcsnamea
+        hdu.header['CTYPE1A'] = ctype1a
+        hdu.header['CTYPE2A'] = ctype2a
+        hdu.header['CRVAL1A'] = crval1a
+        hdu.header['CRVAL2A'] = crval2a
+        hdu.header['PC1_1A'] = pc1_1a
+        hdu.header['PC1_2A'] = pc1_2a
+        hdu.header['PC2_1A'] = pc2_1a
+        hdu.header['PC2_2A'] = pc2_2a
         hdu.header['CDELT1A'] = 1
         hdu.header['CDELT2A'] = 1
-        hdu.header['CRPIX1A'] = CRPIX1A
-        hdu.header['CRPIX2A'] = CRPIX2A
-        hdu.header['WCSNAMEC'] = WCSNAMEC
-        hdu.header['CTYPE1C'] = CTYPE1C
-        hdu.header['CTYPE2C'] = CTYPE2C
-        hdu.header['CRVAL1C'] = CRVAL1C
-        hdu.header['CRVAL2C'] = CRVAL2C
-        hdu.header['PC1_1C'] = PC1_1C
-        hdu.header['PC1_2C'] = PC1_2C
-        hdu.header['PC2_1C'] = PC2_1C
-        hdu.header['PC2_2C'] = PC2_2C
+        hdu.header['CRPIX1A'] = crpix1a
+        hdu.header['CRPIX2A'] = crpix2a
+        hdu.header['WCSNAMEC'] = wcsnamec
+        hdu.header['CTYPE1C'] = ctype1c
+        hdu.header['CTYPE2C'] = ctype2c
+        hdu.header['CRVAL1C'] = crval1c
+        hdu.header['CRVAL2C'] = crval2c
+        hdu.header['PC1_1C'] = pc1_1c
+        hdu.header['PC1_2C'] = pc1_2c
+        hdu.header['PC2_1C'] = pc2_1c
+        hdu.header['PC2_2C'] = pc2_2c
         hdu.header['CDELT1C'] = 1
         hdu.header['CDELT2C'] = 1
-        hdu.header['CRPIX1C'] = CRPIX1C
-        hdu.header['CRPIX2C'] = CRPIX2C
-        hdu.header['WCSNAMER'] = WCSNAMER
-        hdu.header['CTYPE1R'] = CTYPE1R
-        hdu.header['CTYPE2R'] = CTYPE2R
-        hdu.header['CRVAL1R'] = CRVAL1R
-        hdu.header['CRVAL2R'] = CRVAL2R
-        hdu.header['PC1_1R'] = PC1_1R
-        hdu.header['PC1_2R'] = PC1_2R
-        hdu.header['PC2_1R'] = PC2_1R
-        hdu.header['PC2_2R'] = PC2_2R
-        hdu.header['CDELT1R'] = 1
-        hdu.header['CDELT2R'] = 1
-        hdu.header['CRPIX1R'] = CRPIX1R
-        hdu.header['CRPIX2R'] = CRPIX2R
-        hdu.header['WCSNAMEF'] = WCSNAMEF
-        hdu.header['WCSNAMEB'] = WCSNAMEB
-        hdu.header['CTYPE1B'] = CTYPE1B
-        hdu.header['CTYPE2B'] = CTYPE2B
-        hdu.header['CRVAL1B'] = CRVAL1B
-        hdu.header['CRVAL2B'] = CRVAL2B
-        hdu.header['PC1_1B'] = PC1_1B
-        hdu.header['PC1_2B'] = PC1_2B
-        hdu.header['PC2_1B'] = PC2_1B
-        hdu.header['PC2_2B'] = PC2_2B
-        hdu.header['CDELT1B'] = 1
-        hdu.header['CDELT2B'] = 1
-        hdu.header['CRPIX1B'] = CRPIX1B
-        hdu.header['CRPIX2B'] = CRPIX2B
-        hdu.header['WCSNAMEQ'] = WCSNAMEQ
-        hdu.header['CTYPE1Q'] = CTYPE1Q
-        hdu.header['CTYPE2Q'] = CTYPE2Q
-        hdu.header['CRVAL1Q'] = CRVAL1Q
-        hdu.header['CRVAL2Q'] = CRVAL2Q
-        hdu.header['PC1_1Q'] = PC1_1Q
-        hdu.header['PC1_2Q'] = PC1_2Q
-        hdu.header['PC2_1Q'] = PC2_1Q
-        hdu.header['PC2_2Q'] = PC2_2Q
-        hdu.header['CDELT1Q'] = 1
-        hdu.header['CDELT2Q'] = 1
-        hdu.header['CRPIX1Q'] = CRPIX1Q
-        hdu.header['CRPIX2Q'] = CRPIX2Q
+        hdu.header['CRPIX1C'] = crpix1c
+        hdu.header['CRPIX2C'] = crpix2c
+        hdu.header['WCSNAMER'] = wcsnamer
+        hdu.header['CTYPE1R'] = ctype1r
+        hdu.header['CTYPE2R'] = ctype2r
+        hdu.header['CRVAL1R'] = crval1r
+        hdu.header['CRVAL2R'] = crval2r
+        hdu.header['PC1_1R'] = pc1_1r
+        hdu.header['PC1_2R'] = pc1_2r
+        hdu.header['PC2_1R'] = pc2_1r
+        hdu.header['PC2_2R'] = pc2_2r
+        hdu.header['CDELT1R'] = cdelt1r
+        hdu.header['CDELT2R'] = cdelt2r
+        hdu.header['CRPIX1R'] = crpix1r
+        hdu.header['CRPIX2R'] = crpix2r
+        hdu.header['WCSNAMEF'] = wcsnamef
+        hdu.header['WCSNAMEB'] = wcsnameb
+        hdu.header['CTYPE1B'] = ctype1b
+        hdu.header['CTYPE2B'] = ctype2b
+        hdu.header['CRVAL1B'] = crval1b
+        hdu.header['CRVAL2B'] = crval2b
+        hdu.header['PC1_1B'] = pc1_1b
+        hdu.header['PC1_2B'] = pc1_2b
+        hdu.header['PC2_1B'] = pc2_1b
+        hdu.header['PC2_2B'] = pc2_2b
+        hdu.header['CDELT1B'] = cdelt1b
+        hdu.header['CDELT2B'] = cdelt2b
+        hdu.header['CRPIX1B'] = crpix1b
+        hdu.header['CRPIX2B'] = crpix2b
+        hdu.header['WCSNAMEQ'] = wcsnameq
+        hdu.header['CTYPE1Q'] = ctype1q
+        hdu.header['CTYPE2Q'] = ctype2q
+        hdu.header['CRVAL1Q'] = crval1q
+        hdu.header['CRVAL2Q'] = crval2q
+        hdu.header['PC1_1Q'] = pc1_1q
+        hdu.header['PC1_2Q'] = pc1_2q
+        hdu.header['PC2_1Q'] = pc2_1q
+        hdu.header['PC2_2Q'] = pc2_2q
+        hdu.header['CDELT1Q'] = cdelt1q
+        hdu.header['CDELT2Q'] = cdelt2q
+        hdu.header['CRPIX1Q'] = crpix1q
+        hdu.header['CRPIX2Q'] = crpix2q
 
     def write_sensor_image(self, single_sensor_file, slot_name, sensor_id, **kwargs):
         """
@@ -544,10 +563,11 @@ class RaftImages(object):
             return
         output = fits.open(single_sensor_file)
 
+        run_id = kwargs.get('run_id', 1111)
         self.update_primary_header(slot_name, run_id, output[0])
 
         for ext_num in range(1, 16):
-            self.update_image_header(slot_name, ext_num, output[ext_num])
+            self.update_image_header(slot_name, output[ext_num])
 
         try:
             os.makedirs(outdir)
