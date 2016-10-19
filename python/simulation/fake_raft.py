@@ -10,6 +10,7 @@ from the specification in LCA-13501.
 
 from __future__ import print_function, absolute_import, division
 
+import sys
 import os
 import fnmatch
 import yaml
@@ -79,7 +80,7 @@ def get_template_files(root_folder, sensor_type, sensor_id, process_name, **kwar
         Regular expression specifying which files to get / copy
     site : str
         Specifies data catalog database to access
-    sort : boolean
+    sort : bool
         Sort the file names before returning them
     test_version : str
         Version of the test process to search for
@@ -107,15 +108,17 @@ def get_template_files(root_folder, sensor_type, sensor_id, process_name, **kwar
     if test_type is not None:
         query += '&& TESTTYPE == "%s"' % test_type
 
+    file_list = []
     try:
         datasets = datacat.find_datasets(query)
     except DcClientException as eobj:
         # Make the error message a bit more useful for debbuging
         msg = eobj.message + (":\nFolder = %s\n" % folder)
         msg += "Query = %s\n" % query
-        raise DcClientException(msg)
+        sys.stderr.write(msg)
+        return file_list
+        #raise DcClientException(msg)
 
-    file_list = []
     for item in datasets.full_paths():
         if fnmatch.fnmatch(os.path.basename(item), pattern):
             file_list.append(item)
@@ -130,37 +133,36 @@ def parse_etraveler_response(rsp, validate):
     Parameters
     ----------
     rsp : return type from eTraveler.clientAPI.connection.Connection.getHardwareHierarchy
-    which is an array of dicts information about the 'children' of a
-    particular hardware element.
+        which is an array of dicts information about the 'children' of a
+        particular hardware element.
     validate : dict
-    A validation dictionary, which contains the expected values for some parts of
-    the rsp.  This is here for sanity checking, for example requiring that the
-    parent element matches the input element to the request.
+        A validation dictionary, which contains the expected values for some parts of
+        the rsp.  This is here for sanity checking, for example requiring that the
+        parent element matches the input element to the request.
 
     Returns
     ----------
     slot_name,child_esn:
     slot_name  : str
-    A string given to the particular 'slot' for each child
-
+        A string given to the particular 'slot' for each child
     child_esn : str
-    The sensor id of the child, e.g., E2V-CCD250-104
+        The sensor id of the child, e.g., E2V-CCD250-104
     """
-    for key, val in validate:
+    for key, val in validate.items():
         try:
             rsp_val = rsp[key]
             if isinstance(val, list):
                 if rsp_val not in val:
                     errmsg = "eTraveler response does not match expectation for key %s: " % (key)
                     errmsg += "%s not in %s" % (rsp_val, val)
-                    raise KeyError(errmsg)
+                    raise ValueError(errmsg)
             else:
                 if rsp_val != val:
                     errmsg = "eTraveler response does not match expectation for key %s: " % (key)
                     errmsg += "%s != %s" % (rsp_val, val)
                     raise ValueError(errmsg)
-        except:
-            raise ValueError("eTraveler response does not include expected key %s" % (key))
+        except KeyError:
+            raise KeyError("eTraveler response does not include expected key %s" % (key))
 
     child_esn = rsp['child_experimentSN']
     slot_name = rsp['slotName']
@@ -175,22 +177,22 @@ class RaftImages(object):
     Parameters
     ----------
     raft_id : str
-    Name of the raft, e.g., 'RAFT_000'.  This is used to evaluate coordinate
-    keywords for focal plane coordinates
+        Name of the raft, e.g., 'RAFT_000'.  This is used to evaluate coordinate
+        keywords for focal plane coordinates
     process_name : str
-    Name of the 'test' being applied.  This probably could be extracted
-    from single_sensor_file.  No analysis is implied; the string is just
-    used for assigning names to output files.
+        Name of the 'test' being applied.  This probably could be extracted
+        from single_sensor_file.  No analysis is implied; the string is just
+        used for assigning names to output files.
     sensor_type: str
-    ITL-CCD or E2V-CCD
+        ITL-CCD or E2V-CCD
     output_path : str
-    Path to prepended to the output file names
+        Path to prepended to the output file names
 
     Attributes
     ----------
     ccd_image : astropy.io.fits.HDUList
-    This is an Astropy HDUList that contains all the headers and image
-    extensions of the single_sensor_file
+        This is an Astropy HDUList that contains all the headers and image
+        extensions of the single_sensor_file
     '''
 
     def __init__(self, raft_id, process_name, sensor_type, output_path):
@@ -213,9 +215,9 @@ class RaftImages(object):
         Parameters
         ----------
         slot_name : str
-        Name of the slot with in the raft
+            Name of the slot with in the raft
         hdu : fits.Image
-        FITS image whose header is being updated
+            FITS image whose header is being updated
         """
         print ("Placeholder", self.raft_id, slot_name, hdu)
 
@@ -226,11 +228,11 @@ class RaftImages(object):
         Parameters
         ----------
         slot_name : str
-        Name of the slot with in the raft
+            Name of the slot with in the raft
         ext_num:  int
-        Number of the HDU extension for this segment
+            Number of the HDU extension for this segment
         hdu : fits.Image
-        FITS image whose header is being updated
+            FITS image whose header is being updated
         """
         print ("Placeholder", self.raft_id, slot_name, ext_num, hdu)
 
@@ -243,26 +245,26 @@ class RaftImages(object):
         Parameters
         ----------
         single_sensor_file : str
-        Name of the file to be copied
+            Name of the file to be copied
         slot_name:  str
-        Name of the slot this sensor occupies
+            Name of the slot this sensor occupies
         sensor_id:  str
-        Name of the sensor, e.g., 'E2V-CCD250-104'
+            Name of the sensor, e.g., 'E2V-CCD250-104'
 
         Keyword arguments
         -----------
         raft_id : str
-        Override the raft id
+            Override the raft id
         run_id : int
-        Override the run id (defaults to 1111)
+            Override the run id (defaults to 1111)
         job_id : int
-        Override the job id (defaults to 2222)
+            Override the job id (defaults to 2222)
         process_name_out : str
-        The name of the output eTraveler process, if it differs from process_name
+            The name of the output eTraveler process, if it differs from process_name
         clobber : bool, optional
-        Flag indicating whether to overwrite an existing output file
+            Flag indicating whether to overwrite an existing output file
         dry_run : bool, optional
-        If true, just print output file names, but do not copy files
+            If true, just print output file names, but do not copy files
         """
         file_suffix = get_file_suffix(single_sensor_file)
 
@@ -304,9 +306,9 @@ class Sensor(object):
     Parameters
     ----------
     sensor_id : str
-    Name of the sensor, e.g., 'E2V-CCD250-104'
+        Name of the sensor, e.g., 'E2V-CCD250-104'
     raft_id : str
-    Name of the associated raft
+        Name of the associated raft
     '''
     def __init__(self, sensor_id, raft_id):
         """
@@ -333,13 +335,11 @@ class Raft(object):
     Parameters
     ----------
     raft_id : str
-    Name of the raft
-
+        Name of the raft
     sensor_type : str
-    Type of sensors in the raft, either 'e2v-CCD' or 'ITL-CCD'
-
+        Type of sensors in the raft, either 'e2v-CCD' or 'ITL-CCD'
     sensor_dict : dict
-    Dictionary for slot to Sensor
+        Dictionary for slot to Sensor
     '''
     def __init__(self, raft_id, sensor_type, sensor_dict):
         """
@@ -368,50 +368,51 @@ class Raft(object):
         Parameters
         ----------
         raft_id : str
-        Name of the raft, this must match the 'parent_experimentSN' field
-        in the eTraveler db.
+            Name of the raft, this must match the 'parent_experimentSN' field
+            in the eTraveler db.
 
         Keyword Arguments
         ----------
         user   : str
-        Expected by the eTraveler interface
-        db_name : str
-        Version of the eTraveler to query
-        prodServer : ??
-        htype : str
-        Hardware type, this must match the 'parent_hardware_type' field
-        in the eTraveler db.
-        noBatched : ???
+            Expected by the eTraveler interface
+        db_name : str ['Dev']
+            Version of the eTraveler to query
+        prodServer : bool [True]
+        htype : str ['LCA-10753-RSA_sim']
+            Hardware type, this must match the 'parent_hardware_type' field
+            in the eTraveler db.
+        noBatched : str ['false']
 
         Returns
         ----------
         Newly created Raft object
         """
         user = kwargs.get('user', 'echarles')
-        db_name = kwargs.get('db_name', '??')
-        prod_server = kwargs.get('prod_server', '???')
+        db_name = kwargs.get('db_name', 'Dev')
+        prod_server = kwargs.get('prod_server', True)
         htype = kwargs.get('htype', 'LCA-10753-RSA_sim')
-        no_batched = kwargs.get('no_batched', False)
+        no_batched = kwargs.get('no_batched', 'false')
 
         from eTraveler.clientAPI.connection import Connection
         my_conn = Connection(user, db_name, prod_server)
         return Raft.create_from_connection(my_conn, raft_id, htype, no_batched)
 
     @staticmethod
-    def create_from_connection(connection, raft_id, htype, no_batched):
+    def create_from_connection(connection, raft_id, htype,
+                               no_batched='false'):
         """ Create a Raft object from query to the eTraveler
 
         Parameters
         ----------
         connection : 'eTraveler/clientAPI/connection.Connection'
-        Object that wraps connection to eTraveler database
+            Object that wraps connection to eTraveler database
         raft_id : str
-        Name of the raft, this must match the 'parent_experimentSN' field
-        in the eTraveler db.
-        htype ; str
-        Hardware type, this must match the 'parent_hardwareTypeName' field
-        in the eTraveler db.
-        no_batched : ???
+            Name of the raft, this must match the 'parent_experimentSN' field
+            in the eTraveler db.
+        htype : str
+            Hardware type, this must match the 'parent_hardwareTypeName' field
+            in the eTraveler db.
+        no_batched : str ['false']
 
         Returns
         ----------
@@ -424,7 +425,7 @@ class Raft(object):
 
         validate_dict = dict(parent_hardwareTypeName=htype,
                              parent_experimentSN=raft_id,
-                             child_hardwareTypeName=['E2V-CCD', 'ITL-CCD'])
+                             child_hardwareTypeName=['e2v-CCD', 'ITL-CCD'])
 
         sensor_type = None
 
@@ -552,26 +553,31 @@ class Raft(object):
         Returns
         ----------
         file_list : list
-
-        List of file names for files that match the process_name, sensor_id and pattern
+            List of file names for files that match the process_name, sensor_id and pattern
         """
+        sensor_id = self.sensor(slot).sensor_id.replace('_sim', '')
         return get_template_files(root_folder, self.sensor_type,
-                                  sensor_id=self.sensor(slot).sensor_id,
+                                  sensor_id=sensor_id,
                                   process_name=process_name, **kwargs)
 
 
 if __name__ == '__main__':
 
     # These are in caps to keep pylint happy
+    ROOT_FOLDER = 'LSST/mirror/SLAC-prod/prod'
+    ETRAV_DB = 'Dev'
+    USER = os.environ['USER']
     OUTPATH = 'output/'
     TESTTYPE = 'FE55'
     IMGTYPE = 'BIAS'
     PROCESS_NAME_IN = 'vendorIngest'
     PROCESS_NAME_OUT = 'fe55_acq'
     PATTERN = '*.fits'
-    ROOT_FOLDER = 'LSST/mirror/SLAC-prod/prod'
+    RAFT_ID = ' LCA-10753-RSA_sim-0001'
 
-    RAFT = Raft.create_from_yaml("test_raft.yaml")
+    #RAFT = Raft.create_from_yaml("test_raft.yaml")
+    RAFT = Raft.create_from_etrav(RAFT_ID, user=USER, db_name=ETRAV_DB)
+
     RAFT.file_copy(PROCESS_NAME_IN, OUTPATH, root_folder=ROOT_FOLDER, dry_run=True,
                    test_type=TESTTYPE, image_type=IMGTYPE,
                    pattern=PATTERN)
