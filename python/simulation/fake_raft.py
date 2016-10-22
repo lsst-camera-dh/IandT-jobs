@@ -132,12 +132,12 @@ def parse_etraveler_response(rsp, validate):
     Parameters
     ----------
     rsp : return type from eTraveler.clientAPI.connection.Connection.getHardwareHierarchy
-    which is an array of dicts information about the 'children' of a
-    particular hardware element.
+        which is an array of dicts information about the 'children' of a
+        particular hardware element.
     validate : dict
-    A validation dictionary, which contains the expected values for some parts of
-    the rsp.  This is here for sanity checking, for example requiring that the
-    parent element matches the input element to the request.
+        A validation dictionary, which contains the expected values for some parts of
+        the rsp.  This is here for sanity checking, for example requiring that the
+        parent element matches the input element to the request.
 
     Returns
     ----------
@@ -177,22 +177,22 @@ class RaftImages(object):
     Parameters
     ----------
     raft_id : str
-    Name of the raft, e.g., 'RAFT_000'.  This is used to evaluate coordinate
-    keywords for focal plane coordinates
+        Name of the raft, e.g., 'RAFT_000'.  This is used to evaluate coordinate
+        keywords for focal plane coordinates
     process_name : str
-    Name of the 'test' being applied.  This probably could be extracted
-    from single_sensor_file.  No analysis is implied; the string is just
-    used for assigning names to output files.
+        Name of the 'test' being applied.  This probably could be extracted
+        from single_sensor_file.  No analysis is implied; the string is just
+        used for assigning names to output files.
     sensor_type: str
-    ITL-CCD or E2V-CCD
+        ITL-CCD or E2V-CCD
     output_path : str
         Path to prepended to the output file names
 
     Attributes
     ----------
     ccd_image : astropy.io.fits.HDUList
-    This is an Astropy HDUList that contains all the headers and image
-    extensions of the single_sensor_file
+        This is an Astropy HDUList that contains all the headers and image
+        extensions of the single_sensor_file
     '''
 
     def __init__(self, raft_id, process_name, sensor_type, output_path):
@@ -215,9 +215,9 @@ class RaftImages(object):
         Parameters
         ----------
         slot_name : str
-        Name of the slot within the raft
+            Name of the slot within the raft
         hdu : fits.Image
-        FITS image whose header is being updated
+            FITS image whose header is being updated
         """
         # print ("Placeholder", self.raft_id, slot_name, run_id, hdu)
 
@@ -242,10 +242,9 @@ class RaftImages(object):
         Parameters
         ----------
         slot_name : str
-        Name of the slot within the raft
-        Number of the HDU extension for this segment
+            Name of the slot within the raft
         hdu : fits.Image
-        FITS image whose header is being updated
+            FITS image whose header is being updated
         """
         # The coordinate keyword values depend on the type of CCD.
         # Kind of awkward, but below the CCD type is identified by the assumed
@@ -283,15 +282,11 @@ class RaftImages(object):
         else:
             raise RuntimeError("Sensor DETSIZE not recognized")
 
-        # get the segment number
+        # get the segment 'coordinates' from the extension name
         extname = hdu.header['EXTNAME']
-        seg = int(extname[-2:])
+        sx = int(extname[-2:-1])
+        sy = int(extname[-1:])
 
-        # Use assumed mapping between extension number and Segment number to evaluate
-        # segment 'coordinates':  Segment = sx*10 + sy (see LCA-13501)
-        sarr = [10, 11, 12, 13, 14, 15, 16, 17, 07, 06, 05, 04, 03, 02, 01, 00]
-        sx = long(sarr[seg]/10)
-        sy = long(sarr[seg] - sx*10)
         # For convenience of notation in LCA-13501 these are also defined as 'serial'
         # and 'parallel' indices, with Segment = Sp*10 + Ss
         sp = sx
@@ -523,26 +518,26 @@ class RaftImages(object):
         Parameters
         ----------
         single_sensor_file : str
-        Name of the file to be copied
+            Name of the file to be copied
         slot_name:  str
-        Name of the slot this sensor occupies
+            Name of the slot this sensor occupies
         sensor_id:  str
-        Name of the sensor, e.g., 'E2V-CCD250-104'
+            Name of the sensor, e.g., 'E2V-CCD250-104'
 
         Keyword arguments
         -----------
         raft_id : str
-        Override the raft id
+            Override the raft id
         run_id : int
-        Override the run id (defaults to 1111)
+            Override the run id (defaults to 1111)
         job_id : int
-        Override the job id (defaults to 2222)
+            Override the job id (defaults to 2222)
         process_name_out : str
-        The name of the output eTraveler process, if it differs from process_name
+            The name of the output eTraveler process, if it differs from process_name
         clobber : bool, optional
-        Flag indicating whether to overwrite an existing output file
+            Flag indicating whether to overwrite an existing output file
         dry_run : bool, optional
-        If true, just print output file names, but do not copy files
+            If true, just print output file names, but do not copy files
         """
         file_suffix = get_file_suffix(single_sensor_file)
 
@@ -574,7 +569,7 @@ class RaftImages(object):
         except OSError:
             pass
 
-        output.writeto(outfilename, clobber=clobber)
+        output.writeto(outfilename, clobber=clobber, checksum=True)
         output.close()
 
 
@@ -585,9 +580,9 @@ class Sensor(object):
     Parameters
     ----------
     sensor_id : str
-    Name of the sensor, e.g., 'E2V-CCD250-104'
+        Name of the sensor, e.g., 'E2V-CCD250-104'
     raft_id : str
-    Name of the associated raft
+        Name of the associated raft
     '''
     def __init__(self, sensor_id, raft_id):
         """
@@ -614,13 +609,13 @@ class Raft(object):
     Parameters
     ----------
     raft_id : str
-    Name of the raft
+        Name of the raft
 
     sensor_type : str
-    Type of sensors in the raft, either 'e2v-CCD' or 'ITL-CCD'
+        Type of sensors in the raft, either 'e2v-CCD' or 'ITL-CCD'
 
     sensor_dict : dict
-    Dictionary for slot to Sensor
+        Dictionary for slot to Sensor
     '''
     def __init__(self, raft_id, sensor_type, sensor_dict):
         """
@@ -649,19 +644,19 @@ class Raft(object):
         Parameters
         ----------
         raft_id : str
-        Name of the raft; this must match the 'parent_experimentSN' field
-        in the eTraveler db.
+            Name of the raft; this must match the 'parent_experimentSN' field
+            in the eTraveler db.
 
         Keyword Arguments
         ----------
         user   : str
-        Expected by the eTraveler interface
+            Expected by the eTraveler interface
         db_name : str
-        Version of the eTraveler to query
+            Version of the eTraveler to query
         prodServer : ??
         htype : str
-        Hardware type, this must match the 'parent_hardware_type' field
-        in the eTraveler db.
+            Hardware type, this must match the 'parent_hardware_type' field
+            in the eTraveler db.
         noBatched : ???
 
         Returns
@@ -685,12 +680,12 @@ class Raft(object):
         Parameters
         ----------
         connection : 'eTraveler/clientAPI/connection.Connection'
-        Object that wraps connection to eTraveler database
+            Object that wraps connection to eTraveler database
         raft_id : str
-        Name of the raft, this must match the 'parent_experimentSN' field
-        in the eTraveler db.
-        htype ; str
-        Hardware type, this must match the 'parent_hardwareTypeName' field
+            Name of the raft, this must match the 'parent_experimentSN' field
+            in the eTraveler db.
+        htype : str
+            Hardware type, this must match the 'parent_hardwareTypeName' field
         in the eTraveler db.
         no_batched : ???
 
@@ -857,6 +852,6 @@ if __name__ == '__main__':
     ROOT_FOLDER = 'LSST/mirror/SLAC-prod/prod'
 
     RAFT = Raft.create_from_yaml("test_raft.yaml")
-    RAFT.file_copy(PROCESS_NAME_IN, OUTPATH, root_folder=ROOT_FOLDER, dry_run=True,
+    RAFT.file_copy(PROCESS_NAME_IN, OUTPATH, root_folder=ROOT_FOLDER, dry_run=False,
                    test_type=TESTTYPE, image_type=IMGTYPE,
                    pattern=PATTERN)
