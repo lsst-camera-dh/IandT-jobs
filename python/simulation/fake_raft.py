@@ -15,9 +15,9 @@ import os
 import fnmatch
 import yaml
 
-import siteUtils
-
 import astropy.io.fits as fits
+
+import siteUtils
 from datacat.error import DcClientException
 from DataCatalog import DataCatalog
 
@@ -43,7 +43,7 @@ def make_datacat_path(**kwargs):
     Looking at LSSTTD-690 it appear that with run numbers the best we can do is
     <root_folder>/<sensor_type>/<sensor_id>.
     """
-    return os.path.join(kwargs.get('root_folder', ROOT_FOLDER), 
+    return os.path.join(kwargs.get('root_folder', ROOT_FOLDER),
                         kwargs['sensor_type'],
                         kwargs['sensor_id'])
 
@@ -54,41 +54,43 @@ def sort_unique(filelist):
     This just keeps the file with the highest JOB ID
     """
     # Build a dictionary of dictionaries mapping base_id : job_id : filename
-    sort_dict = {}    
+    sort_dict = {}
     for filename in filelist:
         fbase = os.path.splitext(os.path.basename(filename))[0]
         job_id = fbase.split('_')[-1]
-        fid = fbase.replace('_%s'%job_id,'')
+        fid = fbase.replace('_%s'%job_id, '')
         try:
-            sort_dict[fid].update( {job_id:filename} )
+            sort_dict[fid].update({job_id:filename})
         except KeyError:
             sort_dict[fid] = {job_id:filename}
 
     # For each dictionary pull out just the filename associated to the latest job_id
-    retList = []
-    for key, value in sort_dict.items():
+    ret_list = []
+    for value in sort_dict.values():
         keys2 = value.keys()
         keys2.sort()
-        retList += [ value[keys2[-1]] ]
+        ret_list += [value[keys2[-1]]]
 
-    return retList
+    return ret_list
 
 
 def make_outfile_path(**kwargs):
     """ Build the path for an output file for a particular test on a particular sensor
 
-    This is only the last part of the path, the job harness will move the files to 
+    This is only the last part of the path, the job harness will move the files to
     <root_folder>/sraft<raft_id>/<process_name>/<job_id>
 
-    For the last part of the path, we 
+    For the last part of the path, we use
+    <slot_name>/<file_string>  except that we replace the job_id in file_string with the
+    current job_id
     """
     file_string = kwargs['file_string']
-    job_id =  kwargs['job_id']
+    job_id = kwargs['job_id']
     fname, ext = os.path.splitext(file_string)
     tokens = fname.split('_')
-    fname = fname.replace("%s"%tokens[-1],"%s"%job_id)
+    fname = fname.replace("%s"%tokens[-1], "%s"%job_id)
     fname += ext
-    return os.path.join(kwargs.get('outpath',OUTPATH),
+    return os.path.join(kwargs.get('outpath', OUTPATH),
                         kwargs['slot_name'], fname)
 
 
@@ -556,7 +558,7 @@ class Raft(object):
         root_folder = kwargs.pop('root_folder', ROOT_FOLDER)
         kwargs_write = dict(clobber=kwargs.pop('clobber', False),
                             dry_run=kwargs.pop('dry_run', False),
-                            process_name_out=kwargs.pop('process_name_out', process_name))                            
+                            process_name_out=kwargs.pop('process_name_out', process_name))
 
         writer = RaftImages(self.__raft_id, process_name, self.sensor_type, output_path)
 
@@ -622,5 +624,5 @@ if __name__ == '__main__':
     RAFT = Raft.create_from_etrav(RAFT_ID, user=USER, db_name=ETRAV_DB)
 
     RAFT.file_copy(PROCESS_NAME_IN, OUTPATH, root_folder=ROOT_FOLDER, dry_run=True,
-                   test_type=TESTTYPE, image_type=IMGTYPE, 
+                   test_type=TESTTYPE, image_type=IMGTYPE,
                    pattern=PATTERN)

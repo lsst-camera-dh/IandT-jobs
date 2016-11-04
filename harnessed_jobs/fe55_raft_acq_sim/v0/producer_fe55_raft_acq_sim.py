@@ -1,13 +1,11 @@
 #!/usr/bin/env python
+""" Producer script """
 
-import os
-import siteUtils
 from simulation import fake_raft
-
 
 # These are specific to this test
 TESTTYPE = 'FE55'
-IMGTYPES = ['BIAS','FE55']
+IMGTYPES = ['BIAS', 'FE55']
 PROCESS_NAME_IN = 'vendorIngest'
 PATTERN = '*_fe55*.fits'
 
