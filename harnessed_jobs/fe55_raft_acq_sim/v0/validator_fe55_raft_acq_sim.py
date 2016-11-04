@@ -8,7 +8,8 @@ from simulation import fake_raft
 
 PATTERN = '*_fe55*.fits'
 
-OUTREGEXP = fake_raft.make_outfile_path(outpath=fake_raft.OUTPATH, slot_name="*", file_string=PATTERN)
+OUTREGEXP = fake_raft.make_outfile_path(outpath=fake_raft.OUTPATH, slot_name="*", 
+                                        file_string=PATTERN, job_id=fake_raft.JOB_ID)
 
 results = []
 files = sorted(glob.glob(OUTREGEXP))

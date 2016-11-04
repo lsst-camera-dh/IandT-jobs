@@ -31,7 +31,8 @@ USER = os.environ['USER']
 OUTPATH = '.'
 
 # These should come from the Job Harness
-RAFT_HTYPE = 'LCA-10753-RSA_sim'
+JOB_ID = siteUtils.getJobName()
+RAFT_HTYPE = siteUtils.getUnitType()
 RAFT_ID = siteUtils.getUnitId()
 
 
@@ -47,15 +48,48 @@ def make_datacat_path(**kwargs):
                         kwargs['sensor_id'])
 
 
+def sort_unique(filelist):
+    """ Remove duplicate files from re-running particular scripts
+
+    This just keeps the file with the highest JOB ID
+    """
+    # Build a dictionary of dictionaries mapping base_id : job_id : filename
+    sort_dict = {}    
+    for filename in filelist:
+        fbase = os.path.splitext(os.path.basename(filename))[0]
+        job_id = fbase.split('_')[-1]
+        fid = fbase.replace('_%s'%job_id,'')
+        try:
+            sort_dict[fid].update( {job_id:filename} )
+        except KeyError:
+            sort_dict[fid] = {job_id:filename}
+
+    # For each dictionary pull out just the filename associated to the latest job_id
+    retList = []
+    for key, value in sort_dict.items():
+        keys2 = value.keys()
+        keys2.sort()
+        retList += [ value[keys2[-1]] ]
+
+    return retList
+
+
 def make_outfile_path(**kwargs):
     """ Build the path for an output file for a particular test on a particular sensor
 
     This is only the last part of the path, the job harness will move the files to 
     <root_folder>/sraft<raft_id>/<process_name>/<job_id>
+
+    For the last part of the path, we 
     """
+    file_string = kwargs['file_string']
+    job_id =  kwargs['job_id']
+    fname, ext = os.path.splitext(file_string)
+    tokens = fname.split('_')
+    fname = fname.replace("%s"%tokens[-1],"%s"%job_id)
+    fname += ext
     return os.path.join(kwargs.get('outpath',OUTPATH),
-                        kwargs['slot_name'],
-                        kwargs['file_string'])
+                        kwargs['slot_name'], fname)
 
 
 def get_file_suffix(filepath):
@@ -137,8 +171,11 @@ def get_template_files(root_folder, sensor_type, sensor_id, process_name, **kwar
     for item in datasets.full_paths():
         if fnmatch.fnmatch(os.path.basename(item), pattern):
             file_list.append(item)
+
+    file_list = sort_unique(file_list)
     if kwargs.get('sort', False):
         file_list = sorted(file_list)
+
     return file_list
 
 
@@ -281,10 +318,12 @@ class RaftImages(object):
 
         clobber = kwargs.get('clobber', True)
         dry_run = kwargs.get('dry_run', False)
+        job_id = kwargs.get('job_id', JOB_ID)
         basename = "%s%s" % (sensor_id, file_suffix)
         outfilename = make_outfile_path(outpath=self.output_path,
                                         slot_name=slot_name,
-                                        file_string=basename)
+                                        file_string=basename,
+                                        job_id=job_id)
         outdir = os.path.dirname(outfilename)
         try:
             os.makedirs(outdir)
@@ -583,5 +622,5 @@ if __name__ == '__main__':
     RAFT = Raft.create_from_etrav(RAFT_ID, user=USER, db_name=ETRAV_DB)
 
     RAFT.file_copy(PROCESS_NAME_IN, OUTPATH, root_folder=ROOT_FOLDER, dry_run=True,
-                   test_type=TESTTYPE, image_type=IMGTYPE,
+                   test_type=TESTTYPE, image_type=IMGTYPE, 
                    pattern=PATTERN)
