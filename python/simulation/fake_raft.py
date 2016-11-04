@@ -15,10 +15,25 @@ import os
 import fnmatch
 import yaml
 
+import siteUtils
+
 import astropy.io.fits as fits
 from datacat.error import DcClientException
 from DataCatalog import DataCatalog
-# import siteUtils
+
+
+# Configure the database interface
+ROOT_FOLDER = 'LSST/mirror/SLAC-prod/prod'
+ETRAV_DB = 'Dev'
+USER = os.environ['USER']
+
+# Defaults for writing fake files
+OUTPATH = '.'
+
+# These should come from the Job Harness
+RAFT_HTYPE = 'LCA-10753-RSA_sim'
+RAFT_ID = siteUtils.getUnitId()
+
 
 
 def make_datacat_path(**kwargs):
@@ -27,19 +42,19 @@ def make_datacat_path(**kwargs):
     Looking at LSSTTD-690 it appear that with run numbers the best we can do is
     <root_folder>/<sensor_type>/<sensor_id>.
     """
-    return os.path.join(kwargs['root_folder'], kwargs['sensor_type'],
+    return os.path.join(kwargs.get('root_folder', ROOT_FOLDER), 
+                        kwargs['sensor_type'],
                         kwargs['sensor_id'])
 
 
 def make_outfile_path(**kwargs):
     """ Build the path for an output file for a particular test on a particular sensor
 
-    Looking at LSSTTD-690 for rafts this should be
-    <root_folder>/sraft<raft_id>/<process_name>/<job_id>/s<slot_name>/<file_string>
+    This is only the last part of the path, the job harness will move the files to 
+    <root_folder>/sraft<raft_id>/<process_name>/<job_id>
     """
-    return os.path.join(kwargs['root_folder'], "sraft%s" % (kwargs['raft_id']),
-                        "%04i" % (kwargs['run_id']), kwargs['process_name'],
-                        "%04i" % (kwargs['job_id']), "%s" % (kwargs['slot_name']),
+    return os.path.join(kwargs.get('outpath',OUTPATH),
+                        kwargs['slot_name'],
                         kwargs['file_string'])
 
 
@@ -255,10 +270,6 @@ class RaftImages(object):
         -----------
         raft_id : str
             Override the raft id
-        run_id : int
-            Override the run id (defaults to 1111)
-        job_id : int
-            Override the job id (defaults to 2222)
         process_name_out : str
             The name of the output eTraveler process, if it differs from process_name
         clobber : bool, optional
@@ -271,17 +282,18 @@ class RaftImages(object):
         clobber = kwargs.get('clobber', True)
         dry_run = kwargs.get('dry_run', False)
         basename = "%s%s" % (sensor_id, file_suffix)
-        outfilename = make_outfile_path(root_folder=self.output_path,
-                                        raft_id=kwargs.get('raft_id', self.raft_id),
-                                        run_id=kwargs.get('run_id', 1111),
-                                        process_name=kwargs.get('process_name_out',
-                                                                self.process_name),
-                                        job_id=kwargs.get('job_id', 2222),
+        outfilename = make_outfile_path(outpath=self.output_path,
                                         slot_name=slot_name,
                                         file_string=basename)
         outdir = os.path.dirname(outfilename)
+        try:
+            os.makedirs(outdir)
+        except OSError:
+            pass
+
         print ("  Outfile = %s" % outfilename)
         if dry_run:
+            os.system("touch %s"% outfilename)
             return
         output = fits.open(single_sensor_file)
 
@@ -290,10 +302,6 @@ class RaftImages(object):
         for ext_num in range(1, 16):
             self.update_image_header(slot_name, ext_num, output[ext_num])
 
-        try:
-            os.makedirs(outdir)
-        except OSError:
-            pass
 
         output.writeto(outfilename, clobber=clobber)
         output.close()
@@ -387,10 +395,10 @@ class Raft(object):
         ----------
         Newly created Raft object
         """
-        user = kwargs.get('user', 'echarles')
-        db_name = kwargs.get('db_name', 'Dev')
+        user = kwargs.get('user', USER)
+        db_name = kwargs.get('db_name', ETRAV_DB)
         prod_server = kwargs.get('prod_server', True)
-        htype = kwargs.get('htype', 'LCA-10753-RSA_sim')
+        htype = kwargs.get('htype', RAFT_HTYPE)
         no_batched = kwargs.get('no_batched', 'false')
 
         from eTraveler.clientAPI.connection import Connection
@@ -505,10 +513,11 @@ class Raft(object):
         dry_run : bool, optional
             If true, just print output file names, but do not copy files
         """
-        clobber = kwargs.pop('clobber', True)
-        dry_run = kwargs.pop('dry_run', False)
-        root_folder = kwargs.pop('root_folder', 'LSST/mirror/BNL-prod/prod')
-        process_name_out = kwargs.pop('process_name_out', process_name)
+        kwargs = kwargs.copy()
+        root_folder = kwargs.pop('root_folder', ROOT_FOLDER)
+        kwargs_write = dict(clobber=kwargs.pop('clobber', False),
+                            dry_run=kwargs.pop('dry_run', False),
+                            process_name_out=kwargs.pop('process_name_out', process_name))                            
 
         writer = RaftImages(self.__raft_id, process_name, self.sensor_type, output_path)
 
@@ -516,9 +525,8 @@ class Raft(object):
             template_files = self.get_template_files(root_folder, process_name,
                                                      slot=slot_name, **kwargs)
             for fname in template_files:
-                writer.write_sensor_image(fname, slot_name, sensor_id,
-                                          process_name_out=process_name_out,
-                                          clobber=clobber, dry_run=dry_run)
+                writer.write_sensor_image(fname, slot_name, sensor_id, **kwargs_write)
+
 
     def get_template_files(self, root_folder, process_name, slot, **kwargs):
         """ Get examples of the input files associated to a particular process.
@@ -564,16 +572,12 @@ class Raft(object):
 if __name__ == '__main__':
 
     # These are in caps to keep pylint happy
-    ROOT_FOLDER = 'LSST/mirror/SLAC-prod/prod'
-    ETRAV_DB = 'Dev'
-    USER = os.environ['USER']
-    OUTPATH = 'output/'
     TESTTYPE = 'FE55'
     IMGTYPE = 'BIAS'
     PROCESS_NAME_IN = 'vendorIngest'
     PROCESS_NAME_OUT = 'fe55_acq'
     PATTERN = '*.fits'
-    RAFT_ID = ' LCA-10753-RSA_sim-0001'
+    RAFT_ID = 'LCA-10753-RSA_sim-0000'
 
     #RAFT = Raft.create_from_yaml("test_raft.yaml")
     RAFT = Raft.create_from_etrav(RAFT_ID, user=USER, db_name=ETRAV_DB)
