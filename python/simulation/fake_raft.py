@@ -27,15 +27,6 @@ ROOT_FOLDER = 'LSST/mirror/SLAC-prod/prod'
 ETRAV_DB = 'Dev'
 USER = os.environ['USER']
 
-# Defaults for writing fake files
-OUTPATH = '.'
-
-# These should come from the Job Harness
-JOB_ID = siteUtils.getJobName()
-RAFT_HTYPE = siteUtils.getUnitType()
-RAFT_ID = siteUtils.getUnitId()
-
-
 
 def make_datacat_path(**kwargs):
     """ Build the data catalog path for a particular test on a particular sensor
@@ -320,7 +311,7 @@ class RaftImages(object):
 
         clobber = kwargs.get('clobber', True)
         dry_run = kwargs.get('dry_run', False)
-        job_id = kwargs.get('job_id', JOB_ID)
+        job_id = kwargs.get('job_id', siteUtils.getJobName())
         basename = "%s%s" % (sensor_id, file_suffix)
         outfilename = make_outfile_path(outpath=self.output_path,
                                         slot_name=slot_name,
@@ -439,7 +430,7 @@ class Raft(object):
         user = kwargs.get('user', USER)
         db_name = kwargs.get('db_name', ETRAV_DB)
         prod_server = kwargs.get('prod_server', True)
-        htype = kwargs.get('htype', RAFT_HTYPE)
+        htype = kwargs.get('htype', siteUtils.getUnitType())
         no_batched = kwargs.get('no_batched', 'false')
 
         from eTraveler.clientAPI.connection import Connection
@@ -618,6 +609,7 @@ if __name__ == '__main__':
     PROCESS_NAME_IN = 'vendorIngest'
     PROCESS_NAME_OUT = 'fe55_acq'
     PATTERN = '*.fits'
+    OUTPATH = '.'
     RAFT_ID = 'LCA-10753-RSA_sim-0000'
 
     #RAFT = Raft.create_from_yaml("test_raft.yaml")
