@@ -81,7 +81,7 @@ def make_outfile_path(**kwargs):
     tokens = fname.split('_')
     fname = fname.replace("%s"%tokens[-1], "%s"%job_id)
     fname += ext
-    return os.path.join(kwargs.get('outpath', OUTPATH),
+    return os.path.join(kwargs.get('outpath', '.'),
                         kwargs['slot_name'], fname)
 
 
