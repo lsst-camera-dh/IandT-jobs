@@ -32,10 +32,6 @@ for sensor_id in raft.sensor_names:
                                           slot=slots[sensor_id],
                                           sensor_id=sensor_id))
 
-    results.extend(siteUtils.jobInfo())
-
-    results.append(eotestUtils.eotestCalibrations())
-
     fe55_acq_job_id = siteUtils.get_prerequisite_job_id('S*/%s_fe55_fe55_*.fits' % sensor_id,
                                                         jobname='fe55_raft_acq_sim')
     md = dict(system_noise_file=dict(JOB_ID=fe55_acq_job_id))
@@ -50,6 +46,9 @@ for sensor_id in raft.sensor_names:
 
     data_products = [lcatr.schema.fileref.make(item) for item in files]
     results.extend(data_products)
+
+results.extend(siteUtils.jobInfo())
+results.append(eotestUtils.eotestCalibrations())
 
 lcatr.schema.write_file(results)
 lcatr.schema.validate_file()
