@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Validator script for raft-level PRNU analysis.
+"""
 import astropy.io.fits as fits
 import numpy as np
 import lcatr.schema
@@ -9,13 +12,9 @@ import simulation.fake_raft
 raft_id = siteUtils.getUnitId()
 db_name = 'Dev'
 raft = simulation.fake_raft.Raft.create_from_etrav(raft_id, db_name=db_name)
-slots = dict((str(x[1]), str(x[0])) for x in raft.items())
 
 results = []
-for sensor_id in raft.sensor_names:
-    sensor_id = str(sensor_id)
-    ccd_vendor = sensor_id.split('-')[0]
-
+for slot, sensor_id in raft.items():
     results_file = '%s_eotest_results.fits' % sensor_id
     prnu_results = fits.open(results_file)['PRNU_RESULTS'].data
 
@@ -24,7 +23,7 @@ for sensor_id in raft.sensor_names:
         results.append(lcatr.schema.valid(lcatr.schema.get('prnu'),
                                           wavelength=int(np.round(wl)),
                                           pixel_stdev=stdev, pixel_mean=mean,
-                                          slot=slots[sensor_id],
+                                          slot=slot,
                                           sensor_id=sensor_id))
 
         qe_acq_job_id = \
@@ -34,7 +33,6 @@ for sensor_id in raft.sensor_names:
         results.extend(eotestUtils.eotestCalibsPersist('illumination_non_uniformity_file',
                                                        metadata=md))
 
-results.append(siteUtils.packageVersions())
 results.extend(siteUtils.jobInfo())
 results.append(eotestUtils.eotestCalibrations())
 

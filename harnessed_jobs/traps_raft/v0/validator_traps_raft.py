@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Validator script for raft-level traps analysis.
+"""
 import lsst.eotest.sensor as sensorTest
 import lcatr.schema
 import siteUtils
@@ -8,21 +11,19 @@ import simulation.fake_raft
 raft_id = siteUtils.getUnitId()
 db_name = 'Dev'
 raft = simulation.fake_raft.Raft.create_from_etrav(raft_id, db_name=db_name)
-slots = dict((str(x[1]), str(x[0])) for x in raft.items())
 
 results = []
-for sensor_id in raft.sensor_names:
-    sensor_id = str(sensor_id)
-    ccd_vendor = sensor_id.split('-')[0]
+for slot, sensor_id in raft.items():
+    ccd_vendor = sensor_id.split('-')[0].upper()
 
     trap_file = '%s_traps.fits' % sensor_id
     eotestUtils.addHeaderData(trap_file, LSST_NUM=sensor_id, TESTTYPE='TRAP',
                               DATE=eotestUtils.utc_now_isoformat(),
-                              CCD_MANU=ccd_vendor.upper())
-    results.append(lcatr.schema.fileref.make(trap_file))
+                              CCD_MANU=ccd_vendor)
+    results.append(siteUtils.make_fileref(trap_file, folder=slot))
 
     mask_file = '%s_traps_mask.fits' % sensor_id
-    results.append(lcatr.schema.fileref.make(mask_file))
+    results.append(siteUtils.make_fileref(mask_file, folder=slot))
 
     results_file = '%s_eotest_results.fits' % sensor_id
     data = sensorTest.EOTestResults(results_file)
@@ -32,7 +33,7 @@ for sensor_id in raft.sensor_names:
     for amp, ntrap in zip(amps, num_traps):
         results.append(lcatr.schema.valid(lcatr.schema.get('traps'),
                                           amp=amp, num_traps=ntrap,
-                                          slot=slots[sensor_id],
+                                          slot=slot,
                                           sensor_id=sensor_id))
 
 results.extend(siteUtils.jobInfo())

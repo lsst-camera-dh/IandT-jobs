@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Producer script for raft-level Fe55 analysis.
+"""
 from __future__ import print_function
 import os
 # This is needed so that pyplot can write to .matplotlib
@@ -13,20 +16,15 @@ import simulation.fake_raft
 
 raft_id = siteUtils.getUnitId()
 db_name = 'Dev'
-
 raft = simulation.fake_raft.Raft.create_from_etrav(raft_id, db_name=db_name)
 
 for sensor_id in raft.sensor_names:
-    sensor_id = str(sensor_id)
-    print("processing", sensor_id)
     fe55_files = siteUtils.dependency_glob('S*/%s_fe55_fe55_*.fits' % sensor_id,
                                            jobname='fe55_raft_acq_sim',
                                            description='Fe55 files:')[:1]
-    fe55_files = [str(x) for x in fe55_files]
     bias_files = siteUtils.dependency_glob('S*/%s_fe55_bias_*.fits' % sensor_id,
                                            jobname='fe55_raft_acq_sim',
                                            description='Bias files:')
-    bias_files = [str(x) for x in bias_files]
     nf = len(bias_files)
     outfile = '%(sensor_id)s_mean_bias_%(nf)i.fits' % locals()
     imutils.fits_mean_file(bias_files, outfile)

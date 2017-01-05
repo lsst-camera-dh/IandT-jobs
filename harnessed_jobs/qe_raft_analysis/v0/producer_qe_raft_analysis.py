@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Producer script for raft-level QE analysis.
+"""
 from __future__ import print_function
 import sys
 import lsst.eotest.sensor as sensorTest
@@ -13,7 +16,6 @@ db_name = 'Dev'
 raft = simulation.fake_raft.Raft.create_from_etrav(raft_id, db_name=db_name)
 
 for sensor_id in raft.sensor_names:
-    sensor_id = str(sensor_id)
     lambda_files = siteUtils.dependency_glob('S*/%s_lambda_flat_*.fits' % sensor_id,
                                              jobname='qe_raft_acq_sim',
                                              description='Lambda files:')

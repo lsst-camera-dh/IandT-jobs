@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Validator script for raft-level PTC analysis.
+"""
 import lsst.eotest.sensor as sensorTest
 import lcatr.schema
 import siteUtils
@@ -8,19 +11,17 @@ import simulation.fake_raft
 raft_id = siteUtils.getUnitId()
 db_name = 'Dev'
 raft = simulation.fake_raft.Raft.create_from_etrav(raft_id, db_name=db_name)
-slots = dict((str(x[1]), str(x[0])) for x in raft.items())
 
 results = []
-for sensor_id in raft.sensor_names:
-    sensor_id = str(sensor_id)
-    ccd_vendor = sensor_id.split('-')[0]
+for slot, sensor_id in raft.items():
+    ccd_vendor = sensor_id.split('-')[0].upper()
 
     ptc_results = '%s_ptc.fits' % sensor_id
     eotestUtils.addHeaderData(ptc_results, LSST_NUM=sensor_id, TESTTYPE='FLAT',
                               DATE=eotestUtils.utc_now_isoformat(),
-                              CCD_MANU=ccd_vendor.upper())
+                              CCD_MANU=ccd_vendor)
 
-    results.append(lcatr.schema.fileref.make(ptc_results))
+    results.append(siteUtils.make_fileref(ptc_results, folder=slot))
 
     results_file = '%s_eotest_results.fits' % sensor_id
     data = sensorTest.EOTestResults(results_file)
@@ -31,7 +32,7 @@ for sensor_id in raft.sensor_names:
         results.append(lcatr.schema.valid(lcatr.schema.get('ptc_raft'),
                                           amp=amp, ptc_gain=gain,
                                           ptc_gain_error=gain_error,
-                                          slot=slots[sensor_id],
+                                          slot=slot,
                                           sensor_id=sensor_id))
 
 results.extend(siteUtils.jobInfo())

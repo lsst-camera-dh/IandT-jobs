@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Validator script for raft-level QE analysis.
+"""
 import glob
 from collections import OrderedDict
 import astropy.io.fits as fits
@@ -11,12 +14,10 @@ import simulation.fake_raft
 raft_id = siteUtils.getUnitId()
 db_name = 'Dev'
 raft = simulation.fake_raft.Raft.create_from_etrav(raft_id, db_name=db_name)
-slots = dict((str(x[1]), str(x[0])) for x in raft.items())
 
 results = []
-for sensor_id in raft.sensor_names:
-    sensor_id = str(sensor_id)
-    ccd_vendor = sensor_id.split('-')[0]
+for slot, sensor_id in raft.items():
+    ccd_vendor = sensor_id.split('-')[0].upper()
 
     qe_data = fits.open('%s_QE.fits' % sensor_id)['QE_BANDS'].data
     QE = OrderedDict((band, []) for band in qe_data.field('BAND'))
@@ -28,8 +29,7 @@ for sensor_id in raft.sensor_names:
     for band in QE:
         results.append(lcatr.schema.valid(lcatr.schema.get('qe_raft_analysis'),
                                           band=band, QE=np.mean(QE[band]),
-                                          slot=slots[sensor_id],
-                                          sensor_id=sensor_id))
+                                          slot=slot, sensor_id=sensor_id))
 
     qe_acq_job_id = siteUtils.get_prerequisite_job_id('S*/%s_lambda_flat_*.fits' % sensor_id,
                                                       jobname='qe_raft_acq_sim')
@@ -44,8 +44,9 @@ for sensor_id in raft.sensor_names:
             eotestUtils.addHeaderData(item, LSST_NUM=sensor_id,
                                       TESTTYPE='LAMBDA',
                                       DATE=eotestUtils.utc_now_isoformat(),
-                                      CCD_MANU=ccd_vendor.upper())
-    results.extend([lcatr.schema.fileref.make(item) for item in qe_files])
+                                      CCD_MANU=ccd_vendor)
+    results.extend([siteUtils.make_fileref(item, folder=slot)
+                    for item in qe_files])
 
 results.extend(siteUtils.jobInfo())
 

@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Validator script for raft-level CTE analysis.
+"""
 import glob
 import lsst.eotest.sensor as sensorTest
 import lcatr.schema
@@ -12,15 +15,12 @@ raft = simulation.fake_raft.Raft.create_from_etrav(raft_id, db_name=db_name)
 slots = dict((str(x[1]), str(x[0])) for x in raft.items())
 
 results = []
-for sensor_id in raft.sensor_names:
-    sensor_id = str(sensor_id)
-    ccd_vendor = sensor_id.split('-')[0]
-
+for slot, sensor_id in raft.items():
     superflats = glob.glob('%(sensor_id)s_superflat_*.fits' % locals())
     for item in superflats:
         eotestUtils.addHeaderData(item, FILENAME=item,
                                   DATE=eotestUtils.utc_now_isoformat())
-    results = [lcatr.schema.fileref.make(x) for x in superflats]
+    results = [siteUtils.make_fileref(x, folder=slot) for x in superflats]
 
     results_file = '%s_eotest_results.fits' % sensor_id
     data = sensorTest.EOTestResults(results_file)
@@ -51,7 +51,7 @@ for sensor_id in raft.sensor_names:
                                           cti_low_serial_error=values[6],
                                           cti_low_parallel=values[7],
                                           cti_low_parallel_error=values[8],
-                                          slot=slots[sensor_id],
+                                          slot=slot,
                                           sensor_id=sensor_id))
 
 results.extend(siteUtils.jobInfo())

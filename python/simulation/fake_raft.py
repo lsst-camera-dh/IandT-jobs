@@ -354,8 +354,8 @@ class Sensor(object):
         """
         Class constructor.
         """
-        self.__sensor_id = sensor_id
-        self.__raft_id = raft_id
+        self.__sensor_id = str(sensor_id)
+        self.__raft_id = str(raft_id)
 
     @property
     def sensor_id(self):
@@ -475,7 +475,7 @@ class Raft(object):
         for rsp_item in rsp:
             if rsp_item['relationshipTypeName'] in rel_types:
                 slot, c_esn = parse_etraveler_response(rsp_item, validate_dict)
-                sensor_dict[slot] = Sensor(c_esn, raft_id)
+                sensor_dict[str(slot)] = Sensor(c_esn, raft_id)
                 # For science rafts at least all the sensors in a raft are of the same type
                 # So we can just latch the type from the first sensor
                 if sensor_type is None:

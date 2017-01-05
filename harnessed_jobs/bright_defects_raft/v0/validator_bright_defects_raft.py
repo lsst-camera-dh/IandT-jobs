@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Validator script for raft-level bright defects analysis.
+"""
 import lsst.eotest.sensor as sensorTest
 import lcatr.schema
 import siteUtils
@@ -8,22 +11,20 @@ import simulation.fake_raft
 raft_id = siteUtils.getUnitId()
 db_name = 'Dev'
 raft = simulation.fake_raft.Raft.create_from_etrav(raft_id, db_name=db_name)
-slots = dict((str(x[1]), str(x[0])) for x in raft.items())
 
 results = []
-for sensor_id in raft.sensor_names:
-    sensor_id = str(sensor_id)
-    ccd_vendor = sensor_id.split('-')[0]
+for slot, sensor_id in raft.items():
+    ccd_vendor = sensor_id.split('-')[0].upper()
     mask_file = '%s_bright_pixel_mask.fits' % sensor_id
     eotestUtils.addHeaderData(mask_file, LSST_NUM=sensor_id, TESTTYPE='DARK',
                               DATE=eotestUtils.utc_now_isoformat(),
-                              CCD_MANU=ccd_vendor.upper())
-    results.append(lcatr.schema.fileref.make(mask_file))
+                              CCD_MANU=ccd_vendor)
+    results.append(siteUtils.make_fileref(mask_file, folder=slot))
 
     medianed_dark = '%s_median_dark_bp.fits' % sensor_id
     eotestUtils.addHeaderData(medianed_dark,
                               DATE=eotestUtils.utc_now_isoformat())
-    results.append(lcatr.schema.fileref.make(medianed_dark))
+    results.append(siteUtils.make_fileref(medianed_dark, folder=slot))
 
     eotest_results = '%s_eotest_results.fits' % sensor_id
     data = sensorTest.EOTestResults(eotest_results)
@@ -35,7 +36,7 @@ for sensor_id in raft.sensor_names:
                                           amp=amp,
                                           bright_pixels=npix,
                                           bright_columns=ncol,
-                                          slot=slots[sensor_id],
+                                          slot=slot,
                                           sensor_id=sensor_id))
 
 results.extend(siteUtils.jobInfo())

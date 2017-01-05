@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Producer script for raft-level CTE analysis.
+"""
 from __future__ import print_function
 import lsst.eotest.sensor as sensorTest
 import siteUtils
@@ -12,7 +15,6 @@ db_name = 'Dev'
 raft = simulation.fake_raft.Raft.create_from_etrav(raft_id, db_name=db_name)
 
 for sensor_id in raft.sensor_names:
-    sensor_id = str(sensor_id)
     mask_files = \
         eotestUtils.glob_mask_files(pattern='%s_*mask.fits' % sensor_id)
     gains = eotestUtils.getSensorGains(jobname='fe55_raft_analysis',

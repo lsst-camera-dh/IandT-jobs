@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Validator script for raft-level flat pairs analysis.
+"""
 import lsst.eotest.sensor as sensorTest
 import lcatr.schema
 import siteUtils
@@ -11,16 +14,15 @@ raft = simulation.fake_raft.Raft.create_from_etrav(raft_id, db_name=db_name)
 slots = dict((str(x[1]), str(x[0])) for x in raft.items())
 
 results = []
-for sensor_id in raft.sensor_names:
-    sensor_id = str(sensor_id)
-    ccd_vendor = sensor_id.split('-')[0]
+for slot, sensor_id in raft.items():
+    ccd_vendor = sensor_id.split('-')[0].upper()
 
     det_resp_data = '%s_det_response.fits' % sensor_id
     eotestUtils.addHeaderData(det_resp_data, LSST_NUM=sensor_id,
                               TESTTYPE='FLAT',
                               DATE=eotestUtils.utc_now_isoformat(),
-                              CCD_MANU=ccd_vendor.upper())
-    results.append(lcatr.schema.fileref.make(det_resp_data))
+                              CCD_MANU=ccd_vendor)
+    results.append(siteUtils.make_fileref(det_resp_data, folder=slot))
 
     results_file = '%s_eotest_results.fits' % sensor_id
     data = sensorTest.EOTestResults(results_file)
@@ -33,7 +35,7 @@ for sensor_id in raft.sensor_names:
         results.append(lcatr.schema.valid(lcatr.schema.get('flat_pairs_raft'),
                                           amp=amp, full_well=full_well,
                                           max_frac_dev=max_frac_dev,
-                                          slot=slots[sensor_id],
+                                          slot=slot,
                                           sensor_id=sensor_id))
 
 results.extend(siteUtils.jobInfo())
