@@ -17,12 +17,14 @@ import camera_components
 raft_id = siteUtils.getUnitId()
 raft = camera_components.Raft.create_from_etrav(raft_id)
 
+print("fe55_raft_acq process name", siteUtils.getProcessName('fe55_raft_acq'))
+
 for sensor_id in raft.sensor_names:
     fe55_files = siteUtils.dependency_glob('S*/%s_fe55_fe55_*.fits' % sensor_id,
-                                           jobname='fe55_raft_acq_sim',
+                                           jobname=siteUtils.getProcessName('fe55_raft_acq'),
                                            description='Fe55 files:')[:1]
     bias_files = siteUtils.dependency_glob('S*/%s_fe55_bias_*.fits' % sensor_id,
-                                           jobname='fe55_raft_acq_sim',
+                                           jobname=siteUtils.getProcessName('fe55_raft_acq'),
                                            description='Bias files:')
     nf = len(bias_files)
     outfile = '%(sensor_id)s_mean_bias_%(nf)i.fits' % locals()

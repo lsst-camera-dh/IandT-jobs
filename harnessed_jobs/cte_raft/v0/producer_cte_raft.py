@@ -28,7 +28,7 @@ for sensor_id in raft.sensor_names:
 
     sflat_high_files = \
         siteUtils.dependency_glob('S*/%s_sflat_500_flat_H*.fits' % sensor_id,
-                                  jobname='sflat_raft_acq_sim',
+                                  jobname=siteUtils.getProcessName('sflat_raft_acq'),
                                   description='Superflat high flux files:')
 
     task = sensorTest.CteTask()
@@ -37,7 +37,7 @@ for sensor_id in raft.sensor_names:
 
     sflat_low_files = \
         siteUtils.dependency_glob('S*/%s_sflat_500_flat_L*.fits' % sensor_id,
-                                  jobname='sflat_raft_acq_sim',
+                                  jobname=siteUtils.getProcessName('sflat_raft_acq'),
                                   description='Superflat low flux files:')
     task.run(sensor_id, sflat_low_files, flux_level='low', gains=gains,
              mask_files=mask_files)

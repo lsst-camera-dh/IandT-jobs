@@ -15,7 +15,7 @@ raft = camera_components.Raft.create_from_etrav(raft_id)
 
 for sensor_id in raft.sensor_names:
     trap_file = siteUtils.dependency_glob('S*/%s_trap_ppump_*.fits' % sensor_id,
-                                          jobname='ppump_raft_acq_sim',
+                                          jobname=siteUtils.getProcessName('ppump_raft_acq'),
                                           description='Trap file:')[0]
     mask_files = \
         eotestUtils.glob_mask_files(pattern='%s_*mask.fits' % sensor_id)

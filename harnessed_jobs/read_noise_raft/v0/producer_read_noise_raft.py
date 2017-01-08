@@ -22,7 +22,7 @@ for sensor_id in raft.sensor_names:
     # https://confluence.slac.stanford.edu/display/LSSTCAM/Science+Raft+Teststands
     #
     bias_files = siteUtils.dependency_glob('S*/%s_fe55_fe55_*.fits' % sensor_id,
-                                           jobname='fe55_raft_acq_sim',
+                                           jobname=siteUtils.getProcessName('fe55_raft_acq'),
                                            description='Fe55 files for read noise:')
     gains = eotestUtils.getSensorGains(jobname='fe55_raft_analysis',
                                        sensor_id=sensor_id)
