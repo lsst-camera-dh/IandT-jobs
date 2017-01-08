@@ -13,19 +13,16 @@ from __future__ import print_function, absolute_import, division
 import sys
 import os
 import fnmatch
-import yaml
 
 import astropy.io.fits as fits
 
 import siteUtils
 from datacat.error import DcClientException
 from DataCatalog import DataCatalog
-
+import camera_components
 
 # Configure the database interface
 ROOT_FOLDER = 'LSST/mirror/SLAC-prod/prod'
-ETRAV_DB = 'Dev'
-USER = os.environ['USER']
 
 
 def make_datacat_path(**kwargs):
@@ -172,48 +169,6 @@ def get_template_files(root_folder, sensor_type, sensor_id, process_name, **kwar
     return file_list
 
 
-def parse_etraveler_response(rsp, validate):
-    """ Convert the response from an eTraveler clientAPI query to a key,value pair
-
-    Parameters
-    ----------
-    rsp : return type from eTraveler.clientAPI.connection.Connection.getHardwareHierarchy
-        which is an array of dicts information about the 'children' of a
-        particular hardware element.
-    validate : dict
-        A validation dictionary, which contains the expected values for some parts of
-        the rsp.  This is here for sanity checking, for example requiring that the
-        parent element matches the input element to the request.
-
-    Returns
-    ----------
-    slot_name,child_esn:
-    slot_name  : str
-        A string given to the particular 'slot' for each child
-    child_esn : str
-        The sensor id of the child, e.g., E2V-CCD250-104
-    """
-    for key, val in validate.items():
-        try:
-            rsp_val = rsp[key]
-            if isinstance(val, list):
-                if rsp_val not in val:
-                    errmsg = "eTraveler response does not match expectation for key %s: " % (key)
-                    errmsg += "%s not in %s" % (rsp_val, val)
-                    raise ValueError(errmsg)
-            else:
-                if rsp_val != val:
-                    errmsg = "eTraveler response does not match expectation for key %s: " % (key)
-                    errmsg += "%s != %s" % (rsp_val, val)
-                    raise ValueError(errmsg)
-        except KeyError:
-            raise KeyError("eTraveler response does not include expected key %s" % (key))
-
-    child_esn = rsp['child_experimentSN']
-    slot_name = rsp['slotName']
-    return slot_name, child_esn
-
-
 class RaftImages(object):
     '''
     Writes a raft's worth of images based on a user-supplied single-sensor
@@ -339,269 +294,65 @@ class RaftImages(object):
         output.close()
 
 
-class Sensor(object):
-    '''
-    A simple class to carry around some information about sensors in a raft.
+def copy_single_sensor_data(raft, process_name, output_path, **kwargs):
+
+    """ Copy a single input file to the correct output location for
+        each sensor in this raft.  Possibly updating FITS header
+        infomation along the way.
 
     Parameters
     ----------
-    sensor_id : str
-        Name of the sensor, e.g., 'E2V-CCD250-104'
-    raft_id : str
-        Name of the associated raft
-    '''
-    def __init__(self, sensor_id, raft_id):
-        """
-        Class constructor.
-        """
-        self.__sensor_id = str(sensor_id)
-        self.__raft_id = str(raft_id)
+    process_name : str
+        The name of the assoicated eTraveler process, used in making
+        the output file name
+    output_path : str
+        The prefix for the output file paths
 
-    @property
-    def sensor_id(self):
-        """ Return the name of the sensor, e.g., 'E2V-CCD250-104' """
-        return self.__sensor_id
-
-    @property
-    def raft_id(self):
-        """ Return the Name of the sensor, e.g., 'RAFT-000' """
-        return self.__raft_id
-
-
-class Raft(object):
-    '''
-    A simple class to carry around some information about a raft.
-
-    Parameters
+    Keyword Arguments
     ----------
-    raft_id : str
-        Name of the raft
-    sensor_type : str
-        Type of sensors in the raft, either 'e2v-CCD' or 'ITL-CCD'
-    sensor_dict : dict
-        Dictionary for slot to Sensor
-    '''
-    def __init__(self, raft_id, sensor_type, sensor_dict):
-        """
-        Class constructor.
-        """
-        self.__raft_id = raft_id
-        self.__sensor_type = sensor_type
-        self.__sensor_dict = sensor_dict
+    test_type : str, optional
+        Test type to copy files for
+    image_type : str, optional
+        Types of images copy
+    pattern : str, optional
+        Regular expression specifying which files to copy
+    site : str
+        Specifies data catalog database to access
+    test_version : str
+        Version of the test process to search for
+    root_folder : str, defaults to 'LSST/mirror/BNL-prod/prod
+        Allow overriding the top-level folder for the template file search
+    process_name_out : str
+        The name of the output eTraveler process, if it differs from
+        process_name
+    clobber : bool, optional
+        Allow overwriting existing files
+    dry_run : bool, optional
+        If true, just print output file names, but do not copy files
+    """
+    kwargs = kwargs.copy()
+    root_folder = kwargs.pop('root_folder', ROOT_FOLDER)
+    kwargs_write = dict(clobber=kwargs.pop('clobber', False),
+                        dry_run=kwargs.pop('dry_run', False),
+                        process_name_out=kwargs.pop('process_name_out',
+                                                    process_name))
 
-    @staticmethod
-    def create_from_yaml(yamlfile):
-        """ Create a Raft object from a yaml file """
-        input_dict = yaml.safe_load(open(yamlfile))
-        raft_id = input_dict['raft_id']
-        sensor_type = input_dict['sensor_type']
-        sensors = input_dict['sensors']
-        sensor_dict = {}
-        for slot_name, sensor_name in sensors.items():
-            sensor_dict[slot_name] = Sensor(sensor_name, raft_id)
-        return Raft(raft_id, sensor_type, sensor_dict)
+    writer = RaftImages(raft.raft_id, process_name, raft.sensor_type,
+                        output_path)
 
-    @staticmethod
-    def create_from_etrav(raft_id, **kwargs):
-        """ Create a Raft object from query to the eTraveler
-
-        Parameters
-        ----------
-        raft_id : str
-            Name of the raft, this must match the 'parent_experimentSN' field
-            in the eTraveler db.
-
-        Keyword Arguments
-        ----------
-        user   : str
-            Expected by the eTraveler interface
-        db_name : str ['Dev']
-            Version of the eTraveler to query
-        prodServer : bool [True]
-        htype : str ['LCA-10753-RSA_sim']
-            Hardware type, this must match the 'parent_hardware_type' field
-            in the eTraveler db.
-        noBatched : str ['false']
-
-        Returns
-        ----------
-        Newly created Raft object
-        """
-        user = kwargs.get('user', USER)
-        db_name = kwargs.get('db_name', ETRAV_DB)
-        prod_server = kwargs.get('prod_server', True)
-        htype = kwargs.get('htype', siteUtils.getUnitType())
-        no_batched = kwargs.get('no_batched', 'false')
-
-        from eTraveler.clientAPI.connection import Connection
-        my_conn = Connection(user, db_name, prod_server)
-        return Raft.create_from_connection(my_conn, raft_id, htype, no_batched)
-
-    @staticmethod
-    def create_from_connection(connection, raft_id, htype,
-                               no_batched='false'):
-        """ Create a Raft object from query to the eTraveler
-
-        Parameters
-        ----------
-        connection : 'eTraveler/clientAPI/connection.Connection'
-            Object that wraps connection to eTraveler database
-        raft_id : str
-            Name of the raft, this must match the 'parent_experimentSN' field
-            in the eTraveler db.
-        htype : str
-            Hardware type, this must match the 'parent_hardwareTypeName' field
-            in the eTraveler db.
-        no_batched : str ['false']
-
-        Returns
-        ----------
-        Newly created Raft
-        """
-        rsp = connection.getHardwareHierarchy(experimentSN=raft_id,
-                                              htype=htype,
-                                              noBatched=no_batched)
-        sensor_dict = {}
-
-        validate_dict = dict(parent_hardwareTypeName=htype,
-                             parent_experimentSN=raft_id,
-                             child_hardwareTypeName=['e2v-CCD', 'ITL-CCD'])
-
-        sensor_type = None
-
-        rel_types = ['RSA_contains_E2V-CCD_sim',
-                     'RSA_contains_ITL-CCD_sim']
-
-        for rsp_item in rsp:
-            if rsp_item['relationshipTypeName'] in rel_types:
-                slot, c_esn = parse_etraveler_response(rsp_item, validate_dict)
-                sensor_dict[str(slot)] = Sensor(c_esn, raft_id)
-                # For science rafts at least all the sensors in a raft are of the same type
-                # So we can just latch the type from the first sensor
-                if sensor_type is None:
-                    sensor_type = rsp_item['child_hardwareTypeName']
-
-        return Raft(raft_id, sensor_type, sensor_dict)
-
-    @property
-    def raft_id(self):
-        """ The name of this raft """
-        return self.__raft_id
-
-    @property
-    def sensor_type(self):
-        """ The type of sensors in this raft.  'e2v-CCD' or 'ITL-CCD' """
-        return self.__sensor_type
-
-    @property
-    def slot_names(self):
-        """ The names of the 'slots' associated with the sensors """
-        slots = self.__sensor_dict.keys()
-        slots.sort()
-        return slots
-
-    @property
-    def sensor_names(self):
-        """ The names of the sensors in this raft, sorted to match the slot names """
-        return [self.__sensor_dict[slot].sensor_id for slot in self.slot_names]
-
-    def items(self):
-        """ Iterator over slot_name, sensor_name pairs """
-        return zip(self.slot_names, self.sensor_names)
-
-    def sensor(self, slot):
-        """ Sensor associated with a particular slot """
-        return self.__sensor_dict[slot]
-
-    def file_copy(self, process_name, output_path, **kwargs):
-        """ Copy a single input file to the correct output location for each sensor in this raft.
-            Possibly updating FITS header infomation along the way.
-
-        Parameters
-        ----------
-        process_name : str
-            The name of the assoicated eTraveler process, used in making the output file name
-        output_path : str
-            The prefix for the output file paths
-
-        Keyword Arguments
-        ----------
-        test_type : str, optional
-            Test type to copy files for
-        image_type : str, optional
-            Types of images copy
-        pattern : str, optional
-            Regular expression specifying which files to copy
-        site : str
-            Specifies data catalog database to access
-        test_version : str
-            Version of the test process to search for
-        root_folder : str, defaults to 'LSST/mirror/BNL-prod/prod
-            Allow overriding the top-level folder for the template file search
-        process_name_out : str
-            The name of the output eTraveler process, if it differs from process_name
-        clobber : bool, optional
-            Allow overwriting existing files
-        dry_run : bool, optional
-            If true, just print output file names, but do not copy files
-        """
-        kwargs = kwargs.copy()
-        root_folder = kwargs.pop('root_folder', ROOT_FOLDER)
-        kwargs_write = dict(clobber=kwargs.pop('clobber', False),
-                            dry_run=kwargs.pop('dry_run', False),
-                            process_name_out=kwargs.pop('process_name_out', process_name))
-
-        writer = RaftImages(self.__raft_id, process_name, self.sensor_type, output_path)
-
-        for slot_name, sensor_id in self.items():
-            template_files = self.get_template_files(root_folder, process_name,
-                                                     slot=slot_name, **kwargs)
-            for fname in template_files:
-                writer.write_sensor_image(fname, slot_name, sensor_id, **kwargs_write)
-
-
-    def get_template_files(self, root_folder, process_name, slot, **kwargs):
-        """ Get examples of the input files associated to a particular process.
-
-        Parameters
-        ----------
-        root_folder : str
-            Top level data catalog folder for search
-        process_name : str
-            The name of the assoicated eTraveler process,
-            used in making the output file name
-        slot : str
-            Use the sensor associated with this slot as the template
-        image_type : str
-            Types of images to copy
-
-        Keyword arguments
-        -----------
-        test_type : str, optional
-            Type of test to find images for
-        image_type : str, optional
-            Type of images to find
-        pattern : str, optional
-            Regular expression specifying which files to get
-        site : str
-            Specifies data catalog database to access
-        sort : boolean
-            Sort the file names before returning them
-        test_version : str
-            Version of the test process to search for
-
-        Returns
-        ----------
-        file_list : list
-            List of file names for files that match the process_name, sensor_id and pattern
-        """
-        sensor_id = self.sensor(slot).sensor_id.replace('_sim', '')
-        return get_template_files(root_folder, self.sensor_type,
-                                  sensor_id=sensor_id,
-                                  process_name=process_name, **kwargs)
+    for slot_name, sensor_id in raft.items():
+        template_files = get_template_files(root_folder, raft.sensor_type,
+                                            sensor_id=sensor_id.replace('_sim', ''),
+                                            process_name=process_name, **kwargs)
+        for fname in template_files:
+            writer.write_sensor_image(fname, slot_name, sensor_id,
+                                      **kwargs_write)
 
 
 if __name__ == '__main__':
+
+    USER = os.environ['USER']
+    ETRAV_DB = 'Dev'
 
     # These are in caps to keep pylint happy
     TESTTYPE = 'FE55'
@@ -612,8 +363,8 @@ if __name__ == '__main__':
     OUTPATH = '.'
     RAFT_ID = 'LCA-10753-RSA_sim-0000'
 
-    #RAFT = Raft.create_from_yaml("test_raft.yaml")
-    RAFT = Raft.create_from_etrav(RAFT_ID, user=USER, db_name=ETRAV_DB)
+    #RAFT = FakeRaft.create_from_yaml("test_raft.yaml")
+    RAFT = FakeRaft.create_from_etrav(RAFT_ID, user=USER, db_name=ETRAV_DB)
 
     RAFT.file_copy(PROCESS_NAME_IN, OUTPATH, root_folder=ROOT_FOLDER, dry_run=True,
                    test_type=TESTTYPE, image_type=IMGTYPE,

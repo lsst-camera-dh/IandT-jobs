@@ -7,13 +7,12 @@ import sys
 import lsst.eotest.sensor as sensorTest
 import siteUtils
 import eotestUtils
-import simulation.fake_raft
+import camera_components
 
 siteUtils.aggregate_job_ids()
 
 raft_id = siteUtils.getUnitId()
-db_name = 'Dev'
-raft = simulation.fake_raft.Raft.create_from_etrav(raft_id, db_name=db_name)
+raft = camera_components.Raft.create_from_etrav(raft_id)
 
 for sensor_id in raft.sensor_names:
     lambda_files = siteUtils.dependency_glob('S*/%s_lambda_flat_*.fits' % sensor_id,

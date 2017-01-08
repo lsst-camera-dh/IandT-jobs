@@ -12,11 +12,10 @@ import matplotlib.pyplot as plt
 import lsst.eotest.image_utils as imutils
 import lsst.eotest.sensor as sensorTest
 import siteUtils
-import simulation.fake_raft
+import camera_components
 
 raft_id = siteUtils.getUnitId()
-db_name = 'Dev'
-raft = simulation.fake_raft.Raft.create_from_etrav(raft_id, db_name=db_name)
+raft = camera_components.Raft.create_from_etrav(raft_id)
 
 for sensor_id in raft.sensor_names:
     fe55_files = siteUtils.dependency_glob('S*/%s_fe55_fe55_*.fits' % sensor_id,

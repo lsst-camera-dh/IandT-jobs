@@ -7,12 +7,10 @@ import lsst.eotest.sensor as sensorTest
 import lcatr.schema
 import siteUtils
 import eotestUtils
-import simulation.fake_raft
+import camera_components
 
 raft_id = siteUtils.getUnitId()
-db_name = 'Dev'
-raft = simulation.fake_raft.Raft.create_from_etrav(raft_id, db_name=db_name)
-slots = dict((str(x[1]), str(x[0])) for x in raft.items())
+raft = camera_components.Raft.create_from_etrav(raft_id)
 
 results = []
 for slot, sensor_id in raft.items():

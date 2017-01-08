@@ -1,3 +1,1 @@
-""" Simulate raft level data by copying existing test output """
-import pkgutil
-__path__ = pkgutil.extend_path(__path__, __name__)
+from __future__ import absolute_import
