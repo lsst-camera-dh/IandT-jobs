@@ -390,7 +390,7 @@ class RaftImages(object):
             crval1q = (gap_outy + (ccdpy - ccday)/2. + cs*(8*dimh + gap_iny
                        + ccdpy - ccday) + (ss + 1)*dimh + 1 - preh)
             crval2q = (sp*(2*dimv + 1) + gap_outx + (ccdpx - ccdax)/2.
-                       + cp*(2*dimv+gap_inx + ccdpx - ccdax))
+                       + cp*(2*dimv + gap_inx + ccdpx - ccdax))
             dtm1_1 = -1
             dtm1_2 = 0
             dtm2_1 = 0
@@ -426,7 +426,7 @@ class RaftImages(object):
             crval1r = (sx*(2*dimv + 1) + gap_outx + (ccdpx - ccdax)/2.
                        + cx*(2*dimv + gap_inx + ccdpx - ccdax))
             crval2r = (sx*(dimh + 1) + sy*dimh + gap_outy
-                       * (ccdpy - ccday)/2. + cy*(8*dimh + gap_iny + ccdpy
+                       + (ccdpy - ccday)/2. + cy*(8*dimh + gap_iny + ccdpy
                        - ccday) + (2*sx - 1)*preh)
             pc1_1b = 1 - 2*sp
             pc1_2b = 0
@@ -447,7 +447,8 @@ class RaftImages(object):
             crpix1q = 0
             crpix2q = 0
             crval1q = (gap_outy + (ccdpy - ccday)/2. + cs*(8*dimh + gap_iny
-                       + ccdpy - ccday) + sp*(dimh + 1) + ss*dimh)
+                       + ccdpy - ccday) + sp*(dimh + 1) + ss*dimh) + (2*sp
+                       - 1)*preh
             crval2q = (sp*(2*dimv + 1) + gap_outx + (ccdpx - ccdax)/2.
                        + cp*(2*dimv + gap_inx + ccdpx - ccdax))
             dtm1_1 = 1 - 2*sx
@@ -850,9 +851,9 @@ if __name__ == '__main__':
     OUTPATH = '.'
     RAFT_ID = 'LCA-10753-RSA_sim-0000'
 
-    #RAFT = Raft.create_from_yaml("test_raft.yaml")
-    RAFT = Raft.create_from_etrav(RAFT_ID, user=USER, db_name=ETRAV_DB)
+    RAFT = Raft.create_from_yaml("test_raft.yaml")
+    #RAFT = Raft.create_from_etrav(RAFT_ID, user=USER, db_name=ETRAV_DB)
 
-    RAFT.file_copy(PROCESS_NAME_IN, OUTPATH, root_folder=ROOT_FOLDER, dry_run=True,
+    RAFT.file_copy(PROCESS_NAME_IN, OUTPATH, root_folder=ROOT_FOLDER, dry_run=False,
                    test_type=TESTTYPE, image_type=IMGTYPE,
                    pattern=PATTERN)
