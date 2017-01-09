@@ -1,4 +1,4 @@
-raft_id : LCA-10753-RSA_sim-0000
+raft_id : 00
 sensor_type : e2v-CCD
 sensors :
   S00 : E2V-CCD250-091
@@ -10,4 +10,3 @@ sensors :
   S20 : E2V-CCD250-107
   S21 : E2V-CCD250-112
   S22 : E2V-CCD250-114
-

@@ -30,7 +30,6 @@ USER = os.environ['USER']
 
 def make_datacat_path(**kwargs):
     """ Build the data catalog path for a particular test on a particular sensor
-
     Looking at LSSTTD-690 it appear that with run numbers the best we can do is
     <root_folder>/<sensor_type>/<sensor_id>.
     """
@@ -41,7 +40,6 @@ def make_datacat_path(**kwargs):
 
 def sort_unique(filelist):
     """ Remove duplicate files from re-running particular scripts
-
     This just keeps the file with the highest JOB ID
     """
     # Build a dictionary of dictionaries mapping base_id : job_id : filename
@@ -67,10 +65,8 @@ def sort_unique(filelist):
 
 def make_outfile_path(**kwargs):
     """ Build the path for an output file for a particular test on a particular sensor
-
     This is only the last part of the path, the job harness will move the files to
     <root_folder>/sraft<raft_id>/<process_name>/<job_id>
-
     For the last part of the path, we use
     <slot_name>/<file_string>  except that we replace the job_id in file_string with the
     current job_id
@@ -100,7 +96,6 @@ def get_file_suffix(filepath):
 
 def get_template_files(root_folder, sensor_type, sensor_id, process_name, **kwargs):
     """ Get files that serve as templates for a particular process_type
-
     Parameters
     ----------
     root_folder : str
@@ -111,7 +106,6 @@ def get_template_files(root_folder, sensor_type, sensor_id, process_name, **kwar
         Name of the sensor, e.g., 'E2V-CCD250-104'
     process_name : str
         Name of the eTraveler process, e.g., 'fe55_acq' or 'dark_acq'
-
     Keyword arguments
     -----------
     image_type : str or None
@@ -126,7 +120,6 @@ def get_template_files(root_folder, sensor_type, sensor_id, process_name, **kwar
         Sort the file names before returning them
     test_version : str
         Version of the test process to search for
-
     Returns
     ----------
     file_list : list
@@ -174,7 +167,6 @@ def get_template_files(root_folder, sensor_type, sensor_id, process_name, **kwar
 
 def parse_etraveler_response(rsp, validate):
     """ Convert the response from an eTraveler clientAPI query to a key,value pair
-
     Parameters
     ----------
     rsp : return type from eTraveler.clientAPI.connection.Connection.getHardwareHierarchy
@@ -184,7 +176,6 @@ def parse_etraveler_response(rsp, validate):
         A validation dictionary, which contains the expected values for some parts of
         the rsp.  This is here for sanity checking, for example requiring that the
         parent element matches the input element to the request.
-
     Returns
     ----------
     slot_name,child_esn:
@@ -218,7 +209,6 @@ class RaftImages(object):
     '''
     Writes a raft's worth of images based on a user-supplied single-sensor
     image.
-
     Parameters
     ----------
     raft_id : str
@@ -232,7 +222,6 @@ class RaftImages(object):
         ITL-CCD or E2V-CCD
     output_path : str
         Path to prepended to the output file names
-
     Attributes
     ----------
     ccd_image : astropy.io.fits.HDUList
@@ -256,7 +245,6 @@ class RaftImages(object):
     def update_primary_header(self, slot_name, hdu):
         """
         Update the primary image header
-
         Parameters
         ----------
         slot_name : str
@@ -268,25 +256,289 @@ class RaftImages(object):
 
     def update_image_header(self, slot_name, ext_num, hdu):
         """
-        Update the image header for one of the readout segments
-
+        Update the image header for one of the readout segments.  Adds raft-level
+        coordinates (one set in Camera coordinates and one set rotated so the CCD
+        orientation has serial direction horizontal).  Adds rotated CCD coordinates
+        as well.  (Also rewrites amplifier and CCD-level Mosaic keywords.)
+        See LCA-13501
         Parameters
         ----------
         slot_name : str
-            Name of the slot with in the raft
+            Name of the slot within the raft
         ext_num:  int
             Number of the HDU extension for this segment
         hdu : fits.Image
             FITS image whose header is being updated
         """
-        print ("Placeholder", self.raft_id, slot_name, ext_num, hdu)
+        # The coordinate keyword values depend on the type of CCD.
+        # Kind of awkward, but below the CCD type is identified by the assumed
+        # values of DETSIZE for each type.  The image extension headers do not
+        # include the sensor type explicitly
+
+        hdu.header['SLOT'] = slot_name
+
+        if hdu.header['DETSIZE'] == '[1:4096,1:4004]':
+            # pixel parameters for e2v sensors
+            dimv = 2002
+            dimh = 512
+            ccdax = 4004
+            ccday = 4096
+            ccdpx = 4197
+            ccdpy = 4200
+            gap_inx = 28
+            gap_iny = 25
+            gap_outx = 26.5
+            gap_outy = 25
+            preh = 10
+        elif hdu.header['DETSIZE'] == '[1:4072,1:4000]':
+            # pixel parameters for ITL sensors
+            dimv = 2000
+            dimh = 509
+            ccdax = 4000
+            ccday = 4072
+            ccdpx = 4198
+            ccdpy = 4198
+            gap_inx = 27
+            gap_iny = 27
+            gap_outx = 26.0
+            gap_outy = 26
+            preh = 3
+        else:
+            raise RuntimeError("Sensor DETSIZE not recognized")
+
+        # get the segment 'coordinates' from the extension name
+        extname = hdu.header['EXTNAME']
+        sx = int(extname[-2:-1])
+        sy = int(extname[-1:])
+
+        # For convenience of notation in LCA-13501 these are also defined as 'serial'
+        # and 'parallel' indices, with Segment = Sp*10 + Ss
+        sp = sx
+        ss = sy
+
+        # Extract the x and y location indexes in the raft from the slot name. Also
+        # define the serial and parallel versions
+        cx = int(slot_name[1:2])
+        cy = int(slot_name[2:3])
+        cp = cx
+        cs = cy
+
+        # Define the WCS and Mosaic keywords
+        wcsnamea = 'AMPLIFIER'
+        ctype1a = 'Seg_X   '
+        ctype2a = 'Seg_Y   '
+        wcsnamec = 'CCD     '
+        ctype1c = 'CCD_X   '
+        ctype2c = 'CCD_Y   '
+        wcsnamer = 'RAFT    '
+        ctype1r = 'RAFT_X  '
+        ctype2r = 'RAFT_Y  '
+        wcsnamef = 'FOCAL_PLANE'
+        wcsnameb = 'CCD_SERPAR'
+        ctype1b = 'CCD_S   '
+        ctype2b = 'CCD_P   '
+        wcsnameq = 'RAFT_SERPAR'
+        ctype1q = 'RAFT_S  '
+        ctype2q = 'RAFT_P  '
+
+        if hdu.header['DETSIZE'] == '[1:4072,1:4000]':
+            # header coordinate parameters for ITL sensors
+            pc1_1a = 0
+            pc1_2a = 1 - 2*sx
+            pc2_1a = -1
+            pc2_2a = 0
+            crpix1a = 0
+            crpix2a = 0
+            crval1a = sx*(dimv + 1)
+            crval2a = dimh + 1 - preh
+            pc1_1c = 0
+            pc1_2c = 1 - 2*sx
+            pc2_1c = -1
+            pc2_2c = 0
+            crpix1c = 0
+            crpix2c = 0
+            crval1c = sx*(2*dimv + 1)
+            crval2c = dimh + 1 + sy*dimh - preh
+            pc1_1r = 0
+            pc1_2r = 1 - 2*sx
+            pc2_1r = -1
+            pc2_2r = 0
+            crpix1r = 0
+            crpix2r = 0
+            crval1r = (sx*(2*dimv + 1) + gap_outx + (ccdpx - ccdax)/2.
+                       + cx*(2*dimv + gap_inx + ccdpx - ccdax))
+            crval2r = (dimh + 1 + sy*dimh + gap_outy + (ccdpy - ccday)/2.
+                       + cy*(8*dimh + gap_iny + ccdpy - ccday) - preh)
+            pc1_1b = -1
+            pc1_2b = 0
+            pc2_1b = 0
+            pc2_2b = 1 - 2*sp
+            cdelt1b = 1
+            cdelt2b = 1
+            crpix1b = 0
+            crpix2b = 0
+            crval1b = (ss + 1)*dimh + 1 - preh
+            crval2b = sp*(2*dimv + 1)
+            pc1_1q = -1
+            pc1_2q = 0
+            pc2_1q = 0
+            pc2_2q = 1 - 2*sp
+            cdelt1q = 1
+            cdelt2q = 1
+            crpix1q = 0
+            crpix2q = 0
+            crval1q = (gap_outy + (ccdpy - ccday)/2. + cs*(8*dimh + gap_iny
+                       + ccdpy - ccday) + (ss + 1)*dimh + 1 - preh)
+            crval2q = (sp*(2*dimv + 1) + gap_outx + (ccdpx - ccdax)/2.
+                       + cp*(2*dimv + gap_inx + ccdpx - ccdax))
+            dtm1_1 = -1
+            dtm1_2 = 0
+            dtm2_1 = 0
+            dtm2_2 = 2*sx - 1
+            dtv1 = (dimh + 1) + sy*dimh + preh
+            dtv2 = (2*dimv + 1)*(1 - sx)
+        elif hdu.header['DETSIZE'] == '[1:4096,1:4004]':
+            # header coordinate parameters for e2v sensors
+            pc1_1a = 0
+            pc1_2a = 1 - 2*sx
+            pc2_1a = 1 - 2*sx
+            pc2_2a = 0
+            crpix1a = 0
+            crpix2a = 0
+            crval1a = sx*(dimv + 1)
+            crval2a = sx*(dimh + 1) + (2*sx - 1)*preh
+            pc1_1c = 0
+            pc1_2c = 1 - 2*sx
+            pc2_1c = 1 - 2*sx
+            pc2_2c = 0
+            crpix1c = 0
+            crpix2c = 0
+            crval1c = sx*(2*dimv+1)
+            crval2c = sx*(dimh+1) + sy*dimh + (2*sx - 1)*preh
+            pc1_1r = 0
+            pc1_2r = 1 - 2*sx
+            pc2_1r = 1 - 2*sx
+            pc2_2r = 0
+            cdelt1r = 1
+            cdelt2r = 1
+            crpix1r = 0
+            crpix2r = 0
+            crval1r = (sx*(2*dimv + 1) + gap_outx + (ccdpx - ccdax)/2.
+                       + cx*(2*dimv + gap_inx + ccdpx - ccdax))
+            crval2r = (sx*(dimh + 1) + sy*dimh + gap_outy
+                       + (ccdpy - ccday)/2. + cy*(8*dimh + gap_iny + ccdpy
+                       - ccday) + (2*sx - 1)*preh)
+            pc1_1b = 1 - 2*sp
+            pc1_2b = 0
+            pc2_1b = 0
+            pc2_2b = 1 - 2*sp
+            cdelt1b = 1
+            cdelt2b = 1
+            crpix1b = 0
+            crpix2b = 0
+            crval1b = sp*(dimh + 1) + ss*dimh + (2*sp-1)*preh
+            crval2b = sp*(2*dimv+1)
+            pc1_1q = 1 - 2*sp
+            pc1_2q = 0
+            pc2_1q = 0
+            pc2_2q = 1 - 2*sp
+            cdelt1q = 1
+            cdelt2q = 1
+            crpix1q = 0
+            crpix2q = 0
+            crval1q = (gap_outy + (ccdpy - ccday)/2. + cs*(8*dimh + gap_iny
+                       + ccdpy - ccday) + sp*(dimh + 1) + ss*dimh) + (2*sp
+                       - 1)*preh
+            crval2q = (sp*(2*dimv + 1) + gap_outx + (ccdpx - ccdax)/2.
+                       + cp*(2*dimv + gap_inx + ccdpx - ccdax))
+            dtm1_1 = 1 - 2*sx
+            dtm1_2 = 0
+            dtm2_1 = 0
+            dtm2_2 = 2*sx - 1
+            dtv1 = (dimh+1 + 2*preh)*sx + sy*dimh - preh
+            dtv2 = (2*dimv + 1)*(1 - sx)
+        else:
+            raise RuntimeError("Sensor DETSIZE not recognized")
+
+        hdu.header['DTM1_1'] = dtm1_1
+        hdu.header['DTM1_2'] = dtm1_2
+        hdu.header['DTM2_1'] = dtm2_1
+        hdu.header['DTM2_2'] = dtm2_2
+        hdu.header['DTV1'] = dtv1
+        hdu.header['DTV2'] = dtv2
+
+        hdu.header['WCSNAMEA'] = wcsnamea
+        hdu.header['CTYPE1A'] = ctype1a
+        hdu.header['CTYPE2A'] = ctype2a
+        hdu.header['CRVAL1A'] = crval1a
+        hdu.header['CRVAL2A'] = crval2a
+        hdu.header['PC1_1A'] = pc1_1a
+        hdu.header['PC1_2A'] = pc1_2a
+        hdu.header['PC2_1A'] = pc2_1a
+        hdu.header['PC2_2A'] = pc2_2a
+        hdu.header['CDELT1A'] = 1
+        hdu.header['CDELT2A'] = 1
+        hdu.header['CRPIX1A'] = crpix1a
+        hdu.header['CRPIX2A'] = crpix2a
+        hdu.header['WCSNAMEC'] = wcsnamec
+        hdu.header['CTYPE1C'] = ctype1c
+        hdu.header['CTYPE2C'] = ctype2c
+        hdu.header['CRVAL1C'] = crval1c
+        hdu.header['CRVAL2C'] = crval2c
+        hdu.header['PC1_1C'] = pc1_1c
+        hdu.header['PC1_2C'] = pc1_2c
+        hdu.header['PC2_1C'] = pc2_1c
+        hdu.header['PC2_2C'] = pc2_2c
+        hdu.header['CDELT1C'] = 1
+        hdu.header['CDELT2C'] = 1
+        hdu.header['CRPIX1C'] = crpix1c
+        hdu.header['CRPIX2C'] = crpix2c
+        hdu.header['WCSNAMER'] = wcsnamer
+        hdu.header['CTYPE1R'] = ctype1r
+        hdu.header['CTYPE2R'] = ctype2r
+        hdu.header['CRVAL1R'] = crval1r
+        hdu.header['CRVAL2R'] = crval2r
+        hdu.header['PC1_1R'] = pc1_1r
+        hdu.header['PC1_2R'] = pc1_2r
+        hdu.header['PC2_1R'] = pc2_1r
+        hdu.header['PC2_2R'] = pc2_2r
+        hdu.header['CDELT1R'] = cdelt1r
+        hdu.header['CDELT2R'] = cdelt2r
+        hdu.header['CRPIX1R'] = crpix1r
+        hdu.header['CRPIX2R'] = crpix2r
+        hdu.header['WCSNAMEF'] = wcsnamef
+        hdu.header['WCSNAMEB'] = wcsnameb
+        hdu.header['CTYPE1B'] = ctype1b
+        hdu.header['CTYPE2B'] = ctype2b
+        hdu.header['CRVAL1B'] = crval1b
+        hdu.header['CRVAL2B'] = crval2b
+        hdu.header['PC1_1B'] = pc1_1b
+        hdu.header['PC1_2B'] = pc1_2b
+        hdu.header['PC2_1B'] = pc2_1b
+        hdu.header['PC2_2B'] = pc2_2b
+        hdu.header['CDELT1B'] = cdelt1b
+        hdu.header['CDELT2B'] = cdelt2b
+        hdu.header['CRPIX1B'] = crpix1b
+        hdu.header['CRPIX2B'] = crpix2b
+        hdu.header['WCSNAMEQ'] = wcsnameq
+        hdu.header['CTYPE1Q'] = ctype1q
+        hdu.header['CTYPE2Q'] = ctype2q
+        hdu.header['CRVAL1Q'] = crval1q
+        hdu.header['CRVAL2Q'] = crval2q
+        hdu.header['PC1_1Q'] = pc1_1q
+        hdu.header['PC1_2Q'] = pc1_2q
+        hdu.header['PC2_1Q'] = pc2_1q
+        hdu.header['PC2_2Q'] = pc2_2q
+        hdu.header['CDELT1Q'] = cdelt1q
+        hdu.header['CDELT2Q'] = cdelt2q
+        hdu.header['CRPIX1Q'] = crpix1q
+        hdu.header['CRPIX2Q'] = crpix2q
 
     def write_sensor_image(self, single_sensor_file, slot_name, sensor_id, **kwargs):
         """
         Write a FITS image with pixel coordinates matching the specified
         sensor_id and raft_id.  The output file name is constructed from
         the test type, sensor type, sensor_id and raft_id.
-
         Parameters
         ----------
         single_sensor_file : str
@@ -295,7 +547,6 @@ class RaftImages(object):
             Name of the slot this sensor occupies
         sensor_id:  str
             Name of the sensor, e.g., 'E2V-CCD250-104'
-
         Keyword arguments
         -----------
         raft_id : str
@@ -342,7 +593,6 @@ class RaftImages(object):
 class Sensor(object):
     '''
     A simple class to carry around some information about sensors in a raft.
-
     Parameters
     ----------
     sensor_id : str
@@ -371,7 +621,6 @@ class Sensor(object):
 class Raft(object):
     '''
     A simple class to carry around some information about a raft.
-
     Parameters
     ----------
     raft_id : str
@@ -404,13 +653,11 @@ class Raft(object):
     @staticmethod
     def create_from_etrav(raft_id, **kwargs):
         """ Create a Raft object from query to the eTraveler
-
         Parameters
         ----------
         raft_id : str
             Name of the raft, this must match the 'parent_experimentSN' field
             in the eTraveler db.
-
         Keyword Arguments
         ----------
         user   : str
@@ -422,7 +669,6 @@ class Raft(object):
             Hardware type, this must match the 'parent_hardware_type' field
             in the eTraveler db.
         noBatched : str ['false']
-
         Returns
         ----------
         Newly created Raft object
@@ -441,7 +687,6 @@ class Raft(object):
     def create_from_connection(connection, raft_id, htype,
                                no_batched='false'):
         """ Create a Raft object from query to the eTraveler
-
         Parameters
         ----------
         connection : 'eTraveler/clientAPI/connection.Connection'
@@ -453,7 +698,6 @@ class Raft(object):
             Hardware type, this must match the 'parent_hardwareTypeName' field
             in the eTraveler db.
         no_batched : str ['false']
-
         Returns
         ----------
         Newly created Raft
@@ -516,14 +760,12 @@ class Raft(object):
     def file_copy(self, process_name, output_path, **kwargs):
         """ Copy a single input file to the correct output location for each sensor in this raft.
             Possibly updating FITS header infomation along the way.
-
         Parameters
         ----------
         process_name : str
             The name of the assoicated eTraveler process, used in making the output file name
         output_path : str
             The prefix for the output file paths
-
         Keyword Arguments
         ----------
         test_type : str, optional
@@ -562,7 +804,6 @@ class Raft(object):
 
     def get_template_files(self, root_folder, process_name, slot, **kwargs):
         """ Get examples of the input files associated to a particular process.
-
         Parameters
         ----------
         root_folder : str
@@ -574,7 +815,6 @@ class Raft(object):
             Use the sensor associated with this slot as the template
         image_type : str
             Types of images to copy
-
         Keyword arguments
         -----------
         test_type : str, optional
@@ -589,7 +829,6 @@ class Raft(object):
             Sort the file names before returning them
         test_version : str
             Version of the test process to search for
-
         Returns
         ----------
         file_list : list
@@ -612,9 +851,9 @@ if __name__ == '__main__':
     OUTPATH = '.'
     RAFT_ID = 'LCA-10753-RSA_sim-0000'
 
-    #RAFT = Raft.create_from_yaml("test_raft.yaml")
-    RAFT = Raft.create_from_etrav(RAFT_ID, user=USER, db_name=ETRAV_DB)
+    RAFT = Raft.create_from_yaml("test_raft.yaml")
+    #RAFT = Raft.create_from_etrav(RAFT_ID, user=USER, db_name=ETRAV_DB)
 
-    RAFT.file_copy(PROCESS_NAME_IN, OUTPATH, root_folder=ROOT_FOLDER, dry_run=True,
+    RAFT.file_copy(PROCESS_NAME_IN, OUTPATH, root_folder=ROOT_FOLDER, dry_run=False,
                    test_type=TESTTYPE, image_type=IMGTYPE,
                    pattern=PATTERN)
