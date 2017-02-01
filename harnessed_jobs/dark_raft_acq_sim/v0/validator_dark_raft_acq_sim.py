@@ -8,10 +8,10 @@ from simulation import fake_raft
 
 PATTERN = '*_dark*.fits'
 OUTPATH = '.'
-JOB_ID = siteUtils.getJobName()
+JOBNAME = siteUtils.getJobName()
 
 OUTREGEXP = fake_raft.make_outfile_path(outpath=OUTPATH, slot_name="*",
-                                        file_string=PATTERN, job_id=JOB_ID)
+                                        file_string=PATTERN, jobname=JOBNAME)
 
 RESULTS = []
 FILES = sorted(glob.glob(OUTREGEXP))
