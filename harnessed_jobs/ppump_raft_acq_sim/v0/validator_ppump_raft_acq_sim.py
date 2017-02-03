@@ -6,7 +6,7 @@ import lcatr.schema
 import siteUtils
 from simulation import fake_raft
 
-PATTERN = '*_trap*.fits'
+PATTERN = '*_trap*_*.fits'
 OUTPATH = '.'
 JOBNAME = siteUtils.getJobName()
 

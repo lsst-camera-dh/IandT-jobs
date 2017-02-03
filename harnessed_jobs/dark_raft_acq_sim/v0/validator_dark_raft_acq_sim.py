@@ -6,7 +6,7 @@ import lcatr.schema
 import siteUtils
 from simulation import fake_raft
 
-PATTERN = '*_dark*.fits'
+PATTERN = '*_dark*_*.fits'
 OUTPATH = '.'
 JOBNAME = siteUtils.getJobName()
 
