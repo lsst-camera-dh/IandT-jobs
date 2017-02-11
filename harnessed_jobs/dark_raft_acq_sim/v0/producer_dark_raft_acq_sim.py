@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """ Producer script """
-
+import os
 import camera_components
 from simulation.fake_raft import copy_single_sensor_data
 import siteUtils
@@ -8,7 +8,7 @@ import siteUtils
 # These are specific to this test
 TESTTYPE = 'DARK'
 IMGTYPES = ['BIAS', 'DARK']
-PROCESS_NAME_IN = 'vendorIngest'
+PROCESS_NAME_IN = os.environ.get('LCATR_PROCESS_NAME_IN', 'dark_raft_acq')
 PATTERN = '*_dark*.fits'
 OUTPATH = '.'
 RAFT_ID = siteUtils.getUnitId()
