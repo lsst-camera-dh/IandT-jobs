@@ -7,9 +7,9 @@ import siteUtils
 
 job_dir = siteUtils.getJobDir()
 
-shutil.copy(os.path.join(job_dir, 'rebalive_plots.gp'), os.getcwd())
-shutil.copy(os.path.join(job_dir, 'rebalive_plots.sh'), os.getcwd())
-shutil.copy(os.path.join(job_dir, 'plotchans.list'), os.getcwd())
+#shutil.copy(os.path.join(job_dir, 'rebalive_plots.gp'), os.getcwd())
+#shutil.copy(os.path.join(job_dir, 'rebalive_plots.sh'), os.getcwd())
+#shutil.copy(os.path.join(job_dir, 'plotchans.list'), os.getcwd())
 
 results = []
 

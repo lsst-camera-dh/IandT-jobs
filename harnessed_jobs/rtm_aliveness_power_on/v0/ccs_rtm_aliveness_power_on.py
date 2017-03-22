@@ -1,229 +1,176 @@
-###############################################################################
-# REB-PS safe power on
-#
-#
-# author: homer    10/2016
-#
-###############################################################################
+"""
+Power-on aliveness tests script, based on Homer's
+harnessed-jobs/T08/rebalive_power/ccseorebalive_power.py script.
 
-from org.lsst.ccs.scripting import CCS
-from java.lang import Exception
+"""
 import sys
 import time
+import logging
 import subprocess
+import java.lang
+from org.lsst.ccs.scripting import CCS
 
+CCS.setThrowExceptions(True)
 
-CCS.setThrowExceptions(True);
+logging.basicConfig(format="%(message)s", level=logging.INFO, stream=sys.stdout)
+logger = logging.getLogger()
 
-def check_currents(rebid, pwr_chan, reb_chan, low_lim, high_lim, chkreb):
+# @todo: avoid global variables in this function
+def check_currents(rebid, pwr_chan, reb_chan, low_lim, high_lim, chkreb,
+                   logger=logger):
     """
-    Check that PS current levels are within acceptable range.
+    Check that PS current levels are within specified range.
     """
-    command = "getChannelValue REB%d.%s.IaftLDO" % (rebid, pwr_chan)
-    print command
+    reb_channel_name = "REB%d.%s.IaftLDO" % (rebid, pwr_chan)
+    command = "getChannelValue %s" % reb_channel_name
+    logger.debug(command)
     cur_ps = pwrsub.synchCommand(10, command).getResult()
-    print "Retrieved REB PS current %s: %s " % (pwr_chan, cur_ps)
+    logger.info("REB PS: %s = %s", reb_channel_name, cur_ps)
 
-    command = "getChannelValue R00.Reb%d.%s" % (rebid, reb_chan)
-    print command
+    ts8_channel_name = "R00.Reb%d.%s" % (rebid, reb_chan)
+    command = "getChannelValue %s" % ts8_channel_name
+    logger.debug(command)
     cur_reb = ts8sub.synchCommand(10, command).getResult()
-    print "Retrieved REB current %s: %s " % (reb_chan, cur_reb)
-
-    print "verifying that the current is with limits"
-    if chkreb:
-#        stat = "%s: - checking %10.10s : OK - PS value is %8.3f mAmps, REB value is %8.3f mAmps" % (rebname, pwr_chan, cur_ps, cur_reb)
-        stat = "%s: - checking %s : OK - PS value is %s mAmps, REB value is %s mAmps\n" % (rebname, pwr_chan, cur_ps, cur_reb)
-    else:
-#        stat = "%s: - checking %10.10s : OK - PS value is %8.3f mAmps, REB not yet ON" % (rebname, pwr_chan, cur_ps)
-        stat = "%s: - checking %s : OK - PS value is %s mAmps, REB not yet ON" % (rebname, pwr_chan, cur_ps)
-
-        print " ... stat = ", stat
+    logger.info("TS8 Monitor: %s = %s", ts8_channel_name, cur_reb)
 
     if cur_ps < low_lim or cur_ps> high_lim:
-        pwrsub.synchCommand(10, "setNamedPowerOn %d %s False" % (rebid,pwr))
-        stat = "%s: Current %s with value %f mA NOT in range %f mA to %f mA. POWER TO THIS CHANNEL HAS BEEN SHUT OFF!" % (rebname, pwr_chan, cur_ps, low_lim, high_lim)
-        raise Exception(stat)
+        pwrsub.synchCommand(10, "setNamedPowerOn %d %s False" % (rebid, pwr))
+        stat = "%s: %s with value %f mA not within specified range %f mA to %f mA.  Power to this channel has been shut off." % (rebname, reb_channel_name, cur_ps, low_lim, high_lim)
+        raise java.lang.Exception(stat)
 
     if abs(cur_ps) > 0.0 and chkreb:
-        if abs(cur_reb-cur_ps)/cur_ps > 0.10 and abs(cur_reb) > 0.5:
-            stat = "%s: Current %s with value %f differs by > 10%% to current from reb channel %s with value %f!" % (rebname, pwr_chan, cur_ps, reb_chan, cur_reb)
-#            pwrsub.synchCommand(10,"setNamedPowerOn %d %s False" % (rebid,pwr))
-#            stat = "%s: Current %s with value %f differs by > 20%% to current from reb channel %s with value %f. POWER TO THIS CHANNEL HAS BEEN SHUT OFF!" % (rebname,pwr_chan,cur_ps,reb_chan,cur_reb)
-#            raise Exception(stat)
-
-    print stat + "\n"
-    print "*************\n"
+        if abs(cur_reb - cur_ps)/cur_ps > 0.10 and abs(cur_reb) > 0.5:
+            logger.warning("%s value differs by >10%% from %s value.",
+                           reb_channel_name, ts8_channel_name)
+    logger.info("")
     return
 
-class Logger(object):
-    def __init__(self):
-        self.terminal = sys.stdout
-#        self.log = open("%s/rebalive_results.txt" % tsCWD, "a")
-        self.log = sys.stdout
-
-    def write(self, message):
-        self.terminal.write(message+"\n")
-        self.log.write(message + "\n")
-
-    def flush(self):
-        #this flush method is needed for python 3 compatibility.
-        #this handles the flush command by doing nothing.
-        #you might want to specify some extra behavior here.
-        pass
-
-dorun = True
-
-# The following will cause an exception if not run as part of a harnessed job because
-# tsCWD and CCDID will not be defined in that case
 try:
     cdir = tsCWD
     unit = CCDID
-#    sys.stdout = Logger()
-    print "Running as a job harness. Results are being recorded in rebalive_results.txt"
-except Exception as eobj:
-    print str(eobj)
-    print "Running standalone. Statements will be sent to standard output."
+except java.lang.Exception as eobj:
+    logger.debug(str(eobj))
+    logger.info("Running in standalone mode, outside of JH/eT.")
 
-print "start tstamp: %f" % time.time()
+logger.info("start tstamp: %f", time.time())
 
-if not dorun:
-    print "setup for repair ... not running"
-else:
-    # attach CCS subsystem Devices for scripting
-    ts8sub = CCS.attachSubsystem("ts8")
-    pwrsub = CCS.attachSubsystem("ccs-rebps")
-    pwrmainsub = CCS.attachSubsystem("ccs-rebps/MainCtrl")
+ts8sub = CCS.attachSubsystem("ts8")
+pwrsub = CCS.attachSubsystem("ccs-rebps")
+pwrmainsub = CCS.attachSubsystem("ccs-rebps/MainCtrl")
 
-    status_value = True
+result = pwrsub.synchCommand(10, "getChannelNames")
+channames = result.getResult()
+logger.debug(channames)
 
-    result = pwrsub.synchCommand(10, "getChannelNames")
-    channames = result.getResult()
+idmap = []
+# Get desired REBs from command line arguments
+# @todo: refactor this.
+for arg in sys.argv:
+    if ":" in arg:
+        idmap.append(arg)
 
-#    print channames
+if len(idmap) == 0:
+    # Loop over all three REBs.
     rebids = ts8sub.synchCommand(10, "getREBIds").getResult()
+    for rebid in rebids:
+        logger.info("rebid = %s" % rebid)
+        idmap.append("%d:%d" % (int(rebid), int(rebid)))
 
-    idmap = []
+print "Will attempt to power on:"
+for ids in idmap:
+    pwrid = int(ids.split(":")[0])
+    rebid = int(ids.split(":")[1])
+    logger.info("power line %d for REB ID %d", pwrid, rebid)
 
-    print "length = %d" % len(sys.argv)
-    print str(sys.argv)
+# @todo: determine if 0.1 sampling is needed
+#print "setting tick and monitoring period to 0.1s"
+#ts8sub.synchCommand(10, "change tickMillis 100");
+#ts8sub.synchCommand(10, "setTickMillis 100")
 
-    for arg in sys.argv :
-        if ":" in arg :
-            idmap.append(arg)
+power_on_successful = True
+for ids in idmap:
+    pwrid = int(ids.split(":")[0])
+    rebid = int(ids.split(":")[1])
 
-    # check for one by one connectivity jobs
-    if "connectivity0" in jobname:
-        idmap.append("0:0")
-    if "connectivity1" in jobname:
-        idmap.append("1:1")
-    if "connectivity2" in jobname:
-        idmap.append("2:2")
+    i = pwrid
+    rebname = 'REB%d' % i
+    logger.info("*****************************************************")
+    logger.info("Starting power-on procedure for %s (power line %s)",
+                rebname, pwrid)
+    logger.info("*****************************************************")
 
-    # if nothing specified ... do it all
-    if len(idmap) == 0:
-        for rebid in rebids:
-            print "rebid = %s" % rebid
-            idmap.append("%d:%d" % (int(rebid), int(rebid)))
+    # Verify that all power is off to start.
+    pwrsub.synchCommand(20, "setNamedPowerOn %d master False" % i);
 
-    print "Will attempt to power on:"
-    for ids in idmap:
-        pwrid = int(ids.split(":")[0])
-        rebid = int(ids.split(":")[1])
-        print "power line %d for REB ID %d" % (pwrid,rebid)
+    time.sleep(3.0)
 
+    # Attempt to apply the REB power line by line:
+    powers = ['master', 'digital', 'analog', 'clockhi', 'clocklo',
+              'heater', 'od']
+    chkreb = True #False
 
-#    print "setting tick and monitoring period to 0.1s"
-#    ts8sub.synchCommand(10, "change tickMillis 100");
-#    ts8sub.synchCommand(10, "setTickMillis 100")
+    for pwr in powers:
+        if 'clockhi' in pwr:
+            chkreb = True
+# @todo: determine where reboot should really occur
+#            logger.info("Rebooting the RCE after a 5s wait")
+#            time.sleep(5.0)
+#            sout = subprocess.check_output("$HOME/rebootrce.sh", shell=True)
+#            logger.info(sout)
+#            time.sleep(2.0)
+        try:
+            logger.info("%s: turning on %s power at %s", rebname,
+                        pwr, time.ctime().split()[3])
+            pwrsub.synchCommand(10,"setNamedPowerOn %d %s True" % (i, pwr))
+        except java.lang.Exception as eobj:
+            logger.info("%s: failed to turn on current %s!", rebname, pwr)
+            raise eobj
 
-    for ids in idmap[:1]:
-        pwrid = int(ids.split(":")[0])
-        rebid = int(ids.split(":")[1])
+        time.sleep(2)
+        try:
+            if 'digital' in pwr:
+                check_currents(i, "digital", "DigI", 6., 800., chkreb)
+            if 'analog' in pwr:
+                check_currents(i, "analog", "AnaI", 6., 610., chkreb)
+            if 'od' in pwr:
+                check_currents(i, "OD", "ODI", 6., 190., chkreb)
+            if 'clockhi' in pwr:
+                check_currents(i, "clockhi", "ClkHI", 6.0, 300., chkreb)
+            if 'clocklo' in pwr:
+                check_currents(i, "clocklo", "ClkLI", 6., 300., chkreb)
+# @todo: check heater currents?
+        except java.lang.Exception as eobj:
+            logger.info("%s: current check failed for %s", rebname, pwr)
+            logger.info(eobj.message)
+            power_on_successful = False
+            break
 
-        if status_value:
-            i = pwrid
-            rebname = 'REB%d' % i
-            print "****************************************************"
-            print " Starting power ON procedure for REB power line %s and REB %s\n" % (pwrid,rebname)
-            print "****************************************************"
+        time.sleep(2)
 
+    logger.info("Proceed to turn on REB clock and rail voltages")
+#    # load default configuration
+# @todo: fix this
+#    ts8sub.synchCommand(10, "loadCategories Rafts:itl")
+#    ts8sub.synchCommand(10, "loadCategories RaftsLimits:itl")
+#    logger.info("loaded configurations: Rafts:itl")
+    try:
+# @todo: fix this
+#        logger.info("running powerOn %d command", rebid)
+#        result = ts8sub.synchCommand(300, "powerOn %d" % rebid).getResult()
+#        logger.info(str(result))
+        logger.info("------ %s Complete ------\n", rebname)
+    except java.lang.Exception as eobj:
+        logger.info(eobj.message)
+#        print "setting tick and monitoring period to 10s"
+#        ts8sub.synchCommand(10, "change tickMillis 10000");
+#        raise eobj
 
-            # verify that all power is OFF
-            try:
-#                result = pwrsub.synchCommand(10, "setNamedPowerOn", i, "master", False);
-                result = pwrsub.synchCommand(20, "setNamedPowerOn %d master False" % i);
-            except Exception as e:
-                print "%s: FAILED TO TURN POWER OFF! %s" % (rebname, e)
-                raise Exception
+#print "setting tick and monitoring period to 10s"
+#ts8sub.synchCommand(10, "change tickMillis 10000");
 
-            time.sleep(3.0)
+if power_on_successful:
+    logger.info("DONE with successful powering of REBs.")
+else:
+    logger.info("FAILED to turn on all requested REBs")
 
-            pwron = ""
-            # attempt to apply the REB power -- line by line
-            powers = ['master', 'digital', 'analog', 'clockhi', 'clocklo', 'heater', 'od']
-            chkreb = True #False
-
-            for pwr in powers:
-                pwron = pwron + pwr + " "
-                if 'clockhi' in pwr:
-                    chkreb = True
-#                    print "Rebooting the RCE after a 5s wait"
-#                    time.sleep(5.0)
-#                    sout = subprocess.check_output("$HOME/rebootrce.sh", shell=True)
-#                    print sout
-#                    time.sleep(2.0)
-                    continue
-                try:
-                    print "%s: turning on %s power at %s" % (rebname,pwr,time.ctime().split()[3])
-                    pwrsub.synchCommand(10,"setNamedPowerOn %d %s True" % (i,pwr));
-                except:
-                    print "%s: failed to turn on current %s!" % (rebname,pwr)
-                    throw
-
-                time.sleep(2.0)
-                try:
-                    if 'digital' in pwron:
-                        check_currents(i, "digital", "DigI", 6., 800., chkreb)
-                    if 'analog' in pwron:
-                        check_currents(i, "analog", "AnaI", 6., 610., chkreb)
-                    if 'od' in pwron:
-                        check_currents(i, "OD", "ODI", 6., 190., chkreb)
-                    if 'clockhi' in pwron:
-                        check_currents(i, "clockhi", "ClkHI", 6.0, 300., chkreb)
-                    if 'clocklo' in pwron:
-                        check_currents(i, "clocklo", "ClkLI", 6., 300., chkreb)
-##                   check_currents(i,"heater","???",0.100,0.300,chkreb)
-                except Exception as e:
-                    print "%s: CURRENT CHECK FAILED! %s" % (rebname, e)
-                    status_value = False
-                    raise Exception
-
-                time.sleep(2)
-
-            if status_value:
-                print "PROCEED TO TURN ON REB CLOCK AND RAIL VOLTAGES"
-                # load default configuration
-                ts8sub.synchCommand(10, "loadCategories Rafts:itl")
-                ts8sub.synchCommand(10, "loadCategories RaftsLimits:itl")
-                print "loaded configurations: Rafts:itl"
-                try:
-                    print "running powerOn %d command" % rebid
-                    stat = ts8sub.synchCommand(300, "powerOn %d" % rebid).getResult()
-                    print stat
-                    print "------ %s Complete ------\n" % rebname
-                except Exception as e:
-#                    print e
-#                    print "setting tick and monitoring period to 10s"
-#                    ts8sub.synchCommand(10, "change tickMillis 10000");
-                    raise e
-
-#    print "setting tick and monitoring period to 10s"
-#    ts8sub.synchCommand(10, "change tickMillis 10000");
-
-    if status_value:
-        print "DONE with successful powering of"
-        print rebids
-    else:
-        print "FAILED to turn on all requested rebs"
-
-print "stop tstamp: %f" % time.time()
+logger.info("stop tstamp: %f" % time.time())
