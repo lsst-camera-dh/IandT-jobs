@@ -43,7 +43,8 @@ channels = dict(digital=ChannelInfo('REB%d.digital.IaftLDO', 'R00.Reb%d.DigI',
 def check_values(ccs_sub, rebid, pwr, rebps_channel, ts8_mon_chan, low_lim,
                  high_lim, chkreb, logger=logger):
     """
-    Check that PS current levels are within specified range.
+    Check that power supply current (or voltage) levels are within the
+    specified range.
     """
     reb_channel_name = rebps_channel % rebid
     command = "getChannelValue %s" % reb_channel_name
@@ -69,13 +70,11 @@ def check_values(ccs_sub, rebid, pwr, rebps_channel, ts8_mon_chan, low_lim,
                            reb_channel_name, ts8_channel_name)
     logger.info("")
 
-ccs_sub = CcsSubsystems()
-
 logger.info("start tstamp: %f", time.time())
 
-result = ccs_sub.rebps.synchCommand(10, "getChannelNames")
-channames = result.getResult()
-logger.debug(channames)
+ccs_sub = CcsSubsystems()
+
+logger.debug(ccs_sub.rebps.synchCommand(10, "getChannelNames").getResult())
 
 # Map REB IDs and power lines.
 rebids = ccs_sub.ts8.synchCommand(10, "getREBIds").getResult()
@@ -86,18 +85,20 @@ for item in rebids:
     pwrid = rebid
     idmap.append((pwrid, rebid))
 
-print "Will attempt to power on:"
+logger.info("Will attempt to power on:")
 for pwrid, rebid in idmap:
     logger.info("power line %d for REB ID %d", pwrid, rebid)
 
-print "Setting tick and monitoring period to 0.1s"
+logger.info("Setting tick and monitoring period to 0.1s.")
 ccs_sub.ts8.synchCommand(10, "change monitor-update taskPeriodMillis 100")
 #ccs_sub.rebps.synchCommand(10, "setUpdatePeriod 100")
 
 # Ensure that power is off to all three REBs before proceeding with
 # the power-on sequences.
 for pwrid, rebid in idmap:
-    ccs_sub.rebps.synchCommand(20, "setNamedPowerOn %d master False" % pwrid);
+    command = "setNamedPowerOn %d master False" % pwrid
+    logger.debug(command)
+    ccs_sub.rebps.synchCommand(20, command)
 time.sleep(3)
 
 # This is the order to power on the various REB lines.
@@ -159,7 +160,7 @@ for pwrid, rebid in idmap:
         logger.info(eobj.message)
         raise eobj
     finally:
-        print "Re-setting tick and monitoring period to 10s"
+        logger.info("Re-setting tick and monitoring period to 10s.")
         ccs_sub.ts8.synchCommand(10, "change monitor-update taskPeriodMillis 10000")
 
 if power_on_ok:
