@@ -43,7 +43,7 @@ def power_off_rebs(lines=(0, 1, 2)):
         logger.debug(command)
         ccs_sub.rebps.synchCommand(10, command)
 
-def map_power_lines_to_rebs(ccs_sub, ntries=5, wait_between_tries=1,
+def map_power_lines_to_rebs(ccs_sub, ntries=10, wait_between_tries=3,
                             num_lines=3):
     """
     Map power lines to REBs by powering on one at a time for each REB
@@ -70,14 +70,16 @@ def map_power_lines_to_rebs(ccs_sub, ntries=5, wait_between_tries=1,
                                            % (line, name))
                 time.sleep(0.5)
             for i in range(ntries):
+                logger.debug("%s, try %i", rebname, i)
                 try:
                     ccs_sub.ts8.synchCommand(10, 'readRegister %s 1' % rebname)
                     power_line = line
+                    logger.debug("%s: %i", rebname, power_line)
                     break
                 except java.lang.Exception:
                     time.sleep(wait_between_tries)
-             power_off_rebs(lines=(line,))
-             line += 1
+            power_off_rebs(lines=(line,))
+            line += 1
         if power_line is None:
             raise java.lang.Exception("Could not read register of %s."
                                       % rebname)
@@ -119,7 +121,7 @@ logger.info("start tstamp: %f", time.time())
 ccs_sub = CcsSubsystems()
 
 logger.info("Mapping power supply lines to REBs...")
-power_lines = map_power_lines_to_rebs()
+power_lines = map_power_lines_to_rebs(ccs_sub)
 
 logger.info("will attempt to power on and check currents for")
 for rebid, power_line in power_lines.items():
@@ -151,9 +153,6 @@ for rebid, power_line in power_lines.items():
         except java.lang.Exception as eobj:
             logger.info("%s: failed to turn on current %s!", rebname, name)
             raise eobj
-        finally:
-            logger.info("Turning off all REBs.")
-            power_off_rebs(power_lines.values())
 
         time.sleep(10)
         # Checking the channel values here...
@@ -165,9 +164,6 @@ for rebid, power_line in power_lines.items():
             logger.info(eobj.message)
             power_on_ok = False
             break
-        finally:
-            logger.info("Turning off all REBs.")
-            power_off_rebs(power_lines.values())
 
         time.sleep(2)
 
@@ -175,9 +171,9 @@ for rebid, power_line in power_lines.items():
     # load default configuration
     # @todo: Make sure etc folder has correct properities files for
     # these configurations.
-    ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:itl")
-    ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:itl")
-    logger.info("loaded configurations: Rafts:itl")
+#    ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:itl")
+#    ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:itl")
+#    logger.info("loaded configurations: Rafts:itl")
     try:
 # @todo: fix this
 #        command = "powerOn %d" % rebid
