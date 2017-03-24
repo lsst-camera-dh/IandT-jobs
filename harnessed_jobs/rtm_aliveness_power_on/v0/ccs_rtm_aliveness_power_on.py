@@ -29,30 +29,74 @@ class CcsSubsystems(object):
 ChannelInfo = namedtuple('ChannelInfo', ['reb_ps_channel', 'ts8_mon_chan',
                                          'low_lim', 'high_lim', 'chkreb'])
 
-channels = dict(digital=ChannelInfo('REB%d.digital.IaftLDO', 'R00.Reb%d.DigI',
-                                    6., 800., False),
-                analog=ChannelInfo('REB%d.analog.IaftLDO', 'R00.Reb%d.AnaI',
-                                   6., 610., False),
-                clockhi=ChannelInfo('REB%d.clockhi.IaftLDO', 'R00.Reb%d.ClkHI',
-                                    6., 300., True),
-                clocklo=ChannelInfo('REB%d.clocklo.IaftLDO', 'R00.Reb%d.ClkLI',
-                                    6., 300., True),
-                od=ChannelInfo('REB%d.OD.IaftLDO', 'R00.Reb%d.ODI',
-                               6., 190., True))
+# @todo: Read channels to test and their limits from a configuration file.
+channel = dict(digital=ChannelInfo('digital.IaftLDO', 'DigI', 6., 800., False),
+               analog=ChannelInfo('analog.IaftLDO', 'AnaI', 6., 610., False),
+               clockhi=ChannelInfo('clockhi.IaftLDO', 'ClkHI', 6., 300., True),
+               clocklo=ChannelInfo('clocklo.IaftLDO', 'ClkLI', 6., 300., True),
+               od=ChannelInfo('OD.IaftLDO', 'ODI', 6., 190., True))
 
-def check_values(ccs_sub, rebid, pwr, rebps_channel, ts8_mon_chan, low_lim,
+def power_off_rebs(lines=(0, 1, 2)):
+    # Power-off the requested REBs via the specified power-lines.
+    for power_line in lines:
+        command = "setNamedPowerOn %d master False" % power_line
+        logger.debug(command)
+        ccs_sub.rebps.synchCommand(10, command)
+
+def map_power_lines_to_rebs(ccs_sub, ntries=5, wait_between_tries=1,
+                            num_lines=3):
+    """
+    Map power lines to REBs by powering on one at a time for each REB
+    and trying to read the 1-wire ID register.  This function will
+    leave the REBs in a powered-off state.
+    """
+    rebids = ccs_sub.ts8.synchCommand(10, "getREBIds").getResult()
+    rebnames = ccs_sub.ts8.synchCommand(10, "getREBDeviceNames").getResult()
+
+    # Ensure that all of the power-lines to the REBs are off to start.
+    power_off_rebs()
+
+    # Loop over each REB to find the line it uses.
+    power_lines = {}
+    for rebid, rebname in zip(rebids, rebnames):
+        line = 0
+        power_line = None
+        while power_line is None and line < num_lines:
+            if line in power_lines.values():
+                line += 1
+                continue
+            for name in 'master digital analog'.split():
+                ccs_sub.rebps.synchCommand(10, 'setNamedPowerOn %d %s True'
+                                           % (line, name))
+                time.sleep(0.5)
+            for i in range(ntries):
+                try:
+                    ccs_sub.ts8.synchCommand(10, 'readRegister %s 1' % rebname)
+                    power_line = line
+                    break
+                except java.lang.Exception:
+                    time.sleep(wait_between_tries)
+             power_off_rebs(lines=(line,))
+             line += 1
+        if power_line is None:
+            raise java.lang.Exception("Could not read register of %s."
+                                      % rebname)
+        power_lines[rebid] = power_line
+    return power_lines
+
+def check_values(ccs_sub, rebid, name, rebps_channel, ts8_mon_chan, low_lim,
                  high_lim, chkreb, logger=logger):
     """
     Check that power supply current (or voltage) levels are within the
     specified range.
     """
-    reb_channel_name = rebps_channel % rebid
+    reb_channel_name = 'REB%d.%s' % (rebid, rebps_channel)
     command = "getChannelValue %s" % reb_channel_name
     logger.debug(command)
     cur_ps = ccs_sub.rebps.synchCommand(10, command).getResult()
     logger.info("REB PS: %s = %s", reb_channel_name, cur_ps)
 
-    ts8_channel_name = ts8_mon_chan % rebid
+    ts8_channel_name ='R00.Reb%d.%s' % (rebid, ts8_mon_chan)
     command = "getChannelValue %s" % ts8_channel_name
     logger.debug(command)
     cur_reb = ccs_sub.ts8.synchCommand(10, command).getResult()
@@ -60,7 +104,7 @@ def check_values(ccs_sub, rebid, pwr, rebps_channel, ts8_mon_chan, low_lim,
 
     if cur_ps < low_lim or cur_ps > high_lim:
         ccs_sub.rebps.synchCommand(10, "setNamedPowerOn %d %s False"
-                                   % (rebid, pwr))
+                                   % (rebid, name))
         stat = "%s: %s with value %f mA not within specified range %f mA to %f mA.  Power to this channel has been shut off." % (rebname, reb_channel_name, cur_ps, low_lim, high_lim)
         raise java.lang.Exception(stat)
 
@@ -74,71 +118,56 @@ logger.info("start tstamp: %f", time.time())
 
 ccs_sub = CcsSubsystems()
 
-logger.debug(ccs_sub.rebps.synchCommand(10, "getChannelNames").getResult())
+logger.info("Mapping power supply lines to REBs...")
+power_lines = map_power_lines_to_rebs()
 
-# Map REB IDs and power lines.
-rebids = ccs_sub.ts8.synchCommand(10, "getREBIds").getResult()
-idmap = []
-for item in rebids:
-    rebid = int(item)
-    # For now, just assume power line = REB ID.
-    pwrid = rebid
-    idmap.append((pwrid, rebid))
+logger.info("will attempt to power on and check currents for")
+for rebid, power_line in power_lines.items():
+    logger.info("  power line %d for REB ID %d", power_line, rebid)
 
-logger.info("Will attempt to power on:")
-for pwrid, rebid in idmap:
-    logger.info("power line %d for REB ID %d", pwrid, rebid)
-
-logger.info("Setting tick and monitoring period to 0.1s.")
+logger.info("Setting tick and monitoring period to 0.1s for trending plots.")
 ccs_sub.ts8.synchCommand(10, "change monitor-update taskPeriodMillis 100")
-#ccs_sub.rebps.synchCommand(10, "setUpdatePeriod 100")
 
-# Ensure that power is off to all three REBs before proceeding with
-# the power-on sequences.
-for pwrid, rebid in idmap:
-    command = "setNamedPowerOn %d master False" % pwrid
-    logger.debug(command)
-    ccs_sub.rebps.synchCommand(20, command)
 time.sleep(3)
 
-# This is the order to power on the various REB lines.
-power_on_list = ['master', 'digital', 'analog',
-                 'clockhi', 'clocklo', 'heater', 'od']
+# This is the order to power on the various named REB lines.
+named_lines = ('master', 'digital', 'analog', 'clockhi', 'clocklo',
+               'heater', 'od')
 
 power_on_ok = True
-for pwrid, rebid in idmap:
+for rebid, power_line in power_lines.items():
     rebname = 'REB%d' % rebid
     logger.info("*****************************************************")
     logger.info("Starting power-on procedure for %s (power line %s)",
-                rebname, pwrid)
+                rebname, power_line)
     logger.info("*****************************************************")
 
-    for pwr in power_on_list:
-        if 'clockhi' in pwr:
-            pass
-#            logger.info("Rebooting the RCE after a 5s wait")
-#            time.sleep(5.0)
-#            sout = subprocess.check_output("$HOME/rebootrce.sh", shell=True)
-#            logger.info(sout)
-#            time.sleep(2.0)
+    for name in named_lines:
         try:
             logger.info("%s: turning on %s power at %s", rebname,
-                        pwr, time.ctime().split()[3])
+                        name, time.ctime().split()[3])
             ccs_sub.rebps.synchCommand(10, "setNamedPowerOn %d %s True"
-                                       % (pwrid, pwr))
+                                       % (power_line, name))
         except java.lang.Exception as eobj:
-            logger.info("%s: failed to turn on current %s!", rebname, pwr)
+            logger.info("%s: failed to turn on current %s!", rebname, name)
             raise eobj
+        finally:
+            logger.info("Turning off all REBs.")
+            power_off_rebs(power_lines.values())
 
         time.sleep(10)
+        # Checking the channel values here...
         try:
-            if pwr in channels:
-                check_values(ccs_sub, rebid, pwr, *channels[pwr])
+            if name in channel:
+                check_values(ccs_sub, rebid, name, *channel[name])
         except java.lang.Exception as eobj:
-            logger.info("%s: current check failed for %s", rebname, pwr)
+            logger.info("%s: current check failed for %s", rebname, name)
             logger.info(eobj.message)
             power_on_ok = False
             break
+        finally:
+            logger.info("Turning off all REBs.")
+            power_off_rebs(power_lines.values())
 
         time.sleep(2)
 
