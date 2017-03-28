@@ -171,22 +171,24 @@ for rebid, power_line in power_lines.items():
     # load default configuration
     # @todo: Make sure etc folder has correct properities files for
     # these configurations.
-#    ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:itl")
-#    ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:itl")
-#    logger.info("loaded configurations: Rafts:itl")
+    ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:itl")
+    ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:itl")
+    logger.info("loaded configurations: Rafts:itl")
     try:
 # @todo: fix this
-#        command = "powerOn %d" % rebid
-#        logger.info("running %s", command)
-#        result = ccs_sub.ts8.synchCommand(300, command).getResult()
-#        logger.info(str(result))
+        command = "powerOn %d" % rebid
+        logger.info("running %s", command)
+        result = ccs_sub.ts8.synchCommand(300, command).getResult()
+        logger.info(str(result))
         logger.info("------ %s Complete ------\n", rebname)
     except java.lang.Exception as eobj:
         logger.info(eobj.message)
-        raise eobj
-    finally:
         logger.info("Re-setting tick and monitoring period to 10s.")
         ccs_sub.ts8.synchCommand(10, "change monitor-update taskPeriodMillis 10000")
+        raise eobj
+
+logger.info("Re-setting tick and monitoring period to 10s.")
+ccs_sub.ts8.synchCommand(10, "change monitor-update taskPeriodMillis 10000")
 
 if power_on_ok:
     logger.info("DONE with successful powering of REBs.")
