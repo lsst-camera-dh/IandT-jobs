@@ -11,7 +11,7 @@ import logging
 import subprocess
 from org.lsst.ccs.scripting import *
 import java.lang
-#import eolib
+import eolib
 
 CCS.setThrowExceptions(True);
 
@@ -28,9 +28,6 @@ class CcsSubsystems(object):
         for key, value in subsystems.items():
             self.__dict__[key] = CCS.attachSubsystem(value)
 
-#for item in sys.path:
-#    logger.info(item)
-
 ccs_sub = CcsSubsystems(subsystems=dict(ts8='ts8',
                                         rebps='ccs-rebps',
                                         ts='ts',
@@ -38,18 +35,18 @@ ccs_sub = CcsSubsystems(subsystems=dict(ts8='ts8',
                                         pd='ts/PhotoDiode',
                                         mono='ts/Monochromator'))
 
-wl = 500.
-for itry in range(3):
-    try:
-        rwl = ccs_sub.mono.synchCommand(60, "setWaveAndFilter %f" % wl).getResult()
-        logger.info("rwl = %s", rwl)
-        ccs_sub.ts8.synchCommand(10, "setHeader MonochromatorWavelength %s"
-                                 % rwl)
-        ccs_sub.mono.synchCommand(900, "openShutter")
-        break
-    except java.lang.Exception:
-        time.sleep(0.5)
-        raise java.lang.Exception("Failed to set monochromator wavelength.")
+#wl = 500.
+#for itry in range(3):
+#    try:
+#        rwl = ccs_sub.mono.synchCommand(60, "setWaveAndFilter %f" % wl).getResult()
+#        logger.info("rwl = %s", rwl)
+#        ccs_sub.ts8.synchCommand(10, "setHeader MonochromatorWavelength %s"
+#                                 % rwl)
+#        ccs_sub.mono.synchCommand(900, "openShutter")
+#        break
+#    except java.lang.Exception:
+#        time.sleep(0.5)
+#        raise java.lang.Exception("Failed to set monochromator wavelength.")
 
 # Verify data link.
 rebs = ""
@@ -120,25 +117,6 @@ command = 'exposeAcquireAndSave 100 True False ""'
 logger.info(command)
 logger.info(ccs_sub.ts8.synchCommand(1500, command).getResult())
 
-#14. Execute a zero-second exposure and readout sequence. Start a timer when the close shutter command executes.
-#
-#    ts8sub.synchCommand(10,"setDefaultImageDirectory","%s" % (cdir));
-#
-#    if (True) :
-#
-#
-#        seqcmnd = "setSequencerStart Clear"
-#        print ts8sub.synchCommand(10,seqcmnd).getResult();
-#        for iclear in range(10):
-#            seqcmnd = "startSequencer"
-#            print "seqcmnd = (%s)" % seqcmnd
-#            print ts8sub.synchCommand(10,seqcmnd).getResult();
-#
-#        expcmnd1 = 'exposeAcquireAndSave 100 True False ""'
-#
-#        print "PRE-exposure command: expcmnd1 = ",expcmnd1
-#        print ts8sub.synchCommand(1500,expcmnd1).getResult() 
-#
 #
 ## <LSST CCD SN>_<test type>_<image type>_<seq. info>_<time stamp>.fits
 #
@@ -204,42 +182,3 @@ logger.info(ccs_sub.ts8.synchCommand(1500, command).getResult())
 #
 #
 #print "rebalive_functionalty test END"
-#
-#
-################################################################################               
-## EOgetCCSVersions: getCCSVersions                                                            
-#def TS8getCCSVersions(ts8sub,cdir):
-#    result = ts8sub.synchCommand(10,"getCCSVersions");
-#    ccsversions = result.getResult()
-#    ccsvfiles = open("%s/ccsversion" % cdir,"w");
-#    ccsvfiles.write("%s" % ccsversions)
-#    ccsvfiles.close()
-#
-#    ssys = ""
-#
-#    ts8_version = ""
-#    ccsrebps_version = ""
-#    ts8_revision = ""
-#    ccsrebps_revision = ""
-#    for line in str(ccsversions).split("\t"):
-#        tokens = line.split()
-#        if (len(tokens)>2) :
-#            if ("ts8" in tokens[2]) :
-#                ssys = "ts8"
-#            if ("ccs-rebps" in tokens[2]) :
-#                ssys = "ccs-rebps"
-#            if (tokens[1] == "Version:") :
-#                print "%s - version = %s" % (ssys,tokens[2])
-#                if (ssys == "ts8") :
-#                    ts8_version = tokens[2]
-#                if (ssys == "ccs-rebps") :
-#                    ccsrebps_version = tokens[2]
-#            if (len(tokens)>3) :
-#                if (tokens[2] == "Rev:") :
-#                    print "%s - revision = %s" % (ssys,tokens[3])
-#                    if (ssys == "ts8") :
-#                        ts8_revision = tokens[3]
-#                    if (ssys == "ccs-rebps") :
-#                        ccsrebps_revision = tokens[3]
-#
-#    return(ts8_version,ccsrebps_version,ts8_revision,ccsrebps_revision)
