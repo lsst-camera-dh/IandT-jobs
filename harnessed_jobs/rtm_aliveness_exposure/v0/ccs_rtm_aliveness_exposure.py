@@ -3,12 +3,10 @@ Exposure aliveness tests script, based on Homer's
 harnessed-jobs/T08/rebalive_exposure/ccseorebalive_exposure.py script.
 """
 import sys
-import time
 import logging
 from org.lsst.ccs.scripting import *
-import java.lang
 
-CCS.setThrowExceptions(True);
+CCS.setThrowExceptions(True)
 
 logging.basicConfig(format="%(message)s",
                     level=logging.INFO,
@@ -21,22 +19,6 @@ class CcsSubsystems(object):
             subsystems = dict(ts8='ts8', rebps='ccs-rebps')
         for key, value in subsystems.items():
             self.__dict__[key] = CCS.attachSubsystem(value)
-
-def setup_monochromator(ccs_sub, wl=500, logger=logger):
-    logger.info("Setting up monochromator:")
-
-    command = "setWaveAndFilter %f" % wl
-    logger.info(command)
-    rwl = ccs_sub.mono.synchCommand(60, command).getResult()
-    logger.info("read wavelength = %s", rwl)
-
-    if rwl <= 0:  # Need to check that this is the right test for success.
-        raise java.lang.Exception("Failed to set monochromator wavelength.")
-
-    command = "setHeader MonochromatorWavelength %s" % rwl)
-    logger.info(command)
-    ccs_sub.ts8.synchCommand(10, command)
-    ccs_sub.mono.synchCommand(900, "openShutter")
 
 def verify_rebs(ccs_sub, logger=logger):
     rebs = ccs_sub.ts8.synchCommand(10, "getREBDeviceNames").getResult()
@@ -66,10 +48,7 @@ def setup_sequencer(ccs_sub, sequence_file=sequence_file, nclears=10,
     logger.info(ccs_sub.ts8.synchCommand(1500, command).getResult())
 
 if __name__ == '__main__':
-    ccs_sub = CcsSubsystems(subsystems=dict(ts8='ts8',
-                                            mono='ts/Monochromator'))
-
-    setup_monochromator(ccs_sub, wl=500)
+    ccs_sub = CcsSubsystems(subsystems=dict(ts8='ts8'))
 
     verify_rebs(ccs_sub)
 
@@ -92,6 +71,8 @@ if __name__ == '__main__':
     for image_type, exptime, flag1, flag2 in \
         zip(image_types, exptimes, flag1_vals, flag2_vals):
         ccs_sub.ts8.synchCommand(10, "setImageType %s" % image_type)
-        ccs_sub.ts8.synchCommand(100, "exposeAcquireAndSave", exptime,
-                                 flag1, flag2, filename_format)
+        command = 'exposeAcquireAndSave %i %s %s "%s"' % \
+                  (exptime, flag1, flag2, filename_format)
+        logger.info(command)
+        ccs_sub.ts8.synchCommand(100, command)
         logger.info("%s taken with exptime %i ms", image_type, exptime)
