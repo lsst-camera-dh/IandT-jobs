@@ -116,83 +116,86 @@ def check_values(ccs_sub, rebid, name, rebps_channel, ts8_mon_chan, low_lim,
                            reb_channel_name, ts8_channel_name)
     logger.info("")
 
-logger.info("start tstamp: %f", time.time())
+if __name__ == '__main__':
+    logger.info("start tstamp: %f", time.time())
 
-ccs_sub = CcsSubsystems()
+    ccs_sub = CcsSubsystems()
 
-logger.info("Mapping power supply lines to REBs...")
-power_lines = map_power_lines_to_rebs(ccs_sub)
+    logger.info("Mapping power supply lines to REBs...")
+    power_lines = map_power_lines_to_rebs(ccs_sub)
 
-logger.info("will attempt to power on and check currents for")
-for rebid, power_line in power_lines.items():
-    logger.info("  power line %d for REB ID %d", power_line, rebid)
+    logger.info("will attempt to power on and check currents for")
+    for rebid, power_line in power_lines.items():
+        logger.info("  power line %d for REB ID %d", power_line, rebid)
 
-logger.info("Setting tick and monitoring period to 0.1s for trending plots.")
-ccs_sub.ts8.synchCommand(10, "change monitor-update taskPeriodMillis 100")
+    logger.info("Setting tick and monitoring period to 0.1s for trending plots.")
+    ccs_sub.ts8.synchCommand(10, "change monitor-update taskPeriodMillis 100")
 
-time.sleep(3)
+    time.sleep(3)
 
-# This is the order to power on the various named REB lines.
-named_lines = ('master', 'digital', 'analog', 'clockhi', 'clocklo',
-               'heater', 'od')
+    # This is the order to power on the various channels.
+    named_lines = ('master', 'digital', 'analog', 'clockhi', 'clocklo',
+                   'heater', 'od')
 
-power_on_ok = True
-for rebid, power_line in power_lines.items():
-    rebname = 'REB%d' % rebid
-    logger.info("*****************************************************")
-    logger.info("Starting power-on procedure for %s (power line %s)",
-                rebname, power_line)
-    logger.info("*****************************************************")
+    power_on_ok = True
+    for rebid, power_line in power_lines.items():
+        rebname = 'REB%d' % rebid
+        logger.info("*****************************************************")
+        logger.info("Starting power-on procedure for %s (power line %s)",
+                    rebname, power_line)
+        logger.info("*****************************************************")
 
-    for name in named_lines:
+        for name in named_lines:
+            try:
+                logger.info("%s: turning on %s power at %s", rebname,
+                            name, time.ctime().split()[3])
+                ccs_sub.rebps.synchCommand(10, "setNamedPowerOn %d %s True"
+                                           % (power_line, name))
+            except java.lang.Exception as eobj:
+                logger.info("%s: failed to turn on current %s!", rebname, name)
+                raise eobj
+
+            # Allow current to settle after powering on.
+            time.sleep(10)
+
+            # Check the channel values:
+            try:
+                if name in channel:
+                    check_values(ccs_sub, rebid, name, *channel[name])
+            except java.lang.Exception as eobj:
+                logger.info("%s: current check failed for %s",
+                            rebname, name)
+                logger.info(eobj.message)
+                power_on_ok = False
+                break
+
+            time.sleep(2)
+
+        logger.info("Turn on REB clock and rail voltages.")
+        # load default configuration
+        # @todo: Make sure etc folder has correct properities files for
+        # these configurations.
+        # @todo: Generalize for ITL vs e2v sensors.
+        ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:itl")
+        ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:itl")
+        logger.info("loaded configurations: Rafts:itl")
         try:
-            logger.info("%s: turning on %s power at %s", rebname,
-                        name, time.ctime().split()[3])
-            ccs_sub.rebps.synchCommand(10, "setNamedPowerOn %d %s True"
-                                       % (power_line, name))
+            command = "powerOn %d" % rebid
+            logger.info(command)
+            logger.info(ccs_sub.ts8.synchCommand(300, command).getResult())
+            logger.info("------ %s power-on complete ------\n", rebname)
         except java.lang.Exception as eobj:
-            logger.info("%s: failed to turn on current %s!", rebname, name)
+            logger.info(eobj.message)
+            logger.info("Re-setting tick and monitoring period to 10s.")
+            ccs_sub.ts8.synchCommand(10, "change monitor-update taskPeriodMillis 10000")
             raise eobj
 
-        time.sleep(10)
-        # Checking the channel values here...
-        try:
-            if name in channel:
-                check_values(ccs_sub, rebid, name, *channel[name])
-        except java.lang.Exception as eobj:
-            logger.info("%s: current check failed for %s", rebname, name)
-            logger.info(eobj.message)
-            power_on_ok = False
-            break
+    logger.info("Re-setting tick and monitoring period to 10s.")
+    ccs_sub.ts8.synchCommand(10, "change monitor-update taskPeriodMillis 10000")
 
-        time.sleep(2)
+    if power_on_ok:
+        logger.info("DONE with successful powering of REBs.")
+    else:
+        logger.info("FAILED to turn on all requested REBs")
 
-    logger.info("Proceed to turn on REB clock and rail voltages")
-    # load default configuration
-    # @todo: Make sure etc folder has correct properities files for
-    # these configurations.
-    ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:itl")
-    ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:itl")
-    logger.info("loaded configurations: Rafts:itl")
-    try:
-# @todo: fix this
-        command = "powerOn %d" % rebid
-        logger.info("running %s", command)
-        result = ccs_sub.ts8.synchCommand(300, command).getResult()
-        logger.info(str(result))
-        logger.info("------ %s Complete ------\n", rebname)
-    except java.lang.Exception as eobj:
-        logger.info(eobj.message)
-        logger.info("Re-setting tick and monitoring period to 10s.")
-        ccs_sub.ts8.synchCommand(10, "change monitor-update taskPeriodMillis 10000")
-        raise eobj
-
-logger.info("Re-setting tick and monitoring period to 10s.")
-ccs_sub.ts8.synchCommand(10, "change monitor-update taskPeriodMillis 10000")
-
-if power_on_ok:
-    logger.info("DONE with successful powering of REBs.")
-else:
-    logger.info("FAILED to turn on all requested REBs")
-
-logger.info("stop tstamp: %f" % time.time())
+    logger.info("stop tstamp: %f" % time.time())
