@@ -2,22 +2,16 @@
 Exposure aliveness tests script, based on Homer's
 harnessed-jobs/T08/rebalive_exposure/ccseorebalive_exposure.py script.
 """
-import os
-import stat
 import sys
 import time
-import shutil
 import logging
-import subprocess
 from org.lsst.ccs.scripting import *
 import java.lang
-import eolib
 
 CCS.setThrowExceptions(True);
 
 logging.basicConfig(format="%(message)s",
-                    level=logging.DEBUG,
-#                    level=logging.INFO,
+                    level=logging.INFO,
                     stream=sys.stdout)
 logger = logging.getLogger()
 
@@ -28,157 +22,76 @@ class CcsSubsystems(object):
         for key, value in subsystems.items():
             self.__dict__[key] = CCS.attachSubsystem(value)
 
-ccs_sub = CcsSubsystems(subsystems=dict(ts8='ts8',
-                                        rebps='ccs-rebps',
-                                        ts='ts',
-                                        bias='ts/Bias',
-                                        pd='ts/PhotoDiode',
-                                        mono='ts/Monochromator'))
+def setup_monochromator(ccs_sub, wl=500, logger=logger):
+    logger.info("Setting up monochromator:")
 
-#wl = 500.
-#for itry in range(3):
-#    try:
-#        rwl = ccs_sub.mono.synchCommand(60, "setWaveAndFilter %f" % wl).getResult()
-#        logger.info("rwl = %s", rwl)
-#        ccs_sub.ts8.synchCommand(10, "setHeader MonochromatorWavelength %s"
-#                                 % rwl)
-#        ccs_sub.mono.synchCommand(900, "openShutter")
-#        break
-#    except java.lang.Exception:
-#        time.sleep(0.5)
-#        raise java.lang.Exception("Failed to set monochromator wavelength.")
+    command = "setWaveAndFilter %f" % wl
+    logger.info(command)
+    rwl = ccs_sub.mono.synchCommand(60, command).getResult()
+    logger.info("read wavelength = %s", rwl)
 
-# Verify data link.
-rebs = ""
-pstep = 1
-istep = 1
-test_name = "Step%d_REB_devices" % pstep
-logger.info(test_name)
-rebs = ccs_sub.ts8.synchCommand(10, "getREBDeviceNames").getResult()
-logger.info("# REBs found %i:", len(rebs))
-for reb in rebs:
-    logger.info("%s", reb)
+    if rwl <= 0:  # Need to check that this is the right test for success.
+        raise java.lang.Exception("Failed to set monochromator wavelength.")
 
-ccdnames = {}
-ccdmanunames = {}
-try:
-    ccdnames["00"] = CCDS00
-    ccdmanunames["00"] = CCDMANUS00
-    ccdnames["01"] = CCDS01
-    ccdmanunames["01"] = CCDMANUS01
-    ccdnames["02"] = CCDS02
-    ccdmanunames["02"] = CCDMANUS02
-except:
-    pass
-try:
-    ccdnames["10"] = CCDS10
-    ccdmanunames["10"] = CCDMANUS10
-    ccdnames["11"] = CCDS11
-    ccdmanunames["11"] = CCDMANUS11
-    ccdnames["12"] = CCDS12
-    ccdmanunames["12"] = CCDMANUS12
-except:
-    pass
-try:
-    ccdnames["20"] = CCDS20
-    ccdmanunames["20"] = CCDMANUS20
-    ccdnames["21"] = CCDS21
-    ccdmanunames["21"] = CCDMANUS21
-    ccdnames["22"] = CCDS22
-    ccdmanunames["22"] = CCDMANUS22
-except:
-    pass
+    command = "setHeader MonochromatorWavelength %s" % rwl)
+    logger.info(command)
+    ccs_sub.ts8.synchCommand(10, command)
+    ccs_sub.mono.synchCommand(900, "openShutter")
 
-for key, value in ccdnames.items():
-    logger.info("%s: %s", key, value)
+def verify_rebs(ccs_sub, logger=logger):
+    rebs = ccs_sub.ts8.synchCommand(10, "getREBDeviceNames").getResult()
+    logger.info("# REBs found %i:", len(rebs))
+    for reb in rebs:
+        logger.info("  %s", reb)
 
-rafttype = "ITL"
-raft = UNITID
+def setup_sequencer(ccs_sub, sequence_file=sequence_file, nclears=10,
+                    logger=logger):
+    logger.info("Set up the sequencer and execute a zero-second exposure:")
 
-logger.info("image directory: %s", tsCWD)
+    command = "loadSequencer %s" % sequence_file
+    logger.info(command)
+    logger.info(ccs_sub.ts8.synchCommand(90, command).getResult())
 
-sequence_file = '/lsst/ccs/prod/seq/' + os.path.basename(sequence_file)
-logger.info("loading sequencer file: %s", sequence_file)
-#ccs_sub.ts8.synchCommand(90, "loadSequencer %s"
-#                         % os.path.basename(sequence_file))
-ccs_sub.ts8.synchCommand(90, "loadSequencer %s" % sequence_file)
+    command = "setSequencerStart Clear"
+    logger.info(command)
+    logger.info(ccs_sub.ts8.synchCommand(10, command).getResult())
 
-ccs_sub.ts8.synchCommand(10, "setDefaultImageDirectory %s" % tsCWD)
+    command = "startSequencer"
+    for iclear in range(nclears):
+        logger.info("%i %s", iclear, command)
+        logger.info(ccs_sub.ts8.synchCommand(10, command).getResult())
 
-command = "setSequencerStart Clear"
-logger.debug(command)
-ccs_sub.ts8.synchCommand(10, command).getResult()
+    command = 'exposeAcquireAndSave 100 True False ""'
+    logger.info(command)
+    logger.info(ccs_sub.ts8.synchCommand(1500, command).getResult())
 
-command = "startSequencer"
-logger.debug(command)
-logger.info(ccs_sub.ts8.synchCommand(10, command).getResult())
+if __name__ == '__main__':
+    ccs_sub = CcsSubsystems(subsystems=dict(ts8='ts8',
+                                            mono='ts/Monochromator'))
 
-command = 'exposeAcquireAndSave 100 True False ""'
-logger.info(command)
-logger.info(ccs_sub.ts8.synchCommand(1500, command).getResult())
+    setup_monochromator(ccs_sub, wl=500)
 
-#
-## <LSST CCD SN>_<test type>_<image type>_<seq. info>_<time stamp>.fits
-#
-##        fitsfilename = "s${sensorLoc}_r${raftLoc}_${test_type}_${image_type}_${seq_info}_${timestamp}.fits"
-#
-##        print "fitsfilename = %s" % fitsfilename
-#
-#        ts8sub.synchCommand(10,"setTestStand","TS6")
-#        ts8sub.synchCommand(10,"setTestType","FE55")
-#
-#        raft = CCDID
-##        ts8sub.synchCommand(10,"setRaftLoc",str(raft))
-#
-#        exptime=0.0
-#
-#        tm_start = time.time()
-#        print "Ready to take image with exptime = %f at time = %f" % (0,tm_start)
-#
-#        ts8sub.synchCommand(10,"setTestType CONN")
-#        ts8sub.synchCommand(10,"setImageType BIAS")
-#
-## <CCD id>_<test type>_<image type>_<seq. #>_<run_ID>_<time stamp>.fits
-#        rply = ts8sub.synchCommand(700,"exposeAcquireAndSave",100,False,False,"${sensorLoc}_${sensorId}_${test_type}_${image_type}_${seq_info}_${timestamp}.fits").getResult()
-#
-#        tm_end = time.time()
-#        print "done taking image with exptime = %f at time = %f" % (0,tm_end)
-#        
-#        istep = istep + 1
-#        rebid = "raft"
-#        fp.write("%s| %s \n" % ("Step%d_%s_bias_exposure_t_start" % (istep,rebid),tm_start));
-#        fp.write("%s| %s \n" % ("Step%d_%s_bias_exposure_t_end" % (istep,rebid),tm_end));
-#
-#
-#        ts8sub.synchCommand(10,"setTestType CONN")
-#        ts8sub.synchCommand(10,"setImageType FLAT")
-#
-#        exptime=1.000
-#        print "Doing 1000ms flat exposure"
-#
-#        rply = ts8sub.synchCommand(120,"exposeAcquireAndSave",int(exptime*1000),True,False,"${sensorLoc}_${sensorId}_${test_type}_flat_1000ms_${image_type}_${seq_info}_${timestamp}.fits").getResult()
-#
-#        exptime=4.000
-#        print "Doing 4s Fe55 exposure"
-#
-#        rply = ts8sub.synchCommand(280,"exposeAcquireAndSave",int(exptime*1000),False,True,"${sensorLoc}_${sensorId}_${test_type}_fe55_4000ms_${image_type}_${seq_info}_${timestamp}.fits").getResult()
-#
-##        exptime=20.000
-##
-##        rply = ts8sub.synchCommand(280,"exposeAcquireAndSave",int(exptime*1000),True,True,"${sensorLoc}_${sensorId}_${test_type}_20000ms_${image_type}_${seq_info}_${timestamp}.fits").getResult()
-#
-#
-#    fp.close();
-#
-## satisfy the expectations of ccsTools
-#    istate=0;
-#    fp = open("%s/status.out" % (cdir),"w");
-#    fp.write(`istate`+"\n");
-#    fp.write("%s\n" % ts_version);
-#    fp.write("%s\n" % ts_revision);
-#    fp.write("%s\n" % ts8_version);
-#    fp.write("%s\n" % ts8_revision);
-#    fp.close();
-#
-#
-#print "rebalive_functionalty test END"
+    verify_rebs(ccs_sub)
+
+    ccs_sub.ts8.synchCommand(10, "setDefaultImageDirectory %s" % tsCWD)
+
+    setup_sequencer(ccs_sub,
+                    sequence_file='/lnfs/lsst/devel/jchiang/ts8_ITL.seq')
+
+    ccs_sub.ts8.synchCommand(10, "setTestStand TS8")
+
+    ccs_sub.ts8.synchCommand(10, "setTestType ALIVE")
+
+    # Do exposures for three different image types:  bias, flat, and fe55.
+    image_types = ('BIAS', 'FLAT', 'FE55')
+    exptimes = (100, 1000, 4000)      # msec (why 100 ms for the bias frame?)
+    flag1_vals = (False, True, False) # What do these flags mean?
+    flag2_vals = (False, False, True)
+
+    filename_format = "${sensorLoc}_${sensorId}_${test_type}_${image_type}_${seq_info}_${timestamp}.fits"
+    for image_type, exptime, flag1, flag2 in \
+        zip(image_types, exptimes, flag1_vals, flag2_vals):
+        ccs_sub.ts8.synchCommand(10, "setImageType %s" % image_type)
+        ccs_sub.ts8.synchCommand(100, "exposeAcquireAndSave", exptime,
+                                 flag1, flag2, filename_format)
+        logger.info("%s taken with exptime %i ms", image_type, exptime)
