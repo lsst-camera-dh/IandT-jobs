@@ -1,7 +1,5 @@
 #!/usr/bin/env python
-import os
 import glob
-import shutil
 from collections import defaultdict
 import numpy as np
 import lcatr.schema
@@ -9,15 +7,17 @@ import siteUtils
 import lsst.eotest.image_utils as imutils
 import lsst.eotest.sensor as sensorTest
 
-def get_median_signal_levels(ccd, bbox, boxsize=10, nsamp=50):
+def get_median_signal_levels(ccd, segment_region, boxsize=10, nsamp=50):
     medians = {}
     for amp in ccd:
-        raw_image = ccd[amp].Factory(ccd[amp], bbox)
         sampler = imutils.SubRegionSampler(boxsize, boxsize, nsamp,
-                                           imaging=bbox)
+                                           imaging=segment_region)
+        image = ccd[amp].Factory(ccd[amp], sampler.imaging)
+        bbox = image.getBBox()
         means = []
         for x, y in zip(sampler.xarr, sampler.yarr):
-            subim = sampler.subim(raw_image, x, y)
+            subim = sampler.subim(image, x + bbox.getMinX(),
+                                  y + bbox.getMinY())
             means.append(np.mean(subim.getImage().getArray().ravel()))
         medians[amp] = np.median(means)
     return medians
@@ -30,7 +30,7 @@ image_types = 'bias flat fe55'.split()
 
 for image_type in image_types:
     fits_files = sorted(glob.glob('*_%s_*.fits' % image_type))
-    exptime = int(imutils.Metadata(fits_files[0]).get('EXPTIME'))
+    exptime = int(imutils.Metadata(fits_files[0], 1).get('EXPTIME'))
     segment_signals = defaultdict(dict)
     signal_values = []
     for fits_file in fits_files:

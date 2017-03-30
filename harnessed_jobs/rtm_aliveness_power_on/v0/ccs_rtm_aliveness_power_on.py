@@ -1,21 +1,19 @@
 """
 Power-on aliveness tests script, based on Homer's
 harnessed-jobs/T08/rebalive_power/ccseorebalive_power.py script.
-
 """
 import sys
 import time
 from collections import namedtuple
 import logging
-import subprocess
 import java.lang
 from org.lsst.ccs.scripting import CCS
 
 CCS.setThrowExceptions(True)
 
 logging.basicConfig(format="%(message)s",
-#                    level=logging.DEBUG,
-                    level=logging.INFO,
+                    level=logging.DEBUG,
+                    #level=logging.INFO,
                     stream=sys.stdout)
 logger = logging.getLogger()
 
@@ -29,12 +27,11 @@ class CcsSubsystems(object):
 ChannelInfo = namedtuple('ChannelInfo', ['reb_ps_channel', 'ts8_mon_chan',
                                          'low_lim', 'high_lim', 'chkreb'])
 
-# @todo: Read channels to test and their limits from a configuration file.
-channel = dict(digital=ChannelInfo('digital.IaftLDO', 'DigI', 6., 800., False),
-               analog=ChannelInfo('analog.IaftLDO', 'AnaI', 6., 630., False),
-               clockhi=ChannelInfo('clockhi.IaftLDO', 'ClkHI', 6., 300., True),
-               clocklo=ChannelInfo('clocklo.IaftLDO', 'ClkLI', 6., 300., True),
-               od=ChannelInfo('OD.IaftLDO', 'ODI', 6., 190., True))
+def set_monitoring_interval(ts8, period_ms, logger=logger):
+    logger.info("Setting tick and monitoring period to %i ms" % period_ms)
+    command = "change monitor-update taskPeriodMillis %i" % period_ms
+    logger.debug(command)
+    ts8.synchCommand(10, command)
 
 def power_off_rebs(lines=(0, 1, 2)):
     # Power-off the requested REBs via the specified power-lines.
@@ -98,7 +95,7 @@ def check_values(ccs_sub, rebid, name, rebps_channel, ts8_mon_chan, low_lim,
     cur_ps = ccs_sub.rebps.synchCommand(10, command).getResult()
     logger.info("REB PS: %s = %s", reb_channel_name, cur_ps)
 
-    ts8_channel_name ='R00.Reb%d.%s' % (rebid, ts8_mon_chan)
+    ts8_channel_name = 'R00.Reb%d.%s' % (rebid, ts8_mon_chan)
     command = "getChannelValue %s" % ts8_channel_name
     logger.debug(command)
     cur_reb = ccs_sub.ts8.synchCommand(10, command).getResult()
@@ -117,6 +114,14 @@ def check_values(ccs_sub, rebid, name, rebps_channel, ts8_mon_chan, low_lim,
     logger.info("")
 
 if __name__ == '__main__':
+    # @todo: Read channels to test and their limits from a configuration file.
+    channel \
+        = dict(digital=ChannelInfo('digital.IaftLDO', 'DigI', 6., 800., False),
+               analog=ChannelInfo('analog.IaftLDO', 'AnaI', 6., 630., False),
+               clockhi=ChannelInfo('clockhi.IaftLDO', 'ClkHI', 6., 300., True),
+               clocklo=ChannelInfo('clocklo.IaftLDO', 'ClkLI', 6., 300., True),
+               od=ChannelInfo('OD.IaftLDO', 'ODI', 6., 190., True))
+
     logger.info("start tstamp: %f", time.time())
 
     ccs_sub = CcsSubsystems()
@@ -128,9 +133,8 @@ if __name__ == '__main__':
     for rebid, power_line in power_lines.items():
         logger.info("  power line %d for REB ID %d", power_line, rebid)
 
-    logger.info("Setting tick and monitoring period to 0.1s for trending plots.")
-    ccs_sub.ts8.synchCommand(10, "change monitor-update taskPeriodMillis 100")
-
+    # Set publishing interval to 0.1s for trending plots.
+    set_monitoring_interval(ccs_sub.ts8, 100)
     time.sleep(3)
 
     # This is the order to power on the various channels.
@@ -172,13 +176,19 @@ if __name__ == '__main__':
             time.sleep(2)
 
         logger.info("Turn on REB clock and rail voltages.")
-        # load default configuration
-        # @todo: Make sure etc folder has correct properities files for
-        # these configurations.
-        # @todo: Generalize for ITL vs e2v sensors.
-        ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:itl")
-        ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:itl")
-        logger.info("loaded configurations: Rafts:itl")
+
+        # Load sensor-specific configurations.
+        if CCDTYPE == 'ITL':
+            ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:itl")
+            logger.info("loaded configurations: Rafts:itl")
+            ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:itl")
+            logger.info("loaded configurations: RaftsLimits:itl")
+        else:
+            ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:e2v")
+            logger.info("loaded configurations: Rafts:e2v")
+            ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:e2v")
+            logger.info("loaded configurations: RaftsLimits:e2v")
+
         try:
             command = "powerOn %d" % rebid
             logger.info(command)
@@ -186,16 +196,14 @@ if __name__ == '__main__':
             logger.info("------ %s power-on complete ------\n", rebname)
         except java.lang.Exception as eobj:
             logger.info(eobj.message)
-            logger.info("Re-setting tick and monitoring period to 10s.")
-            ccs_sub.ts8.synchCommand(10, "change monitor-update taskPeriodMillis 10000")
+            set_monitoring_interval(ccs_sub.ts8, 10000)
             raise eobj
 
-    logger.info("Re-setting tick and monitoring period to 10s.")
-    ccs_sub.ts8.synchCommand(10, "change monitor-update taskPeriodMillis 10000")
+    set_monitoring_interval(ccs_sub.ts8, 10000)
 
     if power_on_ok:
         logger.info("DONE with successful powering of REBs.")
     else:
         logger.info("FAILED to turn on all requested REBs")
 
-    logger.info("stop tstamp: %f" % time.time())
+    logger.info("stop tstamp: %f", time.time())
