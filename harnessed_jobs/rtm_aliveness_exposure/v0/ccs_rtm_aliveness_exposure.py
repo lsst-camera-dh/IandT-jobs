@@ -58,18 +58,16 @@ if __name__ == '__main__':
 
     ccs_sub.ts8.synchCommand(10, "setTestStand TS8")
 
-
-
     # Do exposures for three different image types:  bias, flat, and fe55.
     test_type = 'CONN'
     image_types = ('BIAS', 'FLAT', 'FE55')
     exptimes = (100, 1000, 4000)      # msec (why 100 ms for the bias frame?)
-    flag1_vals = (False, True, False) # What do these flags mean?
-    flag2_vals = (False, False, True)
+    openShutter_vals = (False, True, False)
+    actuateXED_vals = (False, False, True)
 
     filename_format = "${sensorLoc}_${sensorId}_%s_%s_${seq_info}_${timestamp}.fits"
-    for image_type, exptime, flag1, flag2 in \
-        zip(image_types, exptimes, flag1_vals, flag2_vals):
+    for image_type, exptime, openShutter, actuateXED in \
+        zip(image_types, exptimes, openShutter_vals, actuateXED_vals):
 
         command = "setTestType %s" % test_type
         logger.info(command)
@@ -81,7 +79,7 @@ if __name__ == '__main__':
 
         filename = filename_format % (test_type.lower(), image_type.lower())
         command = 'exposeAcquireAndSave %i %s %s "%s"' % \
-                  (exptime, flag1, flag2, filename)
+                  (exptime, openShutter, actuateXED, filename)
         logger.info(command)
         ccs_sub.ts8.synchCommand(100, command)
         logger.info("%s taken with exptime %i ms", image_type, exptime)

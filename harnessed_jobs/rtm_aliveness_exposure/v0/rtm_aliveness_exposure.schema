@@ -5,6 +5,5 @@
     'image_type' : str,
     'exptime' : int,
     'slot' : str,
-    'segment' : str,
-    'status' : str,
+    'bad_channels' : int
 }
