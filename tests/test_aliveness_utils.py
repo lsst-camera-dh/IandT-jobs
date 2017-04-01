@@ -81,7 +81,6 @@ class AlivenessUtilsTestCase(unittest.TestCase):
         for slot in channel_status:
             num_bad = len([x for x in channel_status[slot].values()
                            if x == 'bad'])
-            print slot, num_bad, self.nbad[slot]
             self.assertEqual(num_bad, self.nbad[slot])
 
 if __name__ == '__main__':
