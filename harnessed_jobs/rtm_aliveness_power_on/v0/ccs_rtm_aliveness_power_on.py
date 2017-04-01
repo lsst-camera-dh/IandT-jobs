@@ -40,7 +40,7 @@ def power_off_rebs(lines=(0, 1, 2)):
         logger.debug(command)
         ccs_sub.rebps.synchCommand(10, command)
 
-def map_power_lines_to_rebs(ccs_sub, ntries=10, wait_between_tries=3,
+def map_power_lines_to_rebs(ccs_sub, ntries=20, wait_between_tries=10,
                             num_lines=3):
     """
     Map power lines to REBs by powering on one at a time for each REB
@@ -178,7 +178,7 @@ if __name__ == '__main__':
         logger.info("Turn on REB clock and rail voltages.")
 
         # Load sensor-specific configurations.
-        if CCDTYPE == 'ITL':
+        if CCSCCDTYPE == 'ITL':
             ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:itl")
             logger.info("loaded configurations: Rafts:itl")
             ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:itl")
