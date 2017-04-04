@@ -37,6 +37,11 @@ with open(outfile, 'w') as output:
                                               bad_channels=bad_channels))
 
 results.append(lcatr.schema.fileref.make(outfile))
+
+# Persist the sequencer file that was used.
+seq_file = glob.glob('*.seq')[0]
+results.append(lcatr.schema.fileref.make(seq_file))
+
 results.extend(siteUtils.jobInfo())
 
 lcatr.schema.write_file(results)
