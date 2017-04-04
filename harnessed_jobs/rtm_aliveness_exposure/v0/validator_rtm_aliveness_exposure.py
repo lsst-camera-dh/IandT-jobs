@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Validator script for rtm_aliveness_exposure job.
+"""
 import glob
 import lcatr.schema
 import lsst.eotest.image_utils as imutils
@@ -9,15 +12,15 @@ results = []
 
 job_schema = lcatr.schema.get('rtm_aliveness_exposure')
 
-image_types = 'bias flat fe55'.split()
+seqnos = '0000 1000 4000'.split()
 
 row_template = "%(image_type)s  %(slot)s  %(channel)s  %(signal)s  %(status)s\n"
 
 outfile = '%s_%s_rtm_aliveness_bad_channels.txt' % (siteUtils.getUnitId(),
                                                     siteUtils.getRunNumber())
 with open(outfile, 'w') as output:
-    for image_type in image_types:
-        fits_files = sorted(glob.glob('*_%s_*.fits' % image_type))
+    for seqno in seqnos:
+        fits_files = sorted(glob.glob('*_%s_*.fits' % seqno))
         channel_signal, channel_status, exptime \
             = aliveness_utils.raft_channel_statuses(fits_files)
         for slot in channel_status:
@@ -29,7 +32,6 @@ with open(outfile, 'w') as output:
                     channel = imutils.channelIds[amp]
                     output.write(row_template % locals())
             results.append(lcatr.schema.valid(job_schema,
-                                              image_type=image_type,
                                               exptime=exptime,
                                               slot=slot,
                                               bad_channels=bad_channels))

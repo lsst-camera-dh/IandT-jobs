@@ -12,8 +12,7 @@ from org.lsst.ccs.scripting import CCS
 CCS.setThrowExceptions(True)
 
 logging.basicConfig(format="%(message)s",
-                    level=logging.DEBUG,
-                    #level=logging.INFO,
+                    level=logging.INFO,
                     stream=sys.stdout)
 logger = logging.getLogger()
 
@@ -28,16 +27,19 @@ ChannelInfo = namedtuple('ChannelInfo', ['reb_ps_channel', 'ts8_mon_chan',
                                          'low_lim', 'high_lim', 'chkreb'])
 
 def set_monitoring_interval(ts8, period_ms, logger=logger):
-    logger.info("Setting tick and monitoring period to %i ms" % period_ms)
+    logger.info("Setting tick and monitoring period to %i ms", period_ms)
     command = "change monitor-update taskPeriodMillis %i" % period_ms
-    logger.debug(command)
+    logger.info(command)
+    ts8.synchCommand(10, command)
+    command = "change monitor-publish taskPeriodMillis %i" % period_ms
+    logger.info(command)
     ts8.synchCommand(10, command)
 
 def power_off_rebs(lines=(0, 1, 2)):
     # Power-off the requested REBs via the specified power-lines.
     for power_line in lines:
         command = "setNamedPowerOn %d master False" % power_line
-        logger.debug(command)
+        logger.info(command)
         ccs_sub.rebps.synchCommand(10, command)
 
 def map_power_lines_to_rebs(ccs_sub, ntries=20, wait_between_tries=10,
@@ -66,12 +68,13 @@ def map_power_lines_to_rebs(ccs_sub, ntries=20, wait_between_tries=10,
                 ccs_sub.rebps.synchCommand(10, 'setNamedPowerOn %d %s True'
                                            % (line, name))
                 time.sleep(0.5)
+            time.sleep(wait_between_tries)
             for i in range(ntries):
-                logger.debug("%s, try %i", rebname, i)
+                logger.info("%s, try %i", rebname, i)
                 try:
                     ccs_sub.ts8.synchCommand(10, 'readRegister %s 1' % rebname)
                     power_line = line
-                    logger.debug("%s: %i", rebname, power_line)
+                    logger.info("%s: %i", rebname, power_line)
                     break
                 except java.lang.Exception:
                     time.sleep(wait_between_tries)
@@ -90,14 +93,14 @@ def check_values(ccs_sub, rebid, name, rebps_channel, ts8_mon_chan, low_lim,
     specified range.
     """
     reb_channel_name = 'REB%d.%s' % (rebid, rebps_channel)
-    command = "getChannelValue %s" % reb_channel_name
-    logger.debug(command)
+    command = "readChannelValue %s" % reb_channel_name
+    logger.info(command)
     cur_ps = ccs_sub.rebps.synchCommand(10, command).getResult()
     logger.info("REB PS: %s = %s", reb_channel_name, cur_ps)
 
     ts8_channel_name = 'R00.Reb%d.%s' % (rebid, ts8_mon_chan)
-    command = "getChannelValue %s" % ts8_channel_name
-    logger.debug(command)
+    command = "readChannelValue %s" % ts8_channel_name
+    logger.info(command)
     cur_reb = ccs_sub.ts8.synchCommand(10, command).getResult()
     logger.info("TS8 Monitor: %s = %s", ts8_channel_name, cur_reb)
 
@@ -192,7 +195,13 @@ if __name__ == '__main__':
         try:
             command = "powerOn %d" % rebid
             logger.info(command)
-            logger.info(ccs_sub.ts8.synchCommand(300, command).getResult())
+            outfile = '%s_REB%i_%s_powerOn_aliveness_test_output.txt' \
+                      % (UNITID, rebid, RUNNUM)
+            outfile = '/'.join((tsCWD, outfile))
+            logger.info('writing powerOn output to %s', outfile)
+            with open(outfile, 'w') as output:
+                output.write(ccs_sub.ts8.synchCommand(900, command).getResult())
+            os.chmod(outfile, 0664)
             logger.info("------ %s power-on complete ------\n", rebname)
         except java.lang.Exception as eobj:
             logger.info(eobj.message)

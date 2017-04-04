@@ -2,7 +2,6 @@
 {
     'schema_name' : 'rtm_aliveness_exposure',
     'schema_version' : 0,
-    'image_type' : str,
     'exptime' : int,
     'slot' : str,
     'bad_channels' : int

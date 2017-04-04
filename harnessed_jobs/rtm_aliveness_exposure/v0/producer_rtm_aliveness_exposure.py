@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import ccsTools
-import subprocess
+from ccsTools import ccsProducer, CcsRaftSetup
 
-ccsTools.ccsProducer('rtm_aliveness_exposure', 'ccs_rtm_aliveness_exposure.py')
+ccsProducer('rtm_aliveness_exposure', 'ccs_rtm_aliveness_exposure.py',
+            ccs_setup_class=CcsRaftSetup)

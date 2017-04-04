@@ -43,7 +43,7 @@ def setup_sequencer(ccs_sub, sequence_file=sequence_file, nclears=10,
         logger.info("%i %s", iclear, command)
         logger.info(ccs_sub.ts8.synchCommand(10, command).getResult())
 
-    command = 'exposeAcquireAndSave 100 True False ""'
+    command = 'exposeAcquireAndSave 0 True False ""'
     logger.info(command)
     logger.info(ccs_sub.ts8.synchCommand(1500, command).getResult())
 
@@ -58,16 +58,15 @@ if __name__ == '__main__':
 
     ccs_sub.ts8.synchCommand(10, "setTestStand TS8")
 
-    # Do exposures for three different image types:  bias, flat, and fe55.
     test_type = 'CONN'
-    image_types = ('BIAS', 'FLAT', 'FE55')
-    exptimes = (100, 1000, 4000)      # msec (why 100 ms for the bias frame?)
-    openShutter_vals = (False, True, False)
-    actuateXED_vals = (False, False, True)
+    image_type = 'FLAT'
+    openShutter = False
+    actuateXED = False
+    filename_format = "${sensorLoc}_${sensorId}_%s_%s_%04i_${timestamp}.fits"
 
-    filename_format = "${sensorLoc}_${sensorId}_%s_%s_${seq_info}_${timestamp}.fits"
-    for image_type, exptime, openShutter, actuateXED in \
-        zip(image_types, exptimes, openShutter_vals, actuateXED_vals):
+    # Take frames for three different exposure times.
+    exptimes = (0, 1000, 4000)
+    for exptime in exptimes:
 
         command = "setTestType %s" % test_type
         logger.info(command)
@@ -77,7 +76,8 @@ if __name__ == '__main__':
         logger.info(command)
         ccs_sub.ts8.synchCommand(10, command)
 
-        filename = filename_format % (test_type.lower(), image_type.lower())
+        filename = filename_format % (test_type.lower(), image_type.lower(),
+                                      exptime)
         command = 'exposeAcquireAndSave %i %s %s "%s"' % \
                   (exptime, openShutter, actuateXED, filename)
         logger.info(command)
