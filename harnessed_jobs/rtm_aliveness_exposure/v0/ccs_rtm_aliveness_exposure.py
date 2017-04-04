@@ -43,7 +43,7 @@ def setup_sequencer(ccs_sub, sequence_file=sequence_file, nclears=10,
         logger.info("%i %s", iclear, command)
         logger.info(ccs_sub.ts8.synchCommand(10, command).getResult())
 
-    command = 'exposeAcquireAndSave 0 True False ""'
+    command = 'exposeAcquireAndSave 0 False False ""'
     logger.info(command)
     logger.info(ccs_sub.ts8.synchCommand(1500, command).getResult())
 

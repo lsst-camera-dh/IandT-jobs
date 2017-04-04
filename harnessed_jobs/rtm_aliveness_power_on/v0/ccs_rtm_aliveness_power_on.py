@@ -2,6 +2,7 @@
 Power-on aliveness tests script, based on Homer's
 harnessed-jobs/T08/rebalive_power/ccseorebalive_power.py script.
 """
+import os
 import sys
 import time
 from collections import namedtuple
