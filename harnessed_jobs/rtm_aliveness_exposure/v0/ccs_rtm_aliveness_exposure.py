@@ -43,9 +43,9 @@ def setup_sequencer(ccs_sub, sequence_file=sequence_file, nclears=10,
         logger.info("%i %s", iclear, command)
         logger.info(ccs_sub.ts8.synchCommand(10, command).getResult())
 
-    command = 'exposeAcquireAndSave 0 False False ""'
+    command = 'exposeAcquireAndSave 100 False False ""'
     logger.info(command)
-    logger.info(ccs_sub.ts8.synchCommand(1500, command).getResult())
+    logger.info(ccs_sub.ts8.synchCommand(300, command).getResult())
 
 if __name__ == '__main__':
     ccs_sub = CcsSubsystems(subsystems=dict(ts8='ts8'))
@@ -65,7 +65,7 @@ if __name__ == '__main__':
     filename_format = "${sensorLoc}_${sensorId}_%s_%s_%04i_${timestamp}.fits"
 
     # Take frames for three different exposure times.
-    exptimes = (0, 1000, 4000)
+    exptimes = (100, 1000, 4000)
     for exptime in exptimes:
 
         command = "setTestType %s" % test_type

@@ -12,9 +12,9 @@ results = []
 
 job_schema = lcatr.schema.get('rtm_aliveness_exposure')
 
-seqnos = '0000 1000 4000'.split()
+seqnos = '0100 1000 4000'.split()
 
-row_template = "%(image_type)s  %(slot)s  %(channel)s  %(signal)s  %(status)s\n"
+row_template = "%(seqno)s  %(slot)s  %(channel)s  %(signal)s  %(status)s\n"
 
 outfile = '%s_%s_rtm_aliveness_bad_channels.txt' % (siteUtils.getUnitId(),
                                                     siteUtils.getRunNumber())
