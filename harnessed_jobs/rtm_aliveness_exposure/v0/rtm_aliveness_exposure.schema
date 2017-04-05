@@ -1,0 +1,8 @@
+# -*- python -*-
+{
+    'schema_name' : 'rtm_aliveness_exposure',
+    'schema_version' : 0,
+    'exptime' : int,
+    'slot' : str,
+    'bad_channels' : int
+}
