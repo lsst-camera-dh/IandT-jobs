@@ -42,7 +42,7 @@ def setup_sequencer(ccs_sub, sequence_file=sequence_file, nclears=10,
         command = "startSequencer"
         logger.info("%i %s", iclear, command)
         logger.info(ccs_sub.ts8.synchCommand(10, command).getResult())
-        command = "waitSequencerDone"
+        command = "waitSequencerDone 5000"
         logger.info(command)
         logger.info(ccs_sub.ts8.synchCommand(10, command).getResult())
 
