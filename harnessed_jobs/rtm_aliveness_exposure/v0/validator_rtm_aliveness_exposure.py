@@ -21,6 +21,8 @@ outfile = '%s_%s_rtm_aliveness_bad_channels.txt' % (siteUtils.getUnitId(),
 with open(outfile, 'w') as output:
     for seqno in seqnos:
         fits_files = sorted(glob.glob('*_%s_*.fits' % seqno))
+        for fits_file in fits_files:
+            results.append(lcatr.schema.fileref.make(fits_file))
         channel_signal, channel_status, exptime \
             = aliveness_utils.raft_channel_statuses(fits_files)
         for slot in channel_status:
