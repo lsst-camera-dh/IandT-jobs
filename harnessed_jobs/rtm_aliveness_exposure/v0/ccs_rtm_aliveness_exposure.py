@@ -38,9 +38,12 @@ def setup_sequencer(ccs_sub, sequence_file=sequence_file, nclears=10,
     logger.info(command)
     logger.info(ccs_sub.ts8.synchCommand(10, command).getResult())
 
-    command = "startSequencer"
     for iclear in range(nclears):
+        command = "startSequencer"
         logger.info("%i %s", iclear, command)
+        logger.info(ccs_sub.ts8.synchCommand(10, command).getResult())
+        command = "waitSequencerDone 5000"
+        logger.info(command)
         logger.info(ccs_sub.ts8.synchCommand(10, command).getResult())
 
     command = 'exposeAcquireAndSave 100 False False ""'
