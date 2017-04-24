@@ -5,16 +5,33 @@ import os
 import sys
 import glob
 import time
+from collections import namedtuple
 import logging
 from ccs_scripting_tools import CcsSubsystems
-import eolib
 
-__all__ = ["EOAcquisition", "PhotoDiodeReadout", "logger"]
+__all__ = ["EOAcquisition", "PhotodiodeReadout", "EOAcqConfig",
+           "AcqMetadata", "logger"]
 
 logging.basicConfig(format="%(message)s",
                     level=logging.INFO,
                     stream=sys.stdout)
 logger = logging.getLogger()
+
+AcqMetadata = namedtuple('AcqMetadata', 'cwd raft_id run_number'.split())
+
+class EOAcqConfig(dict):
+    def __init__(self, acq_config_file):
+        super(EOAcqConfig, self).__init__()
+        with open(acq_config_file) as input_:
+            for line in input_:
+                tokens = line.split()
+                if len(tokens) < 2:
+                    continue
+                key = tokens[0].upper()
+                if not self.has_key(key):
+                    self[key] = tokens[1]
+    def get(self, key, default="NOT FOUND"):
+        return super(EOAcqConfig, self).get(key, default)
 
 class EOAcquisition(object):
     """
@@ -29,7 +46,7 @@ class EOAcquisition(object):
                                                  ts8='ts8',
                                                  rebps='ccs-rebps'))
         self.seqfile = seqfile
-        self.acq_config_file = acq_config_file
+        self.eo_config = EOAcqConfig(acq_config_file)
         self.acqname = acqname
         self.md = metadata
         self.logger = logger
@@ -37,7 +54,7 @@ class EOAcquisition(object):
         self._get_exptime_limits()
         self._get_image_counts()
         self._set_default_wavelength()
-        self._read_instructions()
+        self._read_instructions(acq_config_file)
         self._fn_pattern = "${CCDSerialLSST}_${testType}_${imageType}_${SequenceInfo}_${RunNumber}_${timestamp}.fits"
         self.sub.ts8.synchCommand(90, "loadSequencer %s" % self.seqfile)
         self.sub.mono.synchCommand(20, "openShutter")
@@ -58,32 +75,27 @@ class EOAcquisition(object):
         """
         Get the minimum and maximum exposure times from the config file.
         """
-        self.exptime_min = float(eolib.getCfgVal(self.acq_config_file,
-                                                 '%s_LOLIM' % self.acqname,
-                                                 default='0.025'))
-        self.exptime_max = float(eolib.getCfgVal(self.acq_config_file,
-                                                 '%s_HILIM' % self.acqname,
-                                                 default='600.0'))
+        self.exptime_min = float(self.eo_config.get('%s_LOLIM' % self.acqname,
+                                                    default='0.025'))
+        self.exptime_max = float(self.eo_config.get('%s_HILIM' % self.acqname,
+                                                    default='600.0'))
 
     def _get_image_counts(self):
         """
         Get the number of exposures and bias frames to take for each
         acquisition instruction.
         """
-        self.imcount = int(eolib.getCfgVal(self.acqcfgfile,
-                                           '%s_IMCOUNT' % self.acqname,
-                                           default='1'))
-        self.bias_count = int(eolib.getCfgVal(self.acq_config_file,
-                                              '%s_BCOUNT' % self.acqname,
+        self.imcount = int(self.eo_config.get('%s_IMCOUNT' % self.acqname,
                                               default='1'))
+        self.bias_count = int(self.eo_config.get('%s_BCOUNT' % self.acqname,
+                                                 default='1'))
 
     def _set_default_wavelength(self):
         """
         Set the default wavelength for all acquistions.
         """
-        self.wl = float(eolib.getCfgVal(self.acq_config_file,
-                                        '%s_WL' % self.acqname,
-                                        default="550.0"))
+        self.wl = float(self.eo_config.get('%s_WL' % self.acqname,
+                                           default="550.0"))
         self.set_wavelength(self.wl)
 
     def set_wavelength(self, wl):
@@ -94,9 +106,9 @@ class EOAcquisition(object):
         rwl = self.sub.mono.synchCommand(60, command).getResult()
         self.sub.ts8.synchCommand(10, "setMonoWavelength %s" % rwl)
 
-    def _read_instructions(self):
+    def _read_instructions(self, acq_config_file):
         self.instructions = []
-        with open(self.acq_config_file) as input_:
+        with open(acq_config_file) as input_:
             for line in input_:
                 tokens = line.split()
                 if tokens and tokens[0] == self.acqname.lower():
@@ -186,7 +198,7 @@ class EOAcquisition(object):
                 float(self.sub.ts8.synchCommand(10, command).getResult())
         return flux_sum/len(fits_files)
 
-class PhotoDiodeReadout(object):
+class PhotodiodeReadout(object):
     """
     Class to handle monitoring photodiode readout.
     """
@@ -216,7 +228,7 @@ class PhotoDiodeReadout(object):
             try:
                 running = self.sub.pd.synchCommand(20, "isAccumInProgress").getResult()
             except StandardError as eobj:
-                self.logger.info("PhotoDiodeReadout.start_accumlation:")
+                self.logger.info("PhotodiodeReadout.start_accumlation:")
                 self.logger.info(str(eobj))
             time.sleep(0.25)
         self._start_time = time.time()
