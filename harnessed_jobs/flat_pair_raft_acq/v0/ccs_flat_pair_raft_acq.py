@@ -19,6 +19,7 @@ class FlatAcquisition(EOAcquisition):
         """
         openShutter = True
         actuateXed = False
+        image_type = "FLAT"
 
         # Get measured flux at current wavelength for exposure time
         # calculation.
@@ -44,7 +45,7 @@ class FlatAcquisition(EOAcquisition):
                 file_template = '${CCDSerialLSST}_${testType}_%07.2fs_${imageType}%d_${RunNumber}_${timestamp}.fits' % (exptime, icount+1)
                 pd_readout.start_accumulation()
                 fits_files = self.take_image(seqno, exptime, openShutter,
-                                             actuateXed, "FLAT",
+                                             actuateXed, image_type,
                                              file_template=file_template)
                 pd_readout.get_readings(fits_files, seqno, icount)
 
