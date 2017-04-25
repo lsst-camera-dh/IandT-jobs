@@ -35,7 +35,7 @@ class EOAcqConfig(dict):
 
 class EOAcquisition(object):
     """
-    Base class for TS8 electro-optical data acquistion.
+    Base class for TS8 electro-optical data acquisition.
     """
     def __init__(self, seqfile, acq_config_file, acqname, metadata,
                  logger=logger):
@@ -174,22 +174,21 @@ class EOAcquisition(object):
         self.take_image(seqno, exptime, openShutter, actuateXed, "BIAS",
                         timeout=150, max_tries=max_tries)
 
-    def measured_flux(self, seqno=0, exptime=2000, wl=None):
+    def measured_flux(self, wl, seqno=0, fluxcal_time=2000):
         """
         Compute the measured flux by taking an exposure at the
         specified wavelength.
         """
-        if wl is not None:
-            self.set_wavelength(wl)
+        self.set_wavelength(wl)
         self.sub.ts.synchCommand(60, "publishState")
         openShutter = True
         actuateXed = False
         # Take a test image.
-        self.take_image(seqno, exptime, openShutter, actuateXed, "prefluxcalib",
-                        file_template='')
+        self.take_image(seqno, fluxcal_time, openShutter, actuateXed,
+                        "prefluxcalib", file_template='')
         # The calibration image.
-        fits_files = self.take_image(seqno, exptime, openShutter, actuateXed,
-                                     "fluxcalib", max_tries=3)
+        fits_files = self.take_image(seqno, fluxcal_time, openShutter,
+                                     actuateXed, "fluxcalib", max_tries=3)
         flux_sum = 0.
         for fits_file in fits_files:
             file_path = glob.glob(os.path.join(self.md.cwd, '*', fits_file))[0]
@@ -197,6 +196,16 @@ class EOAcquisition(object):
             flux_sum += \
                 float(self.sub.ts8.synchCommand(10, command).getResult())
         return flux_sum/len(fits_files)
+
+    def compute_exptime(self, wl, target_counts, seqno=0, fluxcal_time=2000):
+        """
+        Compute the exposure time for a specified wavelength and
+        target signal level.
+        """
+        meas_flux = self.measured_flux(wl)
+        exptime = target_counts/meas_flux
+        exptime = min(max(exptime, self.exptime_min), self.exptime_max)
+        return exptime
 
 class PhotodiodeReadout(object):
     """

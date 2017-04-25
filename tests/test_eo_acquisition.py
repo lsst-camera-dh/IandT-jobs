@@ -21,6 +21,8 @@ class EOAcquisitionTestCase(unittest.TestCase):
         metadata = AcqMetadata(cwd='.', raft_id="my_raft", run_number="my_run")
         test_type = "FLAT"
         acq = EOAcquisition("seqfile.txt", acq_config_file, test_type, metadata)
+        self.assertEqual(acq.md.cwd, '.')
+        self.assertEqual(acq.md.raft_id, 'my_raft')
         self.assertEqual(len(acq.instructions), 21)
         self.assertAlmostEqual(acq.exptime_min, 0.025)
         self.assertAlmostEqual(acq.exptime_max, 240.)

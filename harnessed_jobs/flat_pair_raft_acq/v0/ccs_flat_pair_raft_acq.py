@@ -1,7 +1,7 @@
 """
 Jython script to run flat pair acquisitions at TS8.
 """
-from eo_acquisition import EOAcquisition, PhotoDiodeReadout, logger
+from eo_acquisition import EOAcquisition, PhotodiodeReadout, AcqMetadata, logger
 
 class FlatAcquisition(EOAcquisition):
     """
@@ -32,12 +32,10 @@ class FlatAcquisition(EOAcquisition):
 
             # Compute exposure time to obtain the desired signal level.
             target_counts = float(tokens[1])  # e-/pixel
-            exptime = target_counts/meas_flux
-            # Impose exposure time limits.
-            exptime = min(max(exptime, self.exptime_min), self.exptime_max)
+            exptime = self.compute_exptime(self.wl, target_counts)
 
             # Create photodiode readout handler.
-            pd_readout = PhotoDiodeReadout(exptime, self)
+            pd_readout = PhotodiodeReadout(exptime, self)
 
             # Take a pair of exposures (self.imcount = 2).
             for icount in range(self.imcount):
@@ -50,6 +48,6 @@ class FlatAcquisition(EOAcquisition):
                 pd_readout.get_readings(fits_files, seqno, icount)
 
 if __name__ == '__main__':
-    metadata = dict(cwd=tsCWD, raft_id=UNITID, run_number=RUNNUM)
+    metadata = AcqMetadata(cwd=tsCWD, raft_id=UNITID, run_number=RUNNUM)
     acq = FlatAcquisition(sequence_file, rtmacqcfgfile, metadata)
     acq.run()
