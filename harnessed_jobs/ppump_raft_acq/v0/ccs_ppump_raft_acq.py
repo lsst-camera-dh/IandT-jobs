@@ -17,7 +17,7 @@ class PPumpAcquisition(EOAcquisition):
         """
         openShutter = True
         actuateXed = False
-        image_type = "TRAP"
+        image_type = "PPUMP"
 
         wl = float(self.eo_config.get("PPUMP_WL", 550))
         meas_flux = self.measured_flux(wl)

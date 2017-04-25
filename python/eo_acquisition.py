@@ -1,5 +1,5 @@
 """
-TestStand 8 electro-optical acquisition scripting module.
+Test Stand 8 electro-optical acquisition scripting module.
 """
 import os
 import sys
@@ -7,6 +7,12 @@ import glob
 import time
 from collections import namedtuple
 import logging
+try:
+    import java.lang.Throwable as Throwable
+except ImportError:
+    # Assume we are running unit tests under python instead of jython.
+    class Throwable(Exception):
+        pass
 from ccs_scripting_tools import CcsSubsystems
 
 __all__ = ["EOAcquisition", "PhotodiodeReadout", "EOAcqConfig",
@@ -20,7 +26,18 @@ logger = logging.getLogger()
 AcqMetadata = namedtuple('AcqMetadata', 'cwd raft_id run_number'.split())
 
 class EOAcqConfig(dict):
+    """
+    Read the entries as key/value pairs from the acquisition
+    configuration file that specifies the frames, exposure times, and
+    signal levels for the various electro-optical tests.
+    """
     def __init__(self, acq_config_file):
+        """
+        Parameters
+        ----------
+        acq_config_file : str
+            The path to the acquisition configuration file.
+        """
         super(EOAcqConfig, self).__init__()
         with open(acq_config_file) as input_:
             for line in input_:
@@ -30,7 +47,12 @@ class EOAcqConfig(dict):
                 key = tokens[0].upper()
                 if not self.has_key(key):
                     self[key] = tokens[1]
+
     def get(self, key, default="NOT FOUND"):
+        """
+        Get the desired value for the specified key, providing an
+        optional default.
+        """
         return super(EOAcqConfig, self).get(key, default)
 
 class EOAcquisition(object):
@@ -38,13 +60,31 @@ class EOAcquisition(object):
     Base class for TS8 electro-optical data acquisition.
     """
     def __init__(self, seqfile, acq_config_file, acqname, metadata,
-                 logger=logger):
-        self.sub = CcsSubsystems(subsystems=dict(ts='ts',
-                                                 pd_bias='ts/Bias',
-                                                 pd='ts/PhotoDiode',
-                                                 mono='ts/Monochromator',
-                                                 ts8='ts8',
-                                                 rebps='ccs-rebps'))
+                 subsystems=None, logger=logger):
+        """
+        Parameters
+        ----------
+        seqfile : str
+            The name of the sequencer file.
+        acq_config_file : str
+            The name of the acquisition configuration file.
+        acqname : str
+            The test type, e.g., 'FE55', 'FLAT', 'SFLAT', etc..
+        metadata : namedtuple
+            A nametuple of test-wide metadata, specifically, the
+            current working directory, the LSST unit ID for the raft,
+            and the run number.
+        subsystems : dict, optional
+            A dictionary of CCS subsystems, keyed by standard attribute
+            names for the CcsSubsystems class, i.e., 'ts', 'ts8', 'pd',
+            and 'mono'.  If None, then the default subsystems, 'ts', 'ts8',
+            'ts/PhotoDiode', and 'ts/Monochromator', will be attached.
+        """
+        if subsystems is None:
+            subsystems = dict(ts='ts', pd='ts/PhotoDiode',
+                              mono='ts/Monochromator', ts8='ts8')
+        self.sub = CcsSubsystems(subsystems=subsystems)
+        self._check_subsystems()
         self.seqfile = seqfile
         self.eo_config = EOAcqConfig(acq_config_file)
         self.acqname = acqname
@@ -58,6 +98,19 @@ class EOAcquisition(object):
         self._fn_pattern = "${CCDSerialLSST}_${testType}_${imageType}_${SequenceInfo}_${RunNumber}_${timestamp}.fits"
         self.sub.ts8.synchCommand(90, "loadSequencer %s" % self.seqfile)
         self.sub.mono.synchCommand(20, "openShutter")
+
+    def _check_subsystems(self):
+        """
+        Check that the required subsystems are present.
+        """
+        required = 'ts8 pd mono'.split()
+        missing = []
+        for subsystem in required:
+            if not hasattr(self.sub, subsystem):
+                missing.append(subsystem)
+        if missing:
+            raise RuntimeError("EOAcquisition: missing CCS subsystems:"
+                               + '\n'.join(missing))
 
     def _set_ts8_metadata(self):
         """
@@ -101,12 +154,21 @@ class EOAcquisition(object):
     def set_wavelength(self, wl):
         """
         Set the monochromator wavelength.
+
+        Parameters
+        ----------
+        wl : float
+            The desired wavelength in nm.
         """
         command = "setWaveAndFilter %s" % wl
         rwl = self.sub.mono.synchCommand(60, command).getResult()
         self.sub.ts8.synchCommand(10, "setMonoWavelength %s" % rwl)
 
     def _read_instructions(self, acq_config_file):
+        """
+        Read the instructions for the current test type from the
+        acquisition configuration file.
+        """
         self.instructions = []
         with open(acq_config_file) as input_:
             for line in input_:
@@ -123,7 +185,7 @@ class EOAcquisition(object):
     @property
     def test_type(self):
         """
-        The test type, e.g., FLAT, FE55, SFLAT, DARK, etc..
+        The test type, e.g., 'FLAT', 'FE55', 'SFLAT', 'DARK', etc..
         """
         return self.acqname.upper()
 
@@ -132,6 +194,48 @@ class EOAcquisition(object):
                    timeout=500, max_tries=1, try_wait=10.):
         """
         Take an image.
+
+        Parameters
+        ----------
+        seqno : int
+            The sequence number to be written into the FITS file name.
+        exptime : float
+            The exposure time in seconds.
+        openShutter : bool
+            Flag to indicate that the monochromator shutter should be
+            opened for the exposure.
+        actuateXed : bool
+            Flag to indicate that the XED arms should be deployed so
+            that a Fe55 exposure can be taken.
+        image_type : str
+            The image type for writing to the FITS header and filename.
+            It must be one of "FLAT", "FE55", "DARK", "BIAS", "PPUMP".
+        test_type : str, optional
+            The test type to be written in to the FITS header and filename.
+            If None, then the value set in the constructor is used.  This
+            override option is needed since the superflat commands in the
+            acq config file are labeled by 'SFLAT', whereas the FITS info
+            needs to encode the wavelength of exposure, e.g., 'SFLAT_500'.
+        file_template : str, optional
+            The file template used by the CCS code for writing FITS
+            filenames.  FLAT, SFLAT, and QE acquistions require special
+            templates; all other acquisitions can use the default.
+        timeout : int, optional
+            Timeout (in seconds) for the synchronous "exposeAcquireAndSave"
+            commmand.  Default: 500.
+        max_tries : int, optional
+            The number of maximum number of tries for the
+            "exposeAcquireAndSave" command.  Default: 1.  If the command
+            does not succeed in max_tries, the exception from the CCS code
+            is re-raised.
+        try_wait : float, optional
+            The number of seconds to wait between subsequent tries of
+            the "exposeAcquireAndSave" command.  Default: 10.
+
+        Returns
+        -------
+        Result object from the CCS synchCommand(timeout, "exposeAcquireAndSave")
+        execution.
         """
         if test_type is None:
             test_type = self.test_type
@@ -141,25 +245,29 @@ class EOAcquisition(object):
         self.sub.ts8.synchCommand(10, "setImageType %s" % image_type)
         self.sub.ts8.synchCommand(10, "setSeqInfo %d" % seqno)
         command = 'exposeAcquireAndSave %d %s %s "%s"' \
-            % (exptime, openShutter, actuateXed, file_template)
+            % (1000*exptime, openShutter, actuateXed, file_template)
         for itry in range(max_tries):
             try:
                 result = self.sub.ts8.synchCommand(timeout, command).getResult()
                 return result
-            except StandardError as eobj:
-                self.logger.info("EOAcquisition.take_image: try %i failed", itry)
+            except (StandardError, Throwable) as eobj:
+                self.logger.info("EOAcquisition.take_image: try %i failed",
+                                 itry)
                 time.sleep(try_wait)
         raise eobj
 
     def image_clears(self, nclears=7):
         """
         Take some bias frames to clear the CCDs.
+
+        nclears : int, optional
+            The number of bias images to take.  Default: 7.
         """
         for i in range(nclears):
             try:
                 self.take_image(0, 50, False, False, "biasclear",
                                 file_template='')
-            except StandardError as eobj:
+            except (StandardError, Throwable) as eobj:
                 self.logger.info("Clear attempt %d failed:\n %s", i, str(eobj))
                 time.sleep(1.0)
         raise eobj
@@ -174,10 +282,25 @@ class EOAcquisition(object):
         self.take_image(seqno, exptime, openShutter, actuateXed, "BIAS",
                         timeout=150, max_tries=max_tries)
 
-    def measured_flux(self, wl, seqno=0, fluxcal_time=2000):
+    def measured_flux(self, wl, seqno=0, fluxcal_time=2.):
         """
         Compute the measured flux by taking an exposure at the
         specified wavelength.
+
+        Parameters
+        ----------
+        wl : float
+            The wavelength in nm.
+        seqno : int, optional
+            The sequence number for the exposure.  Default: 0.
+        fluxcal_time : float, optional
+            The exposure time in seconds for the flux calibration exposure.
+            Default: 2.
+
+        Returns
+        -------
+        float :
+            The flux value in e-/pixel/s.
         """
         self.set_wavelength(wl)
         self.sub.ts.synchCommand(60, "publishState")
@@ -201,6 +324,19 @@ class EOAcquisition(object):
         """
         Compute the exposure time for a specified wavelength and
         target signal level.
+
+        Parameters
+        ----------
+        target_counts : float
+            The desired signal level in e-/pixel.
+        meas_flux : float
+            The incident flux (at the current wavelength setting) in
+            e-/pixel/s.
+
+        Returns
+        -------
+        float :
+            The exposure time in seconds.
         """
         exptime = target_counts/meas_flux
         exptime = min(max(exptime, self.exptime_min), self.exptime_max)
@@ -211,6 +347,16 @@ class PhotodiodeReadout(object):
     Class to handle monitoring photodiode readout.
     """
     def __init__(self, exptime, eo_acq_object, max_reads=2048):
+        """
+        Parameters
+        ----------
+        exptime : float
+            Exposure time in seconds for the frame to be taken.
+        eo_acq_object : EOAcquisition object
+            An instance of a subclass of EOAcquisition.
+        max_reads : int, optional
+            Maximum number of reads of monitoring photodiode.  Default: 2048.
+        """
         self.sub = eo_acq_object.sub
         self.md = eo_acq_object.md
         self.logger = eo_acq_object.logger
@@ -235,7 +381,7 @@ class PhotodiodeReadout(object):
         while not running:
             try:
                 running = self.sub.pd.synchCommand(20, "isAccumInProgress").getResult()
-            except StandardError as eobj:
+            except (StandardError, Throwable) as eobj:
                 self.logger.info("PhotodiodeReadout.start_accumlation:")
                 self.logger.info(str(eobj))
             time.sleep(0.25)

@@ -30,7 +30,7 @@ class FlatAcquisition(EOAcquisition):
             self.image_clears()
             self.bias_image(seqno)
 
-            # Compute exposure time to obtain the desired signal level.
+            # Compute exposure time in ms to obtain the desired signal level.
             target_counts = float(tokens[1])  # e-/pixel
             exptime = self.compute_exptime(target_counts, meas_flux)
 

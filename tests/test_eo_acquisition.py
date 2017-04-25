@@ -10,6 +10,7 @@ acq_config_file = os.path.join(os.environ['IANDTJOBSDIR'], 'tests',
 class EOAcqConfigTestCase(unittest.TestCase):
     "TestCase class for the EOAcqConfig class."
     def test_eo_acq_config(self):
+        "Test that the acq config file is correctly parsed."
         eo_config = EOAcqConfig(acq_config_file)
         self.assertEqual(eo_config['FE55_BCOUNT'], '25')
         self.assertEqual(eo_config['FLAT_HILIM'], '240.0')
@@ -18,6 +19,7 @@ class EOAcqConfigTestCase(unittest.TestCase):
 class EOAcquisitionTestCase(unittest.TestCase):
     "TestCase class for the EOAcquisition class."
     def test_instructions(self):
+        "Test that the acquisition instructions are correctly parsed."
         metadata = AcqMetadata(cwd='.', raft_id="my_raft", run_number="my_run")
         test_type = "FLAT"
         acq = EOAcquisition("seqfile.txt", acq_config_file, test_type, metadata)
@@ -28,6 +30,16 @@ class EOAcquisitionTestCase(unittest.TestCase):
         self.assertAlmostEqual(acq.exptime_max, 240.)
         self.assertAlmostEqual(acq.wl, 675.)
         self.assertEqual(acq.test_type, test_type)
+        self.assertRaises(NotImplementedError, acq.run)
+
+    def test_constructor(self):
+        "Test the EOAcquisition construction."
+        metadata = AcqMetadata(cwd='.', raft_id="my_raft", run_number="my_run")
+        test_type = "FLAT"
+        subsystems = dict(ts8="ts8")
+        self.assertRaises(RuntimeError, EOAcquisition,
+                          "seqfile.txt", acq_config_file, test_type, metadata,
+                          subsystems=subsystems)
 
 if __name__ == '__main__':
     unittest.main()
