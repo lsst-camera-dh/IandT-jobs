@@ -27,7 +27,8 @@ class QEAcquistion(EOAcquisition):
 
             wl = float(tokens[1])
             target_counts = float(tokens[2])
-            exptime = self.compute_exptime(wl, target_counts)
+            meas_flux = self.measured_flux(wl)
+            exptime = self.compute_exptime(target_counts, meas_flux)
 
             pd_readout = PhotodiodeReadout(exptime, self)
             self.image_clears()

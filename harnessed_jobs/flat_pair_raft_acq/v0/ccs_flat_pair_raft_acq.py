@@ -23,7 +23,7 @@ class FlatAcquisition(EOAcquisition):
 
         # Get measured flux at current wavelength for exposure time
         # calculation.
-        meas_flux = self.measured_flux()  # e-/pixel/second
+        meas_flux = self.measured_flux(self.wl)    # e-/pixel/second
 
         # Loop over exposure pairs.
         for seqno, tokens in enumerate(self.instructions):
@@ -32,7 +32,7 @@ class FlatAcquisition(EOAcquisition):
 
             # Compute exposure time to obtain the desired signal level.
             target_counts = float(tokens[1])  # e-/pixel
-            exptime = self.compute_exptime(self.wl, target_counts)
+            exptime = self.compute_exptime(target_counts, meas_flux)
 
             # Create photodiode readout handler.
             pd_readout = PhotodiodeReadout(exptime, self)

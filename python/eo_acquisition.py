@@ -197,12 +197,12 @@ class EOAcquisition(object):
                 float(self.sub.ts8.synchCommand(10, command).getResult())
         return flux_sum/len(fits_files)
 
-    def compute_exptime(self, wl, target_counts, seqno=0, fluxcal_time=2000):
+    def compute_exptime(self, target_counts, meas_flux, seqno=0,
+                        fluxcal_time=2000):
         """
         Compute the exposure time for a specified wavelength and
         target signal level.
         """
-        meas_flux = self.measured_flux(wl)
         exptime = target_counts/meas_flux
         exptime = min(max(exptime, self.exptime_min), self.exptime_max)
         return exptime
