@@ -1,13 +1,13 @@
 """
 Jython script to run the pocket-pumping acquisition at TS8.
 """
-from eo_acquisition import EOAcquisition, PhotodiodeReadout, AcqMetadata, logger
+from eo_acquisition import EOAcquisition, AcqMetadata, logger
 
 class PPumpAcquisition(EOAcquisition):
     """
     EOAcquisition subclass to take the pocket-pumping dataset.
     """
-    def __init__(self, acq_config_file, metadata, logger=logger):
+    def __init__(self, seqfile, acq_config_file, metadata, logger=logger):
         super(PPumpAcquisition, self).__init__(seqfile, acq_config_file,
                                                "TRAP", metadata, logger=logger)
 

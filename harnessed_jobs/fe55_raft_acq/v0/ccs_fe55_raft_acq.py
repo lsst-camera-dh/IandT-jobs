@@ -1,7 +1,7 @@
 """
 Jython script to run Fe55 acquisitions at TS8.
 """
-from eo_acquisition import EOAcquisition, PhotodiodeReadout, AcqMetadata, logger
+from eo_acquisition import EOAcquisition, AcqMetadata, logger
 
 class Fe55Acquisition(EOAcquisition):
     """

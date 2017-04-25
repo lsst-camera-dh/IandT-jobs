@@ -3,7 +3,7 @@ Jython script for acquisition of QE dataset.
 """
 from eo_acquisition import EOAcquisition, PhotodiodeReadout, AcqMetadata, logger
 
-class QEAcquistion(EOAcquisition):
+class QEAcquisition(EOAcquisition):
     """
     EOAcquisition subclass to take QE dataset.
     """
@@ -32,7 +32,7 @@ class QEAcquistion(EOAcquisition):
 
             pd_readout = PhotodiodeReadout(exptime, self)
             self.image_clears()
-            file_template= '${CCDSerialLSST}_${testType}_${imageType}_%4.4d_${RunNumber}_${timestamp}.fits' % int(wl)
+            file_template = '${CCDSerialLSST}_${testType}_${imageType}_%4.4d_${RunNumber}_${timestamp}.fits' % int(wl)
             pd_readout.start_accumulation()
             fits_files = self.take_image(seqno, exptime, openShutter, actuateXed,
                                          image_type, file_template=file_template)
