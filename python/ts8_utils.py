@@ -1,12 +1,26 @@
-import camera_components
+"""
+Utilities to work with the ts8 subsystem.
+"""
 
-def set_ccd_info(ccs_sub, raft_id):
+def set_ccd_info(ccs_sub, ccd_names):
     """
-    Refactored version of eolib.EOTS8SetupCCDInfo
-    """
-    # Get the CCD information for the specified raft.
-    raft = camera_components.Raft.create_from_etrav(raft_id)
+    Set the CCD serial numbers in the CCS code.  Get the CCD
+    temperature and BSS voltages from the ts8 and ccs-rebps
+    subsystems, and set those values in the CCS code.
 
+    Parameters
+    ----------
+    ccs_sub : CcsSubsystems
+        Container of CCS subsystems.
+    ccd_names : dict
+        Dictionary of namedtuple containing the CCD .sensor_id and
+        .maufacturer_sn information, keyed by slot name.
+
+    Notes
+    -----
+    This is function is a refactored version of
+    harnessed-jobs/python/eolib.EOTS8SetupCCDInfo.
+    """
     # Parse the printGeometry output to map CCD values to REBs.
     geo = ccs_sub.ts8.synchCommand(2, "printGeometry 3").getResult()
     for line in geo.split('\n'):
@@ -14,7 +28,7 @@ def set_ccd_info(ccs_sub, raft_id):
             continue
         slot = 'S%s' % line[-2:]
         ccd_id = line.split(' ')[1]
-        sensor = raft.sensor(slot)
+        sensor = ccd_names[slot]
 
         # Set the LSST serial number.
         command = 'setLsstSerialNumber %s %s' % (ccd_id, sensor.sensor_id)
@@ -26,15 +40,15 @@ def set_ccd_info(ccs_sub, raft_id):
         ccs_sub.ts8.synchCommand(command)
 
         # Set the CCD temperature.
-        rebid = int(slot[1])
+        reb_id = int(slot[1])
         ccd_num = int(slot[2])
-        command = "getChannelValue R00.Reb%i.CCDTemp%i" % (rebid, ccd_num)
+        command = "getChannelValue R00.Reb%d.CCDTemp%d" % (reb_id, ccd_num)
         ccdtemp = ccs_sub.ts8.synchCommand(2, command).getResult()
         command = "setMeasuredCCDTemperature %s %s" % (ccd_id, ccdtemp)
         ccs_sub.ts8.synchCommand(10, command)
 
         # Set the BSS voltage.
-        command = "getChannelValue REB%s.hvbias.VbefSwch"  % rebid
+        command = "getChannelValue REB%s.hvbias.VbefSwch"  % reb_id
         hv = ccs_sub.rebps.synchCommand(10, command).getResult()
         command = "setMeasuredCCDBSS %s %s" % (ccd_id, hv)
         ccs_sub.ts8.synchCommand(10, command)

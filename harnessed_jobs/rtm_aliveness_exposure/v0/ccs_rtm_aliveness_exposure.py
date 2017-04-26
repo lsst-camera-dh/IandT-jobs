@@ -4,6 +4,7 @@ harnessed-jobs/T08/rebalive_exposure/ccseorebalive_exposure.py script.
 """
 import sys
 import logging
+from ts8_utils import set_ccd_info
 from org.lsst.ccs.scripting import *
 
 CCS.setThrowExceptions(True)
@@ -51,7 +52,7 @@ def setup_sequencer(ccs_sub, sequence_file=sequence_file, nclears=10,
     logger.info(ccs_sub.ts8.synchCommand(300, command).getResult())
 
 if __name__ == '__main__':
-    ccs_sub = CcsSubsystems(subsystems=dict(ts8='ts8'))
+    ccs_sub = CcsSubsystems(subsystems=dict(ts8='ts8', rebps='ccs-rebps'))
 
     verify_rebs(ccs_sub)
 
