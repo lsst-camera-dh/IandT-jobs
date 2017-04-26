@@ -182,16 +182,19 @@ if __name__ == '__main__':
         logger.info("Turn on REB clock and rail voltages.")
 
         # Load sensor-specific configurations.
-        if CCSCCDTYPE == 'ITL':
+        if ccd_type == 'ITL':
             ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:itl")
             logger.info("loaded configurations: Rafts:itl")
             ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:itl")
             logger.info("loaded configurations: RaftsLimits:itl")
-        else:
+        elif ccd_type == 'E2V':
             ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:e2v")
             logger.info("loaded configurations: Rafts:e2v")
             ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:e2v")
             logger.info("loaded configurations: RaftsLimits:e2v")
+        else:
+            raise RuntimeError("ccs_rtm_aliveness_power_on: Invalid ccd_type, "
+                               + ccd_type)
 
         try:
             command = "powerOn %d" % rebid

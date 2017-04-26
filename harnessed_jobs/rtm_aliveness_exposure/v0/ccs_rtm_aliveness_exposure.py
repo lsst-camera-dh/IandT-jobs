@@ -56,7 +56,7 @@ if __name__ == '__main__':
 
     verify_rebs(ccs_sub)
 
-    set_ccd_info(ccs_sub, ccd_names)
+    set_ccd_info(ccs_sub, ccd_names, logger)
 
     command = "setDefaultImageDirectory %s/S${sensorLoc}" % tsCWD
     logger.info(command)
