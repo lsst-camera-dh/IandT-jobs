@@ -4,8 +4,8 @@ harnessed-jobs/T08/rebalive_exposure/ccseorebalive_exposure.py script.
 """
 import sys
 import logging
+from org.lsst.ccs.scripting import CCS
 from ts8_utils import set_ccd_info
-from org.lsst.ccs.scripting import *
 
 CCS.setThrowExceptions(True)
 
@@ -56,37 +56,37 @@ if __name__ == '__main__':
 
     verify_rebs(ccs_sub)
 
+    set_ccd_info(ccs_sub, ccd_names)
+
     command = "setDefaultImageDirectory %s/S${sensorLoc}" % tsCWD
     logger.info(command)
     ccs_sub.ts8.synchCommand(10, command)
 
     setup_sequencer(ccs_sub)
 
+    ccs_sub.ts8.synchCommand(10, 'setRunNumber %s' % RUNNUM)
     ccs_sub.ts8.synchCommand(10, "setTestStand TS8")
 
     test_type = 'CONN'
     image_type = 'FLAT'
     openShutter = False
     actuateXED = False
-    filename_format = "${CCDSerialLSST}_${testType}_${imageType}_${SequenceInfo}_${RunNumber}_${timestamp}.fits"
+    filename_format = "${CCDSerialLSST}_${testType}_${imageType}_%04d_${RunNumber}_${timestamp}.fits"
+
+    command = "setTestType %s" % test_type
+    logger.info(command)
+    ccs_sub.ts8.synchCommand(10, command)
+
+    command = "setImageType %s" % image_type
+    logger.info(command)
+    ccs_sub.ts8.synchCommand(10, command)
 
     # Take frames for three different exposure times.
     exptimes = (100, 1000, 4000)
     for exptime in exptimes:
-        command = "setSeqInfo %d" % exptime
-        logger.info(command)
-        ccs_sub.ts8.synchCommand(10, command)
-
-        command = "setTestType %s" % test_type
-        logger.info(command)
-        ccs_sub.ts8.synchCommand(10, command)
-
-        command = "setImageType %s" % image_type
-        logger.info(command)
-        ccs_sub.ts8.synchCommand(10, command)
-
+        filename = filename_format % exptime
         command = 'exposeAcquireAndSave %i %s %s "%s"' % \
-                  (exptime, openShutter, actuateXED, filename_format)
+                  (exptime, openShutter, actuateXED, filename)
         logger.info(command)
         ccs_sub.ts8.synchCommand(100, command)
         logger.info("%s taken with exptime %i ms", image_type, exptime)
