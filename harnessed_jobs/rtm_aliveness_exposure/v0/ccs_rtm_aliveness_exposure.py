@@ -55,7 +55,9 @@ if __name__ == '__main__':
 
     verify_rebs(ccs_sub)
 
-    ccs_sub.ts8.synchCommand(10, "setDefaultImageDirectory %s" % tsCWD)
+    command = "setDefaultImageDirectory %s/S${sensorLoc}" % tsCWD
+    logger.info(command)
+    ccs_sub.ts8.synchCommand(10, command)
 
     setup_sequencer(ccs_sub)
 
@@ -65,11 +67,14 @@ if __name__ == '__main__':
     image_type = 'FLAT'
     openShutter = False
     actuateXED = False
-    filename_format = "${sensorLoc}_${sensorId}_%s_%s_%04i_${timestamp}.fits"
+    filename_format = "${CCDSerialLSST}_${testType}_${imageType}_${SequenceInfo}_${RunNumber}_${timestamp}.fits"
 
     # Take frames for three different exposure times.
     exptimes = (100, 1000, 4000)
     for exptime in exptimes:
+        command = "setSeqInfo %d" % exptime
+        logger.info(command)
+        ccs_sub.ts8.synchCommand(10, command)
 
         command = "setTestType %s" % test_type
         logger.info(command)
@@ -79,10 +84,8 @@ if __name__ == '__main__':
         logger.info(command)
         ccs_sub.ts8.synchCommand(10, command)
 
-        filename = filename_format % (test_type.lower(), image_type.lower(),
-                                      exptime)
         command = 'exposeAcquireAndSave %i %s %s "%s"' % \
-                  (exptime, openShutter, actuateXED, filename)
+                  (exptime, openShutter, actuateXED, filename_format)
         logger.info(command)
         ccs_sub.ts8.synchCommand(100, command)
         logger.info("%s taken with exptime %i ms", image_type, exptime)
