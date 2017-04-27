@@ -1,6 +1,7 @@
 """
 Utility functions for RTM aliveness testing.
 """
+import os
 from collections import defaultdict
 import numpy as np
 import lsst.eotest.image_utils as imutils
@@ -50,7 +51,7 @@ def raft_channel_statuses(fits_files, threshold_factor=0.1):
     """
     Compute the connectivity status of each channel in a raft given a
     collection of FITS images for each of the 9 CCDs.  The FITS
-    filenames are assumed to have the format <slot>_*.fits.
+    filenames are assumed to have the format <slot>/*.fits.
 
     Parameters
     ----------
@@ -77,7 +78,7 @@ def raft_channel_statuses(fits_files, threshold_factor=0.1):
     channel_status = defaultdict(dict)
     signal_values = []
     for fits_file in fits_files:
-        slot = fits_file.split('_')[0]
+        slot = fits_file.split(os.path.sep)[0]
         ccd = sensorTest.MaskedCCD(fits_file)
         imaging = get_median_signal_levels(ccd, ccd.amp_geom.imaging)
         oscan = get_median_signal_levels(ccd, ccd.amp_geom.serial_overscan)

@@ -12,7 +12,8 @@ results = []
 
 job_schema = lcatr.schema.get('rtm_aliveness_exposure')
 
-seqnos = '0100 1000 4000'.split()
+# Infer the sequence numbers from the files for the sensor in slot S00.
+seqnos = [x.split('_')[-3] for x in sorted(glob.glob('S00/*.fits'))]
 
 row_template = "%(seqno)s  %(slot)s  %(channel)s  %(signal)s  %(status)s\n"
 
@@ -20,7 +21,7 @@ outfile = '%s_%s_rtm_aliveness_bad_channels.txt' % (siteUtils.getUnitId(),
                                                     siteUtils.getRunNumber())
 with open(outfile, 'w') as output:
     for seqno in seqnos:
-        fits_files = sorted(glob.glob('*_%s_*.fits' % seqno))
+        fits_files = sorted(glob.glob('S??/*_%s_*.fits' % seqno))
         for fits_file in fits_files:
             results.append(lcatr.schema.fileref.make(fits_file))
         channel_signal, channel_status, exptime \

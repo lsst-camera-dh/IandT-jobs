@@ -17,6 +17,7 @@ class AlivenessUtilsTestCase(unittest.TestCase):
         Generate bias and flat to use for mixing channels for test
         images.
         """
+        os.chdir(os.path.join(os.environ['IANDTJOBSDIR'], 'tests'))
         gain = 4.
         level = 4000.
         self.nominal_signal = level/gain
@@ -27,6 +28,7 @@ class AlivenessUtilsTestCase(unittest.TestCase):
         self.flat_file = 'temp_flat.fits'
         simulateFlat(self.flat_file, level, gain, exptime=1, verbose=False)
         self.raft_files = []
+        self.slots = []
         self.nbad = {}
 
     def make_raft_files(self):
@@ -35,10 +37,15 @@ class AlivenessUtilsTestCase(unittest.TestCase):
         in a raft, with a prescribed number of bad channels.
         """
         bias_frame = fits.open(self.bias_file)
-        self.raft_files = ['%i%i_sensor_frame.fits' % pair
-                           for pair in itertools.product(range(3), range(3))]
+        self.slots = ['S%i%i' % pair for pair in
+                      itertools.product(range(3), range(3))]
+        self.raft_files = [os.path.join(slot,
+                                        '%s_sensor_frame.fits' % slot[-2:])
+                           for slot in self.slots]
         for i, raft_file in enumerate(self.raft_files):
-            slot = raft_file.split('_')[0]
+            slot = self.slots[i]
+            if not os.path.isdir(slot):
+                os.mkdir(os.path.join(slot))
             flat_frame = fits.open(self.flat_file)
             # Insert i+1 bad channels in random locations.
             num_bad = i + 1
@@ -53,7 +60,15 @@ class AlivenessUtilsTestCase(unittest.TestCase):
         os.remove(self.bias_file)
         os.remove(self.flat_file)
         for item in self.raft_files:
-            os.remove(item)
+            try:
+                os.remove(item)
+            except OSError:
+                pass
+        for item in self.slots:
+            try:
+                os.rmdir(item)
+            except OSError:
+                pass
 
     def test_get_median_signal_levels(self):
         """
