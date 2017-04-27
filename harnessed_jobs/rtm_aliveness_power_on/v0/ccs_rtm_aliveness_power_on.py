@@ -9,6 +9,7 @@ from collections import namedtuple
 import logging
 import java.lang
 from org.lsst.ccs.scripting import CCS
+from ccs_scripting_tools import CcsSubsystems
 
 CCS.setThrowExceptions(True)
 
@@ -17,31 +18,21 @@ logging.basicConfig(format="%(message)s",
                     stream=sys.stdout)
 logger = logging.getLogger()
 
-class CcsSubsystems(object):
-    def __init__(self, subsystems=None):
-        if subsystems is None:
-            subsystems = dict(ts8='ts8', rebps='ccs-rebps')
-        for key, value in subsystems.items():
-            self.__dict__[key] = CCS.attachSubsystem(value)
-
 ChannelInfo = namedtuple('ChannelInfo', ['reb_ps_channel', 'ts8_mon_chan',
                                          'low_lim', 'high_lim', 'chkreb'])
 
-def set_monitoring_interval(ts8, period_ms, logger=logger):
-    logger.info("Setting tick and monitoring period to %i ms", period_ms)
+def set_monitoring_interval(ts8, period_ms):
+    "Set the CCS ts8 monitoring interval."
     command = "change monitor-update taskPeriodMillis %i" % period_ms
-    logger.info(command)
     ts8.synchCommand(10, command)
     command = "change monitor-publish taskPeriodMillis %i" % period_ms
-    logger.info(command)
     ts8.synchCommand(10, command)
 
-def power_off_rebs(lines=(0, 1, 2)):
-    # Power-off the requested REBs via the specified power-lines.
+def power_off_rebs(rebps, lines=(0, 1, 2)):
+    "Power-off the requested REBs via the specified power-lines."
     for power_line in lines:
         command = "setNamedPowerOn %d master False" % power_line
-        logger.info(command)
-        ccs_sub.rebps.synchCommand(10, command)
+        rebps.synchCommand(10, command)
 
 def map_power_lines_to_rebs(ccs_sub, ntries=20, wait_between_tries=10,
                             num_lines=3):
@@ -54,7 +45,7 @@ def map_power_lines_to_rebs(ccs_sub, ntries=20, wait_between_tries=10,
     rebnames = ccs_sub.ts8.synchCommand(10, "getREBDeviceNames").getResult()
 
     # Ensure that all of the power-lines to the REBs are off to start.
-    power_off_rebs()
+    power_off_rebs(ccs_sub.rebps)
 
     # Loop over each REB to find the line it uses.
     power_lines = {}
@@ -79,7 +70,7 @@ def map_power_lines_to_rebs(ccs_sub, ntries=20, wait_between_tries=10,
                     break
                 except java.lang.Exception:
                     time.sleep(wait_between_tries)
-            power_off_rebs(lines=(line,))
+            power_off_rebs(ccs_sub.rebps, lines=(line,))
             line += 1
         if power_line is None:
             raise java.lang.Exception("Could not read register of %s."
@@ -95,13 +86,11 @@ def check_values(ccs_sub, rebid, name, rebps_channel, ts8_mon_chan, low_lim,
     """
     reb_channel_name = 'REB%d.%s' % (rebid, rebps_channel)
     command = "readChannelValue %s" % reb_channel_name
-    logger.info(command)
     cur_ps = ccs_sub.rebps.synchCommand(10, command).getResult()
     logger.info("REB PS: %s = %s", reb_channel_name, cur_ps)
 
     ts8_channel_name = 'R00.Reb%d.%s' % (rebid, ts8_mon_chan)
     command = "readChannelValue %s" % ts8_channel_name
-    logger.info(command)
     cur_reb = ccs_sub.ts8.synchCommand(10, command).getResult()
     logger.info("TS8 Monitor: %s = %s", ts8_channel_name, cur_reb)
 
@@ -128,7 +117,7 @@ if __name__ == '__main__':
 
     logger.info("start tstamp: %f", time.time())
 
-    ccs_sub = CcsSubsystems()
+    ccs_sub = CcsSubsystems(dict(ts='ts8', rebps='ccs-rebps'), logger=logger)
 
     logger.info("Mapping power supply lines to REBs...")
     power_lines = map_power_lines_to_rebs(ccs_sub)
@@ -184,21 +173,16 @@ if __name__ == '__main__':
         # Load sensor-specific configurations.
         if ccd_type == 'ITL':
             ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:itl")
-            logger.info("loaded configurations: Rafts:itl")
             ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:itl")
-            logger.info("loaded configurations: RaftsLimits:itl")
         elif ccd_type == 'E2V':
             ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:e2v")
-            logger.info("loaded configurations: Rafts:e2v")
             ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:e2v")
-            logger.info("loaded configurations: RaftsLimits:e2v")
         else:
             raise RuntimeError("ccs_rtm_aliveness_power_on: Invalid ccd_type, "
                                + ccd_type)
 
         try:
             command = "powerOn %d" % rebid
-            logger.info(command)
             outfile = '%s_REB%i_%s_powerOn_aliveness_test_output.txt' \
                       % (UNITID, rebid, RUNNUM)
             outfile = '/'.join((tsCWD, outfile))

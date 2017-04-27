@@ -5,6 +5,7 @@ harnessed-jobs/T08/rebalive_exposure/ccseorebalive_exposure.py script.
 import sys
 import logging
 from org.lsst.ccs.scripting import CCS
+from ccs_scripting_tools import CcsSubsystems
 from ts8_utils import set_ccd_info
 
 CCS.setThrowExceptions(True)
@@ -14,55 +15,46 @@ logging.basicConfig(format="%(message)s",
                     stream=sys.stdout)
 logger = logging.getLogger()
 
-class CcsSubsystems(object):
-    def __init__(self, subsystems=None):
-        if subsystems is None:
-            subsystems = dict(ts8='ts8', rebps='ccs-rebps')
-        for key, value in subsystems.items():
-            self.__dict__[key] = CCS.attachSubsystem(value)
-
-def verify_rebs(ccs_sub, logger=logger):
-    rebs = ccs_sub.ts8.synchCommand(10, "getREBDeviceNames").getResult()
+def verify_rebs(ts8, logger=logger):
+    "List the REBs that are attached."
+    rebs = ts8.synchCommand(10, "getREBDeviceNames").getResult()
     logger.info("%i REBs found:", len(rebs))
     for reb in rebs:
         logger.info("  %s", reb)
 
-def setup_sequencer(ccs_sub, sequence_file=sequence_file, nclears=10,
+def setup_sequencer(ts8, sequence_file=sequence_file, nclears=10,
                     logger=logger):
+    "Set up the sequencer and execute a zero-second exposure."
     logger.info("Set up the sequencer and execute a zero-second exposure:")
 
     command = "loadSequencer %s" % sequence_file
-    logger.info(command)
-    logger.info(ccs_sub.ts8.synchCommand(90, command).getResult())
+    ts8.synchCommand(90, command)
 
     command = "setSequencerStart Clear"
-    logger.info(command)
-    logger.info(ccs_sub.ts8.synchCommand(10, command).getResult())
+    ts8.synchCommand(10, command)
 
     for iclear in range(nclears):
         command = "startSequencer"
-        logger.info("%i %s", iclear, command)
-        logger.info(ccs_sub.ts8.synchCommand(10, command).getResult())
+        logger.info("%i", iclear)
+        ts8.synchCommand(10, command)
         command = "waitSequencerDone 5000"
-        logger.info(command)
-        logger.info(ccs_sub.ts8.synchCommand(10, command).getResult())
+        ts8.synchCommand(10, command)
 
     command = 'exposeAcquireAndSave 100 False False ""'
-    logger.info(command)
-    logger.info(ccs_sub.ts8.synchCommand(300, command).getResult())
+    logger.info(ts8.synchCommand(300, command).getResult())
 
 if __name__ == '__main__':
-    ccs_sub = CcsSubsystems(subsystems=dict(ts8='ts8', rebps='ccs-rebps'))
+    ccs_sub = CcsSubsystems(subsystems=dict(ts8='ts8', rebps='ccs-rebps'),
+                            logger=logger)
 
-    verify_rebs(ccs_sub)
+    verify_rebs(ccs_sub.ts8)
 
     set_ccd_info(ccs_sub, ccd_names, logger)
 
     command = "setDefaultImageDirectory %s/S${sensorLoc}" % tsCWD
-    logger.info(command)
     ccs_sub.ts8.synchCommand(10, command)
 
-    setup_sequencer(ccs_sub)
+    setup_sequencer(ccs_sub.ts8)
 
     ccs_sub.ts8.synchCommand(10, 'setRunNumber %s' % RUNNUM)
     ccs_sub.ts8.synchCommand(10, "setTestStand TS8")
@@ -74,11 +66,9 @@ if __name__ == '__main__':
     filename_format = "${CCDSerialLSST}_${testType}_${imageType}_%04d_${RunNumber}_${timestamp}.fits"
 
     command = "setTestType %s" % test_type
-    logger.info(command)
     ccs_sub.ts8.synchCommand(10, command)
 
     command = "setImageType %s" % image_type
-    logger.info(command)
     ccs_sub.ts8.synchCommand(10, command)
 
     # Take frames for three different exposure times.
@@ -87,6 +77,5 @@ if __name__ == '__main__':
         filename = filename_format % exptime
         command = 'exposeAcquireAndSave %i %s %s "%s"' % \
                   (exptime, openShutter, actuateXED, filename)
-        logger.info(command)
         ccs_sub.ts8.synchCommand(100, command)
         logger.info("%s taken with exptime %i ms", image_type, exptime)
