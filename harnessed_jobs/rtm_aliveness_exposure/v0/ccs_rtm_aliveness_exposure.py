@@ -61,15 +61,16 @@ if __name__ == '__main__':
 
     test_type = 'CONN'
     image_type = 'FLAT'
-    openShutter = False
-    actuateXED = False
-    filename_format = "${CCDSerialLSST}_${testType}_${imageType}_%04d_${RunNumber}_${timestamp}.fits"
 
     command = "setTestType %s" % test_type
     ccs_sub.ts8.synchCommand(10, command)
 
     command = "setImageType %s" % image_type
     ccs_sub.ts8.synchCommand(10, command)
+
+    openShutter = False
+    actuateXED = False
+    filename_format = "${CCDSerialLSST}_${testType}_${imageType}_%04d_${RunNumber}_${timestamp}.fits"
 
     # Take frames for three different exposure times.
     exptimes = (100, 1000, 4000)

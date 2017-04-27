@@ -117,7 +117,7 @@ if __name__ == '__main__':
 
     logger.info("start tstamp: %f", time.time())
 
-    ccs_sub = CcsSubsystems(dict(ts='ts8', rebps='ccs-rebps'), logger=logger)
+    ccs_sub = CcsSubsystems(dict(ts8='ts8', rebps='ccs-rebps'), logger=logger)
 
     logger.info("Mapping power supply lines to REBs...")
     power_lines = map_power_lines_to_rebs(ccs_sub)
