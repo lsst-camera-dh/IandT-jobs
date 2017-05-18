@@ -1,5 +1,5 @@
 """
-Test Stand 8 electro-optical acquisition scripting module.
+Test Stand 8 electro-optical acquisition jython scripting module.
 """
 import os
 import sys
@@ -60,7 +60,7 @@ class EOAcquisition(object):
     Base class for TS8 electro-optical data acquisition.
     """
     def __init__(self, seqfile, acq_config_file, acqname, metadata,
-                 subsystems=None, logger=logger):
+                 subsystems, logger=logger):
         """
         Parameters
         ----------
@@ -74,7 +74,7 @@ class EOAcquisition(object):
             A nametuple of test-wide metadata, specifically, the
             current working directory, the LSST unit ID for the raft,
             and the run number.
-        subsystems : dict, optional
+        subsystems : dict
             A dictionary of CCS subsystems, keyed by standard attribute
             names for the CcsSubsystems class, i.e., 'ts', 'ts8', 'pd',
             and 'mono'.  If None, then the default subsystems, 'ts', 'ts8',

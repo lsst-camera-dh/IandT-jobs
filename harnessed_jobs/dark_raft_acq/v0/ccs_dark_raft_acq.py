@@ -8,9 +8,11 @@ class DarkAcquisition(EOAcquisition):
     """
     EOAcquisition subclass to acquire dark exposure dataset.
     """
-    def __init__(self, seqfile, acq_config_file, metadata, logger=logger):
+    def __init__(self, seqfile, acq_config_file, metadata, subsystems,
+                 logger=logger):
         super(DarkAcquisition, self).__init__(seqfile, acq_config_file, "DARK",
-                                              metadata, logger=logger)
+                                              metadata, subsystems,
+                                              logger=logger)
 
     def run(self):
         """
@@ -31,5 +33,5 @@ class DarkAcquisition(EOAcquisition):
 
 if __name__ == '__main__':
     metadata = dict(cwd=tsCWD, raft_id=UNITID, run_number=RUNNUM)
-    acq = DarkAcquisition(sequence_file, rtmacqcfgfile, metadata)
+    acq = DarkAcquisition(sequence_file, rtmacqcfgfile, metadata, subsystems)
     acq.run()
