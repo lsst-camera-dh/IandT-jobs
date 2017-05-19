@@ -13,10 +13,12 @@ except ImportError:
     # Assume we are running unit tests under python instead of jython.
     class Throwable(Exception):
         pass
-from ccs_scripting_tools import CcsSubsystems
+from ccs_scripting_tools import CcsSubsystems, CCS
 
 __all__ = ["EOAcquisition", "PhotodiodeReadout", "EOAcqConfig",
            "AcqMetadata", "logger"]
+
+CCS.setThrowExceptions(True)
 
 logging.basicConfig(format="%(message)s",
                     level=logging.INFO,
@@ -163,6 +165,7 @@ class EOAcquisition(object):
         command = "setWaveAndFilter %s" % wl
         rwl = self.sub.mono.synchCommand(60, command).getResult()
         self.sub.ts8.synchCommand(10, "setMonoWavelength %s" % rwl)
+        return rwl
 
     def _read_instructions(self, acq_config_file):
         """
