@@ -112,8 +112,8 @@ class EOAcquisition(object):
             'ts/PhotoDiode', and 'ts/Monochromator', will be attached.
         """
         if subsystems is None:
-            subsystems = dict(ts='ts', pd='ts/PhotoDiode',
-                              mono='ts/Monochromator', ts8='ts8')
+            subsystems = dict(ts8='ts8', pd='ts8/Monitor',
+                              mono='ts8/Monochromator')
         self.sub = CcsSubsystems(subsystems=subsystems)
         self._check_subsystems()
         self.seqfile = seqfile
@@ -335,7 +335,6 @@ class EOAcquisition(object):
             The flux value in e-/pixel/s.
         """
         self.set_wavelength(wl)
-        self.sub.ts.synchCommand(60, "publishState")
         openShutter = True
         actuateXed = False
         # Take a test image.
