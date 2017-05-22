@@ -37,7 +37,6 @@ class PreflightAcquisition(EOAcquisition):
             wl = float(tokens[1])
             exptime = float(tokens[2])
             rwl = self.set_wavelength(wl)
-            self.sub.ts.synchCommand(60, "publishState")
             filt = self.sub.mono.synchCommand(60, "getFilter").getResult()
             logger.info("Wavelength: %f; Filter: %f" % (rwl, filt))
             time.sleep(4.)
