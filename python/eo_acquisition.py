@@ -15,8 +15,8 @@ except ImportError:
         pass
 from ccs_scripting_tools import CcsSubsystems, CCS
 
-__all__ = ["EOAcquisition", "PhotodiodeReadout", "EOAcqConfig",
-           "AcqMetadata", "logger"]
+__all__ = ["hit_target_pressure", "EOAcquisition", "PhotodiodeReadout",
+           "EOAcqConfig", "AcqMetadata", "logger"]
 
 CCS.setThrowExceptions(True)
 
@@ -24,6 +24,35 @@ logging.basicConfig(format="%(message)s",
                     level=logging.INFO,
                     stream=sys.stdout)
 logger = logging.getLogger()
+
+def hit_target_pressure(vac_sub, target, wait=5, tmax=7200, logger=logger):
+    """
+    Function to wait until target pressure in vacuum gauge subsystem
+    is attained.
+
+    Parameters
+    ----------
+    vac_sub : CCS subsystem
+        The vacuum subsystem.
+    target : float
+        The target pressure (torr).
+    wait : float, optional
+        The wait time (sec) between pressure reads.  Default: 5
+    tmax : float, optional
+        The maximum time (sec) to allow for the target pressure to be attained.
+        Default: 7200
+    logger : logging.Logger
+        The logger object.
+    """
+    tstart = time.time()
+    pressure = vac_sub.synchCommand(20, "readPressure").getResult()
+    while pressure > target or pressure < 0:
+        logger.info("time = %s, pressure = %f", time.time(), pressure)
+        if (time.time() - tstart) > tmax:
+            raise RuntimeError("Exceeded allowed pump-down time for "
+                               + "target pressure %s" % target)
+        time.sleep(wait)
+        pressure = vac_sub.synchCommand(20, "readPressure").getResult()
 
 AcqMetadata = namedtuple('AcqMetadata', 'cwd raft_id run_number'.split())
 
