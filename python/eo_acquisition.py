@@ -360,14 +360,21 @@ class PhotodiodeReadout(object):
         self.sub = eo_acq_object.sub
         self.md = eo_acq_object.md
         self.logger = eo_acq_object.logger
+
+        # for exposures over 0.5 sec, nominal PD readout at 60Hz, otherwise 240Hz
         if exptime > 0.5:
             nplc = 1.
         else:
             nplc = 0.25
 
-        nreads = min((exptime + 2.)*60./nplc, max_reads)
+        # add 2sec buffer to duration of PD readout
+        buffertime = 2.0
+        nreads = min((exptime + buffertime)*60./nplc, max_reads)
         self.nreads = int(nreads)
-        self.nplc = int((exptime + 2.)*60./nreads)
+
+        # adjust PD readout when max_reads is reached
+        # (needs to be between 0.001 and 60 - add code to check)
+        self.nplc = (exptime + buffertime)*60./nreads
         self._pd_result = None
         self._start_time = None
 
@@ -398,11 +405,15 @@ class PhotodiodeReadout(object):
         pd_filename = os.path.join(self.md.cwd,
                                    "pd-values_%d-for-seq-%d-exp-%d.txt"
                                    % (int(self._start_time), seqno, icount))
-        time.sleep(10.)
-        command = "readBuffer %s %s" % (pd_filename, "ts8prod@ts8-raft1")
-        self.sub.pd.synchCommand(1000, command)
-        time.sleep(5.)
+        # time.sleep(10.)
+        # command = "readBuffer %s %s" % (pd_filename, "ts8prod@ts8-raft1")
+        command = "readBuffer %s " % (pd_filename)
+        result = self.sub.pd.synchCommand(1000, command)        
+        self.logger.info("Photodiode readout accumulation finished at %f, %s" % (time.time()-self._start_time,result.getResult())
+
+        # time.sleep(5.)
         for fits_file in fits_files:
             full_path = glob.glob('%s/*/%s' % (self.md.cwd, fits_file))[0]
             command = "addBinaryTable %s %s AMP0.MEAS_TIMES AMP0_MEAS_TIMES AMP0_A_CURRENT %d" % (pd_filename, full_path, self._start_time)
-            self.sub.ts8.synchCommand(200, command)
+            result = self.sub.ts8.synchCommand(200, command)
+            self.logger.info("Photodiode readout added to fits file, %s" % (result.getResult())
