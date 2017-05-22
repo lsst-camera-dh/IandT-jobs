@@ -441,11 +441,11 @@ class PhotodiodeReadout(object):
         # command = "readBuffer %s %s" % (pd_filename, "ts8prod@ts8-raft1")
         command = "readBuffer %s " % (pd_filename)
         result = self.sub.pd.synchCommand(1000, command)        
-        self.logger.info("Photodiode readout accumulation finished at %f, %s" % (time.time()-self._start_time,result.getResult())
+        self.logger.info("Photodiode readout accumulation finished at %f, %s" % (time.time()-self._start_time,result.getResult()))
 
         # time.sleep(5.)
         for fits_file in fits_files:
             full_path = glob.glob('%s/*/%s' % (self.md.cwd, fits_file))[0]
             command = "addBinaryTable %s %s AMP0.MEAS_TIMES AMP0_MEAS_TIMES AMP0_A_CURRENT %d" % (pd_filename, full_path, self._start_time)
             result = self.sub.ts8.synchCommand(200, command)
-            self.logger.info("Photodiode readout added to fits file, %s" % (result.getResult())
+            self.logger.info("Photodiode readout added to fits file, %s" % (result.getResult()))
