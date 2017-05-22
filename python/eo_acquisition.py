@@ -1,5 +1,5 @@
 """
-Test Stand 8 electro-optical acquisition scripting module.
+Test Stand 8 electro-optical acquisition jython scripting module.
 """
 import os
 import sys
@@ -13,15 +13,46 @@ except ImportError:
     # Assume we are running unit tests under python instead of jython.
     class Throwable(Exception):
         pass
-from ccs_scripting_tools import CcsSubsystems
+from ccs_scripting_tools import CcsSubsystems, CCS
 
-__all__ = ["EOAcquisition", "PhotodiodeReadout", "EOAcqConfig",
-           "AcqMetadata", "logger"]
+__all__ = ["hit_target_pressure", "EOAcquisition", "PhotodiodeReadout",
+           "EOAcqConfig", "AcqMetadata", "logger"]
+
+CCS.setThrowExceptions(True)
 
 logging.basicConfig(format="%(message)s",
                     level=logging.INFO,
                     stream=sys.stdout)
 logger = logging.getLogger()
+
+def hit_target_pressure(vac_sub, target, wait=5, tmax=7200, logger=logger):
+    """
+    Function to wait until target pressure in vacuum gauge subsystem
+    is attained.
+
+    Parameters
+    ----------
+    vac_sub : CCS subsystem
+        The vacuum subsystem.
+    target : float
+        The target pressure (torr).
+    wait : float, optional
+        The wait time (sec) between pressure reads.  Default: 5
+    tmax : float, optional
+        The maximum time (sec) to allow for the target pressure to be attained.
+        Default: 7200
+    logger : logging.Logger
+        The logger object.
+    """
+    tstart = time.time()
+    pressure = vac_sub.synchCommand(20, "readPressure").getResult()
+    while pressure > target or pressure < 0:
+        logger.info("time = %s, pressure = %f", time.time(), pressure)
+        if (time.time() - tstart) > tmax:
+            raise RuntimeError("Exceeded allowed pump-down time for "
+                               + "target pressure %s" % target)
+        time.sleep(wait)
+        pressure = vac_sub.synchCommand(20, "readPressure").getResult()
 
 AcqMetadata = namedtuple('AcqMetadata', 'cwd raft_id run_number'.split())
 
@@ -60,7 +91,7 @@ class EOAcquisition(object):
     Base class for TS8 electro-optical data acquisition.
     """
     def __init__(self, seqfile, acq_config_file, acqname, metadata,
-                 subsystems=None, logger=logger):
+                 subsystems, logger=logger):
         """
         Parameters
         ----------
@@ -74,7 +105,7 @@ class EOAcquisition(object):
             A nametuple of test-wide metadata, specifically, the
             current working directory, the LSST unit ID for the raft,
             and the run number.
-        subsystems : dict, optional
+        subsystems : dict
             A dictionary of CCS subsystems, keyed by standard attribute
             names for the CcsSubsystems class, i.e., 'ts', 'ts8', 'pd',
             and 'mono'.  If None, then the default subsystems, 'ts', 'ts8',
@@ -163,6 +194,7 @@ class EOAcquisition(object):
         command = "setWaveAndFilter %s" % wl
         rwl = self.sub.mono.synchCommand(60, command).getResult()
         self.sub.ts8.synchCommand(10, "setMonoWavelength %s" % rwl)
+        return rwl
 
     def _read_instructions(self, acq_config_file):
         """

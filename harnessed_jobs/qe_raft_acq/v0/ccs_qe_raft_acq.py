@@ -7,9 +7,11 @@ class QEAcquisition(EOAcquisition):
     """
     EOAcquisition subclass to take QE dataset.
     """
-    def __init__(self, seqfile, acq_config_file, metadata, logger=logger):
+    def __init__(self, seqfile, acq_config_file, metadata, subsystems,
+                 logger=logger):
         super(QEAcquisition, self).__init__(seqfile, acq_config_file, "LAMBDA",
-                                            metadata, logger=logger)
+                                            metadata, subsystems,
+                                            logger=logger)
 
     def run(self):
         """
@@ -40,5 +42,5 @@ class QEAcquisition(EOAcquisition):
 
 if __name__ == '__main__':
     metadata = AcqMetadata(cwd=tsCWD, raft_id=UNITID, run_number=RUNNUM)
-    acq = QEAcquisition(sequence_file, rtmacqcfgfile, metadata)
+    acq = QEAcquisition(sequence_file, rtmacqcfgfile, metadata, subsystems)
     acq.run()

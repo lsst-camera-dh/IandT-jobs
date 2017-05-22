@@ -7,9 +7,11 @@ class PPumpAcquisition(EOAcquisition):
     """
     EOAcquisition subclass to take the pocket-pumping dataset.
     """
-    def __init__(self, seqfile, acq_config_file, metadata, logger=logger):
+    def __init__(self, seqfile, acq_config_file, metadata, subsystems,
+                 logger=logger):
         super(PPumpAcquisition, self).__init__(seqfile, acq_config_file,
-                                               "TRAP", metadata, logger=logger)
+                                               "TRAP", metadata, subsystems,
+                                               logger=logger)
 
     def run(self):
         """
@@ -35,5 +37,5 @@ class PPumpAcquisition(EOAcquisition):
 
 if __name__ == '__main__':
     metadata = AcqMetadata(cwd=tsCWD, raft_id=UNITID, run_number=RUNNUM)
-    acq = PPumpAcquisition(sequence_file, rtmacqcfgfile, metadata)
+    acq = PPumpAcquisition(sequence_file, rtmacqcfgfile, metadata, subsystems)
     acq.run()
