@@ -286,9 +286,10 @@ class EOAcquisition(object):
                 self.logger.info("EOAcquisition.take_image: try %i failed",
                                  itry)
                 time.sleep(try_wait)
-        raise eobj
+        raise RuntimeError("Failed to take an image after %i tries."
+                           % max_tries)
 
-    def image_clears(self, nclears=7):
+    def image_clears(self, nclears=7, exptime=50):
         """
         Take some bias frames to clear the CCDs.
 
@@ -297,7 +298,7 @@ class EOAcquisition(object):
         """
         for i in range(nclears):
             try:
-                self.take_image(0, 50, False, False, "biasclear",
+                self.take_image(0, exptime, False, False, "biasclear",
                                 file_template='')
             except (StandardError, Throwable) as eobj:
                 self.logger.info("Clear attempt %d failed:\n %s", i, str(eobj))
@@ -445,5 +446,5 @@ class PhotodiodeReadout(object):
             full_path = glob.glob('%s/*/%s' % (self.md.cwd, fits_file))[0]
             command = "addBinaryTable %s %s AMP0.MEAS_TIMES AMP0_MEAS_TIMES AMP0_A_CURRENT %d" % (pd_filename, full_path, self._start_time)
             result = self.sub.ts8.synchCommand(200, command)
-            self.logger.info("Photodiode readout added to fits file, %s",
-                             result.getResult())
+            self.logger.info("Photodiode readout added to fits file %s",
+                             fits_file)

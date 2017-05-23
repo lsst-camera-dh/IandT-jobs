@@ -44,7 +44,7 @@ class PreflightAcquisition(EOAcquisition):
             time.sleep(4.)
 
             pd_readout = PhotodiodeReadout(exptime, self)
-            self.image_clears()
+            self.image_clears(nclears=2, exptime=5)
             file_template = '${CCDSerialLSST}_${testType}_${imageType}_%4.4d_${RunNumber}_${timestamp}.fits' % int(wl)
             pd_readout.start_accumulation()
             fits_files = self.take_image(seqno, exptime, openShutter,
