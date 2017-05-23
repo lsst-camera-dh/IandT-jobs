@@ -3,6 +3,8 @@ Jython script for preflight acquisitions at TS8.
 
 This is based on harnessed-jobs/T08/preflight_acq.
 """
+import time
+from java.lang import Throwable
 from eo_acquisition import EOAcquisition, PhotodiodeReadout, AcqMetadata, logger
 
 class PreflightAcquisition(EOAcquisition):
@@ -56,7 +58,7 @@ if __name__ == '__main__':
                                subsystems)
     try:
         acq.run()
-    except (ScriptTimeoutException, Exception) as eobj:
+    except (Exception, Throwable) as eobj:
         logger.info("Exception encountered:")
         logger.info(str(eobj))
         acq.sub.pd.synchCommand(30, "softReset")

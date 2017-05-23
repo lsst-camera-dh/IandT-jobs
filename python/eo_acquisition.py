@@ -392,7 +392,8 @@ class PhotodiodeReadout(object):
         self.md = eo_acq_object.md
         self.logger = eo_acq_object.logger
 
-        # for exposures over 0.5 sec, nominal PD readout at 60Hz, otherwise 240Hz
+        # for exposures over 0.5 sec, nominal PD readout at 60Hz,
+        # otherwise 240Hz
         if exptime > 0.5:
             nplc = 1.
         else:
@@ -424,8 +425,8 @@ class PhotodiodeReadout(object):
                 self.logger.info(str(eobj))
             time.sleep(0.25)
         self._start_time = time.time()
-        self.logger.info("Photodiode readout accumulation started at %f"
-                         % self._start_time)
+        self.logger.info("Photodiode readout accumulation started at %f",
+                         self._start_time)
 
     def get_readings(self, fits_files, seqno, icount):
         """
@@ -436,15 +437,14 @@ class PhotodiodeReadout(object):
         pd_filename = os.path.join(self.md.cwd,
                                    "pd-values_%d-for-seq-%d-exp-%d.txt"
                                    % (int(self._start_time), seqno, icount))
-        # time.sleep(10.)
-        # command = "readBuffer %s %s" % (pd_filename, "ts8prod@ts8-raft1")
         command = "readBuffer %s " % (pd_filename)
-        result = self.sub.pd.synchCommand(1000, command)        
-        self.logger.info("Photodiode readout accumulation finished at %f, %s" % (time.time()-self._start_time,result.getResult()))
+        result = self.sub.pd.synchCommand(1000, command)
+        self.logger.info("Photodiode readout accumulation finished at %f, %s",
+                         time.time() - self._start_time, result.getResult())
 
-        # time.sleep(5.)
         for fits_file in fits_files:
             full_path = glob.glob('%s/*/%s' % (self.md.cwd, fits_file))[0]
             command = "addBinaryTable %s %s AMP0.MEAS_TIMES AMP0_MEAS_TIMES AMP0_A_CURRENT %d" % (pd_filename, full_path, self._start_time)
             result = self.sub.ts8.synchCommand(200, command)
-            self.logger.info("Photodiode readout added to fits file, %s" % (result.getResult()))
+            self.logger.info("Photodiode readout added to fits file, %s",
+                             result.getResult())
