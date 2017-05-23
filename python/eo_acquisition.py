@@ -302,7 +302,6 @@ class EOAcquisition(object):
             except (StandardError, Throwable) as eobj:
                 self.logger.info("Clear attempt %d failed:\n %s", i, str(eobj))
                 time.sleep(1.0)
-        raise eobj
 
     def bias_image(self, seqno, max_tries=3):
         """
@@ -421,7 +420,7 @@ class PhotodiodeReadout(object):
             try:
                 running = self.sub.pd.synchCommand(20, "isAccumInProgress").getResult()
             except (StandardError, Throwable) as eobj:
-                self.logger.info("PhotodiodeReadout.start_accumlation:")
+                self.logger.info("PhotodiodeReadout.start_accumulation:")
                 self.logger.info(str(eobj))
             time.sleep(0.25)
         self._start_time = time.time()

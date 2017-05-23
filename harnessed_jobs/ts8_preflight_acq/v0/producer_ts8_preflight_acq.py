@@ -1,11 +1,13 @@
 #!/usr/bin/env python
+import os
 import glob
 import numpy as np
 import matplotlib.pyplot as plt
 from ccsTools import ccsProducer, CcsRaftSetup
 
 ccsProducer('ts8_preflight_acq', 'ccs_ts8_preflight_acq.py',
-            ccs_setup_class=CcsRaftSetup)
+            ccs_setup_class=CcsRaftSetup,
+            sys_paths=(os.path.join(os.environ['IANDTJOBSDIR'], 'python'),))
 
 # Create png files of photodiode current vs time.
 pd_files = glob.glob('pd-values*.txt')

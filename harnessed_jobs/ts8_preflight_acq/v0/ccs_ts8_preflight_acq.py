@@ -46,7 +46,7 @@ class PreflightAcquisition(EOAcquisition):
             pd_readout = PhotodiodeReadout(exptime, self)
             self.image_clears()
             file_template = '${CCDSerialLSST}_${testType}_${imageType}_%4.4d_${RunNumber}_${timestamp}.fits' % int(wl)
-            pd_readout.start_accumlation()
+            pd_readout.start_accumulation()
             fits_files = self.take_image(seqno, exptime, openShutter,
                                          actuateXed, image_type,
                                          file_template=file_template)
@@ -58,10 +58,14 @@ if __name__ == '__main__':
                                subsystems)
     try:
         acq.run()
-    except (Exception, Throwable) as eobj:
+    except Exception:
         logger.info("Exception encountered:")
-        logger.info(str(eobj))
         acq.sub.pd.synchCommand(30, "softReset")
+        raise
+    except Throwable:
+        logger.info("java.lang.Throwable encountered:")
+        acq.sub.pd.synchCommand(30, "softReset")
+        raise
     finally:
         # Leave the monochromator shutter open.
         acq.sub.mono.synchCommand(900, "openShutter")
