@@ -391,6 +391,8 @@ class PhotodiodeReadout(object):
         self.sub = eo_acq_object.sub
         self.md = eo_acq_object.md
         self.logger = eo_acq_object.logger
+        self._exptime = exptime
+        self._buffertime = 2.0
 
         # for exposures over 0.5 sec, nominal PD readout at 60Hz,
         # otherwise 240Hz
@@ -399,14 +401,13 @@ class PhotodiodeReadout(object):
         else:
             nplc = 0.25
 
-        # add 2sec buffer to duration of PD readout
-        buffertime = 2.0
-        nreads = min((exptime + buffertime)*60./nplc, max_reads)
+        # add a buffer to duration of PD readout
+        nreads = min((exptime + self._buffertime)*60./nplc, max_reads)
         self.nreads = int(nreads)
 
         # adjust PD readout when max_reads is reached
         # (needs to be between 0.001 and 60 - add code to check)
-        self.nplc = (exptime + buffertime)*60./nreads
+        self.nplc = (exptime + self._buffertime)*60./nreads
         self._pd_result = None
         self._start_time = None
 
@@ -414,6 +415,14 @@ class PhotodiodeReadout(object):
         """
         Start the asynchronous accumulation of photodiode current readings.
         """
+
+        # get Keithley picoAmmeters ready by resetting and clearing buffer
+        command = "reset"
+        result = self.sub.pd.synchCommand(60,command)
+        command = "clrbuff"
+        result = self.sub.pd.synchCommand(60,command)
+
+        # start accummulating current readings
         command = "accumBuffer %d %d True" % (self.nreads, self.nplc)
         self._pd_result = self.sub.pd.asynchCommand(command)
         running = False
@@ -434,9 +443,18 @@ class PhotodiodeReadout(object):
         write that time history to the FITS files as a binary table
         extension.
         """
+
+        # make sure Photodiode readout has had enough time to run
+        elapsed_time = time.time() - self._start_time
+        if elapsed_time < self._exptime+self._buffertime :
+            time.sleep(elapsed_time - ( self._exptime+self._buffertime ) + 0.5)
+
         pd_filename = os.path.join(self.md.cwd,
                                    "pd-values_%d-for-seq-%d-exp-%d.txt"
                                    % (int(self._start_time), seqno, icount))
+        self.logger.info("Photodiode about to be readout, at %f",
+                         time.time() - self._start_time)
+
         command = "readBuffer %s " % (pd_filename)
         result = self.sub.pd.synchCommand(1000, command)
         self.logger.info("Photodiode readout accumulation finished at %f, %s",
