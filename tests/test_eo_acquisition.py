@@ -22,7 +22,8 @@ class EOAcquisitionTestCase(unittest.TestCase):
         "Test that the acquisition instructions are correctly parsed."
         metadata = AcqMetadata(cwd='.', raft_id="my_raft", run_number="my_run")
         test_type = "FLAT"
-        acq = EOAcquisition("seqfile.txt", acq_config_file, test_type, metadata)
+        acq = EOAcquisition("seqfile.txt", acq_config_file, test_type, metadata,
+                            None)
         self.assertEqual(acq.md.cwd, '.')
         self.assertEqual(acq.md.raft_id, 'my_raft')
         self.assertEqual(len(acq.instructions), 21)
