@@ -44,8 +44,10 @@ def setup_sequencer(ts8, sequence_file=sequence_file, nclears=10,
     logger.info(ts8.synchCommand(300, command).getResult())
 
 if __name__ == '__main__':
-    ccs_sub = CcsSubsystems(subsystems=dict(ts8='ts8', rebps='ccs-rebps'),
-                            logger=logger)
+    if subsystems is None:
+        subsystems = dict(ts8='ts8', rebps='ccs-rebps')
+
+    ccs_sub = CcsSubsystems(subsystems=subsystems, logger=logger)
 
     verify_rebs(ccs_sub.ts8)
 
