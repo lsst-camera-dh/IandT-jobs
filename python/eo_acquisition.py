@@ -7,12 +7,6 @@ import glob
 import time
 from collections import namedtuple
 import logging
-try:
-    import java.lang.Throwable as Throwable
-except ImportError:
-    # Assume we are running unit tests under python instead of jython.
-    class Throwable(Exception):
-        pass
 from ccs_scripting_tools import CcsSubsystems, CCS
 
 __all__ = ["hit_target_pressure", "EOAcquisition", "PhotodiodeReadout",
@@ -127,7 +121,7 @@ class EOAcquisition(object):
         self._set_default_wavelength()
         self._read_instructions(acq_config_file)
         self._fn_pattern = "${CCDSerialLSST}_${testType}_${imageType}_${SequenceInfo}_${RunNumber}_${timestamp}.fits"
-        self.sub.ts8.synchCommand(90, "loadSequencer %s" % self.seqfile)
+        self.sub.ts8.synchCommand(90, "loadSequencer", self.seqfile)
         self.sub.mono.synchCommand(20, "openShutter")
 
     def _check_subsystems(self):
@@ -193,7 +187,7 @@ class EOAcquisition(object):
         """
         command = "setWaveAndFilter %s" % wl
         rwl = self.sub.mono.synchCommand(60, command).getResult()
-        self.sub.ts8.synchCommand(10, "setMonoWavelength %s" % rwl)
+        self.sub.ts8.synchCommand(10, "setMonoWavelength", rwl)
         return rwl
 
     def _read_instructions(self, acq_config_file):
@@ -273,16 +267,16 @@ class EOAcquisition(object):
             test_type = self.test_type
         if file_template is None:
             file_template = self._fn_pattern
-        self.sub.ts8.synchCommand(10, "setTestType %s" % test_type)
-        self.sub.ts8.synchCommand(10, "setImageType %s" % image_type)
-        self.sub.ts8.synchCommand(10, "setSeqInfo %d" % seqno)
+        self.sub.ts8.synchCommand(10, "setTestType", test_type)
+        self.sub.ts8.synchCommand(10, "setImageType", image_type)
+        self.sub.ts8.synchCommand(10, "setSeqInfo", seqno)
         command = 'exposeAcquireAndSave %d %s %s "%s"' \
             % (1000*exptime, openShutter, actuateXed, file_template)
         for itry in range(max_tries):
             try:
                 result = self.sub.ts8.synchCommand(timeout, command).getResult()
                 return result
-            except (StandardError, Throwable) as eobj:
+            except StandardError as eobj:
                 self.logger.info("EOAcquisition.take_image: try %i failed",
                                  itry)
                 time.sleep(try_wait)
@@ -300,7 +294,7 @@ class EOAcquisition(object):
             try:
                 self.take_image(0, exptime, False, False, "biasclear",
                                 file_template='')
-            except (StandardError, Throwable) as eobj:
+            except StandardError as eobj:
                 self.logger.info("Clear attempt %d failed:\n %s", i, str(eobj))
                 time.sleep(1.0)
 
@@ -417,25 +411,44 @@ class PhotodiodeReadout(object):
         """
 
         # get Keithley picoAmmeters ready by resetting and clearing buffer
-        command = "reset"
-        result = self.sub.pd.synchCommand(60,command)
-        command = "clrbuff"
-        result = self.sub.pd.synchCommand(60,command)
+        result = self.sub.pd.synchCommand(60, "reset")
+        result = self.sub.pd.synchCommand(60, "clrbuff")
 
         # start accummulating current readings
-        command = "accumBuffer %d %d True" % (self.nreads, self.nplc)
-        self._pd_result = self.sub.pd.asynchCommand(command)
+        self._pd_result = self.sub.pd.asynchCommand("accumBuffer", self.nreads,
+                                                    self.nplc, True)
+        self._start_time = time.time()
+        self.logger.info("Photodiode readout accumulation started at %f",
+                         self._start_time)
+
         running = False
         while not running:
             try:
                 running = self.sub.pd.synchCommand(20, "isAccumInProgress").getResult()
-            except (StandardError, Throwable) as eobj:
+            except StandardError as eobj:
                 self.logger.info("PhotodiodeReadout.start_accumulation:")
                 self.logger.info(str(eobj))
+            self.logger.info("Photodiode checking that accumulation started at %f",
+                         time.time() - self._start_time)
             time.sleep(0.25)
-        self._start_time = time.time()
-        self.logger.info("Photodiode readout accumulation started at %f",
-                         self._start_time)
+
+    def write_readings(self, seqno, icount=1):
+        """
+        Output the accumulated photodiode readings to a text file.
+        """
+        # make sure Photodiode readout has had enough time to run
+        elapsed_time = time.time() - self._start_time
+        pd_filename = os.path.join(self.md.cwd,
+                                   "pd-values_%d-for-seq-%d-exp-%d.txt"
+                                   % (int(self._start_time), seqno, icount))
+        self.logger.info("Photodiode about to be readout at %f",
+                         time.time() - self._start_time)
+
+        result = self.sub.pd.synchCommand(1000, "readBuffer", pd_filename)
+        self.logger.info("Photodiode readout accumulation finished at %f, %s",
+                         time.time() - self._start_time, result.getResult())
+
+        return pd_filename
 
     def get_readings(self, fits_files, seqno, icount):
         """
@@ -443,22 +456,7 @@ class PhotodiodeReadout(object):
         write that time history to the FITS files as a binary table
         extension.
         """
-
-        # make sure Photodiode readout has had enough time to run
-        elapsed_time = time.time() - self._start_time
-        if elapsed_time < self._exptime+self._buffertime :
-            time.sleep(elapsed_time - ( self._exptime+self._buffertime ) + 0.5)
-
-        pd_filename = os.path.join(self.md.cwd,
-                                   "pd-values_%d-for-seq-%d-exp-%d.txt"
-                                   % (int(self._start_time), seqno, icount))
-        self.logger.info("Photodiode about to be readout, at %f",
-                         time.time() - self._start_time)
-
-        command = "readBuffer %s " % (pd_filename)
-        result = self.sub.pd.synchCommand(1000, command)
-        self.logger.info("Photodiode readout accumulation finished at %f, %s",
-                         time.time() - self._start_time, result.getResult())
+        pd_filename = self.write_readings(self, seqno, icount)
 
         for fits_file in fits_files:
             full_path = glob.glob('%s/*/%s' % (self.md.cwd, fits_file))[0]

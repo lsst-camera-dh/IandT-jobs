@@ -4,7 +4,6 @@ Jython script for cool down of TS8.
 This is based on harnessed-jobs/T08/ts8_cool_down.
 """
 import time
-from java.lang import Throwable
 from ccs_scripting_tools import CcsSubsystems, CCS
 from eo_acquisition import hit_target_pressure, logger
 
@@ -36,7 +35,7 @@ while ts_state == 0:
         ts_state = ccs_sub.ts.synchCommand(10, "isTestStandReady").getResult()
         ctemp = ccs_sub.cryo.synchCommand(20, "getTemp B").getResult()
         logger.info("time = %s, temp = %f", time.time(), ctemp)
-    except (StandardError, Throwable) as eobj:
+    except StandardError as eobj:
         logger.info("Exception caught while waiting for test stand ready state")
         logger.info(str(eobj))
     if (time.time() - tstart) > tmax:

@@ -4,7 +4,6 @@ Jython script for preflight acquisitions at TS8.
 This is based on harnessed-jobs/T08/preflight_acq.
 """
 import time
-from java.lang import Throwable
 from eo_acquisition import EOAcquisition, PhotodiodeReadout, AcqMetadata, logger
 
 class PreflightAcquisition(EOAcquisition):
@@ -16,7 +15,7 @@ class PreflightAcquisition(EOAcquisition):
         super(PreflightAcquisition, self).__init__(seqfile, acq_config_file,
                                                    "PREFLIGHT", metadata,
                                                    subsystems, logger=logger)
-        self.sub.pd.synchCommand(10, "setCurrentRange 0.00002")
+        self.sub.pd.synchCommand(10, "setCurrentRange", 0.00002)
         self.imcount = 1
         # There are no preflight instructions in the acq_config_file,
         # so enter the desired ones here.
@@ -33,7 +32,7 @@ class PreflightAcquisition(EOAcquisition):
         actuateXed = True
         image_type = "FLAT"
 
-        self.sub.mono.synchCommand(36, "setFilter 1")
+        self.sub.mono.synchCommand(36, "setFilter", 1)
         exptime = 3.0
         for seqno, tokens in enumerate(self.instructions):
             wl = float(tokens[1])
@@ -56,16 +55,5 @@ if __name__ == '__main__':
     metadata = AcqMetadata(cwd=tsCWD, raft_id=UNITID, run_number=RUNNUM)
     acq = PreflightAcquisition(sequence_file, rtmacqcfgfile, metadata,
                                subsystems)
-    try:
-        acq.run()
-    except Exception:
-        logger.info("Exception encountered:")
-        acq.sub.pd.synchCommand(30, "softReset")
-        raise
-    except Throwable:
-        logger.info("java.lang.Throwable encountered:")
-        acq.sub.pd.synchCommand(30, "softReset")
-        raise
-    finally:
-        # Leave the monochromator shutter open.
-        acq.sub.mono.synchCommand(900, "openShutter")
+    acq.run()
+    acq.sub.mono.synchCommand(900, "openShutter")
