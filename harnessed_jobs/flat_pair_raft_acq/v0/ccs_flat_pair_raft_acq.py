@@ -26,6 +26,7 @@ class FlatAcquisition(EOAcquisition):
         # Get measured flux at current wavelength for exposure time
         # calculation.
         meas_flux = self.measured_flux(self.wl)    # e-/pixel/second
+        self.logger.info("flat_pair_acq: measured flux =", meas_flux)
 
         # Loop over exposure pairs.
         for seqno, tokens in enumerate(self.instructions):

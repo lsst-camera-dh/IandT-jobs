@@ -58,3 +58,6 @@ target/
 
 # Back-up files
 *~
+
+# jython
+*$py.class

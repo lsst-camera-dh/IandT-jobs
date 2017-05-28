@@ -24,7 +24,7 @@ class SuperFlatAcquisition(EOAcquisition):
         image_type = "FLAT"
 
         seqno = 0
-        for tokens in enumerate(self.instructions):
+        for tokens in self.instructions:
             wl = float(tokens[1])
             target_flux = float(tokens[2])
             nframes = int(tokens[3])

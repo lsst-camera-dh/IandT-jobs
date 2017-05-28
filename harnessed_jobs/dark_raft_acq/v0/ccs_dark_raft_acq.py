@@ -2,7 +2,7 @@
 Jython script to acquire dark exposure dataset (used to find bright defects and
 to estimate dark current).
 """
-from eo_acquisition import EOAcquisition, logger
+from eo_acquisition import EOAcquisition, AcqMetadata, logger
 
 class DarkAcquisition(EOAcquisition):
     """
@@ -32,6 +32,6 @@ class DarkAcquisition(EOAcquisition):
                                 image_type)
 
 if __name__ == '__main__':
-    metadata = dict(cwd=tsCWD, raft_id=UNITID, run_number=RUNNUM)
+    metadata = AcqMetadata(cwd=tsCWD, raft_id=UNITID, run_number=RUNNUM)
     acq = DarkAcquisition(sequence_file, rtmacqcfgfile, metadata, subsystems)
     acq.run()

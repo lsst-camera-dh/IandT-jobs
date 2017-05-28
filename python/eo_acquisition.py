@@ -108,7 +108,8 @@ class EOAcquisition(object):
         if subsystems is None:
             subsystems = dict(ts8='ts8', pd='ts8/Monitor',
                               mono='ts8/Monochromator')
-        self.sub = CcsSubsystems(subsystems=subsystems)
+        self.sub = CcsSubsystems(subsystems=subsystems, logger=logger)
+        self.sub.write_versions(os.path.join(metadata.cwd, 'ccs_versions.txt'))
         self._check_subsystems()
         self.seqfile = seqfile
         self.eo_config = EOAcqConfig(acq_config_file)
@@ -267,6 +268,8 @@ class EOAcquisition(object):
             test_type = self.test_type
         if file_template is None:
             file_template = self._fn_pattern
+        self.logger.info("%s: taking image type %s %d", test_type, image_type,
+                         seqno)
         self.sub.ts8.synchCommand(10, "setTestType", test_type)
         self.sub.ts8.synchCommand(10, "setImageType", image_type)
         self.sub.ts8.synchCommand(10, "setSeqInfo", seqno)
@@ -283,12 +286,14 @@ class EOAcquisition(object):
         raise RuntimeError("Failed to take an image after %i tries."
                            % max_tries)
 
-    def image_clears(self, nclears=7, exptime=50):
+    def image_clears(self, nclears=2, exptime=5):
         """
         Take some bias frames to clear the CCDs.
 
         nclears : int, optional
-            The number of bias images to take.  Default: 7.
+            The number of bias images to take.  Default: 2.
+        exptime : float, optional
+            Exposure time in seconds. Default: 5.
         """
         for i in range(nclears):
             try:
@@ -338,6 +343,11 @@ class EOAcquisition(object):
         fits_files = self.take_image(seqno, fluxcal_time, openShutter,
                                      actuateXed, "fluxcalib", max_tries=3)
         flux_sum = 0.
+        if isinstance(fits_files, int):
+            # We must be using a subsystem-proxy the ts8 subsystem.
+            # TODO: Find a better way to handle the subsystem-proxy
+            # case.
+            return 1
         for fits_file in fits_files:
             file_path = glob.glob(os.path.join(self.md.cwd, '*', fits_file))[0]
             command = "getFluxStats %s" % file_path
@@ -450,17 +460,26 @@ class PhotodiodeReadout(object):
 
         return pd_filename
 
-    def get_readings(self, fits_files, seqno, icount):
-        """
-        Output the accumulated photodiode readings to a text file and
-        write that time history to the FITS files as a binary table
-        extension.
-        """
-        pd_filename = self.write_readings(self, seqno, icount)
-
+    def add_pd_time_history(self, fits_files, pd_filename):
+        "Add the photodiode time history as an extension to the FITS files."
         for fits_file in fits_files:
             full_path = glob.glob('%s/*/%s' % (self.md.cwd, fits_file))[0]
             command = "addBinaryTable %s %s AMP0.MEAS_TIMES AMP0_MEAS_TIMES AMP0_A_CURRENT %d" % (pd_filename, full_path, self._start_time)
             result = self.sub.ts8.synchCommand(200, command)
             self.logger.info("Photodiode readout added to fits file %s",
                              fits_file)
+
+    def get_readings(self, fits_files, seqno, icount):
+        """
+        Output the accumulated photodiode readings to a text file and
+        write that time history to the FITS files as a binary table
+        extension.
+        """
+        pd_filename = self.write_readings(seqno, icount)
+        try:
+            self.add_pd_time_history(fits_files, pd_filename)
+        except TypeError:
+            # We must be using a subsystem-proxy for the ts8
+            # subsystem.  TODO: Find a better way to handle the
+            # subsystem-proxy case.
+            pass
