@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-import lcatr.schema
+from ccsTools import ccsValidator
 
-results = []
-
-lcatr.schema.write_file(results)
-lcatr.schema.validate_file()
+ccsValidator()
