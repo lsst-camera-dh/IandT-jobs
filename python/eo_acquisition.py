@@ -8,6 +8,7 @@ import time
 from collections import namedtuple
 import logging
 from ccs_scripting_tools import CcsSubsystems, CCS
+from ts8_utils import set_ccd_info
 
 __all__ = ["hit_target_pressure", "EOAcquisition", "PhotodiodeReadout",
            "EOAcqConfig", "AcqMetadata", "logger"]
@@ -85,7 +86,7 @@ class EOAcquisition(object):
     Base class for TS8 electro-optical data acquisition.
     """
     def __init__(self, seqfile, acq_config_file, acqname, metadata,
-                 subsystems, logger=logger):
+                 subsystems, ccd_names, logger=logger):
         """
         Parameters
         ----------
@@ -111,6 +112,9 @@ class EOAcquisition(object):
         self.sub = CcsSubsystems(subsystems=subsystems, logger=logger)
         self.sub.write_versions(os.path.join(metadata.cwd, 'ccs_versions.txt'))
         self._check_subsystems()
+        set_ccd_info(self.sub, ccd_names, logger)
+        self.sub.ts8.synchCommand(10, 'setDefaultImageDirectory %s/S${sensorLoc}'
+                                  % metadata.cwd)
         self.seqfile = seqfile
         self.eo_config = EOAcqConfig(acq_config_file)
         self.acqname = acqname

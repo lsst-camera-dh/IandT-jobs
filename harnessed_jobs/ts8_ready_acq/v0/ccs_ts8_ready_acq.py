@@ -11,10 +11,11 @@ class ReadyAcquisition(EOAcquisition):
     EOAcquisition subclass for "readiness" data.
     """
     def __init__(self, seqfile, acq_config_file, metadata, subsystems,
-                 logger=logger):
+                 ccd_names, logger=logger):
         super(ReadyAcquisition, self).__init__(seqfile, acq_config_file,
                                                "READY", metadata,
-                                               subsystems, logger=logger)
+                                               subsystems, ccd_names,
+                                               logger=logger)
         self.sub.pd.synchCommand(10, "setCurrentRange", 0.00002)
 
     def run(self):
@@ -40,7 +41,8 @@ class ReadyAcquisition(EOAcquisition):
 
 if __name__ == '__main__':
     metadata = AcqMetadata(cwd=tsCWD, raft_id=UNITID, run_number=RUNNUM)
-    acq = ReadyAcquisition(sequence_file, rtmacqcfgfile, metadata, subsystems)
+    acq = ReadyAcquisition(sequence_file, rtmacqcfgfile, metadata, subsystems,
+                           ccd_names)
 
     acq.run()
     acq.sub.mono.synchCommand(900, "openShutter")

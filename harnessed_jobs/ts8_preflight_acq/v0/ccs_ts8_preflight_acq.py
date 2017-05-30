@@ -11,10 +11,11 @@ class PreflightAcquisition(EOAcquisition):
     EOAcquisition subclass for "preflight" data.
     """
     def __init__(self, seqfile, acq_config_file, metadata, subsystems,
-                 logger=logger):
+                 ccd_names, logger=logger):
         super(PreflightAcquisition, self).__init__(seqfile, acq_config_file,
                                                    "PREFLIGHT", metadata,
-                                                   subsystems, logger=logger)
+                                                   subsystems, ccd_names,
+                                                   logger=logger)
         self.sub.pd.synchCommand(10, "setCurrentRange", 0.00002)
         self.imcount = 1
         # There are no preflight instructions in the acq_config_file,
@@ -54,6 +55,6 @@ class PreflightAcquisition(EOAcquisition):
 if __name__ == '__main__':
     metadata = AcqMetadata(cwd=tsCWD, raft_id=UNITID, run_number=RUNNUM)
     acq = PreflightAcquisition(sequence_file, rtmacqcfgfile, metadata,
-                               subsystems)
+                               subsystems, ccd_names)
     acq.run()
     acq.sub.mono.synchCommand(900, "openShutter")

@@ -8,9 +8,9 @@ class FlatAcquisition(EOAcquisition):
     EOAcquisition subclass to take the flat pair dataset.
     """
     def __init__(self, seqfile, acq_config_file, metadata, subsystems,
-                 logger=logger):
+                 ccd_names, logger=logger):
         super(FlatAcquisition, self).__init__(seqfile, acq_config_file, "FLAT",
-                                              metadata, subsystems,
+                                              metadata, subsystems, ccd_names,
                                               logger=logger)
         self.imcount = 2
 
@@ -52,5 +52,6 @@ class FlatAcquisition(EOAcquisition):
 
 if __name__ == '__main__':
     metadata = AcqMetadata(cwd=tsCWD, raft_id=UNITID, run_number=RUNNUM)
-    acq = FlatAcquisition(sequence_file, rtmacqcfgfile, metadata, subsystems)
+    acq = FlatAcquisition(sequence_file, rtmacqcfgfile, metadata, subsystems,
+                          ccd_names)
     acq.run()
