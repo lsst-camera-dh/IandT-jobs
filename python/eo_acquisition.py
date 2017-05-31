@@ -279,6 +279,8 @@ class EOAcquisition(object):
         self.sub.ts8.synchCommand(10, "setSeqInfo", seqno)
         command = 'exposeAcquireAndSave %d %s %s "%s"' \
             % (1000*exptime, openShutter, actuateXed, file_template)
+        # ensure timeout exceeds exposure time by 20 seconds.
+        timeout = max(timeout, exptime + 20)
         for itry in range(max_tries):
             try:
                 result = self.sub.ts8.synchCommand(timeout, command).getResult()
@@ -311,7 +313,7 @@ class EOAcquisition(object):
         """
         Take bias images.
         """
-        exptime = 0
+        exptime = 0.1
         openShutter = False
         actuateXed = False
         self.take_image(seqno, exptime, openShutter, actuateXed, "BIAS",
