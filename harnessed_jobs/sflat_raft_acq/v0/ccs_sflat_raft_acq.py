@@ -52,5 +52,5 @@ class SuperFlatAcquisition(EOAcquisition):
 if __name__ == '__main__':
     metadata = AcqMetadata(cwd=tsCWD, raft_id=UNITID, run_number=RUNNUM)
     acq = SuperFlatAcquisition(sequence_file, rtmacqcfgfile, metadata,
-                               ccd_names, subsystems)
+                               subsystems, ccd_names)
     acq.run()
