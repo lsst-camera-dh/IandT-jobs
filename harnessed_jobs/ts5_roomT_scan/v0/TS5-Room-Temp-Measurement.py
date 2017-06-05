@@ -35,59 +35,61 @@ def moveTo(x, y):
         + str(current[2]) + " target: " + str(x) + ', ' + str(y))
 
     # send aerotech controller the SCURVE setting
-    chat_cmd = "SCURVE 7"  # may need to double nest quotes
+    chat_cmd = "'SCURVE 7'"  # may need to double nest quotes
     try:
-        result = measurer.synchCommand(100, "aerotechChat " + chat_cmd)
+        result = positioner.synchCommand(100, "aerotechChat " + chat_cmd)
     except ScriptingTimeoutException, timeout:
         print('Timeout Exception', timeout)
     except Exception, execution:
         print('Execution Exception', execution)
 
     # send aerotech controller the RAMP RATE setting
-    chat_cmd = "RAMP RATE 10"  # may need to double nest quotes
+    chat_cmd = "'RAMP RATE 10'"  # may need to double nest quotes
     try:
-        result = measurer.synchCommand(100, "aerotechChat " + chat_cmd)
+        result = positioner.synchCommand(100, "aerotechChat " + chat_cmd)
     except ScriptingTimeoutException, timeout:
         print('Timeout Exception', timeout)
     except Exception, execution:
-        print('Execution Exception', execution)
+    #    print('Execution Exception', execution)
 
+    # Set the aerotech stage speed - just a test for the simulator
     # send aerotech controller the RAMP DIST setting
-    chat_cmd = "RAMP DIST 10"  # may need to double nest quotes
-    try:
-        result = measurer.synchCommand(100, "aerotechChat " + chat_cmd)
-    except ScriptingTimeoutException, timeout:
-        print('Timeout Exception', timeout)
-    except Exception, execution:
-        print('Execution Exception', execution)
+    #chat_cmd = "'RAMP DIST 10'"  # may need to double nest quotes
+    #try:
+    #    result = positioner.synchCommand(100, "aerotechChat " + chat_cmd)
+    #except ScriptingTimeoutException, timeout:
+    #    print('Timeout Exception', timeout)
+    #except Exception, execution:
+    #    print('Execution Exception', execution)
 
     # send aerotech controller the RAMP TIME setting
-    chat_cmd = "RAMP TIME 1"  # may need to double nest quotes
+    chat_cmd = "'RAMP TIME 1'"  # may need to double nest quotes
     try:
-        result = measurer.synchCommand(100, "aerotechChat " + chat_cmd)
+        result = positioner.synchCommand(100, "aerotechChat " + chat_cmd)
     except ScriptingTimeoutException, timeout:
         print('Timeout Exception', timeout)
     except Exception, execution:
         print('Execution Exception', execution)
 
     # send aerotech controller the speed setting
-    chat_cmd = "F 100"  # may need to double nest quotes
+    chat_cmd = "'F 100'"  # may need to double nest quotes
     try:
-        result = measurer.synchCommand(100, "aerotechChat " + chat_cmd)
+        result = positioner.synchCommand(100, "aerotechChat " + chat_cmd)
     except ScriptingTimeoutException, timeout:
         print('Timeout Exception', timeout)
     except Exception, execution:
         print('Execution Exception', execution)
 
-    # Define the relative move to get to target positin from the current
-    diff = [x - current[0], y - current[1], 0]  # assume no move in z
-    cmd = "moveInc_xyz " + str(diff[0]) + ' ' + str(diff[1]) + ' ' + str(diff[2])  # may need to double nest quotes
+    # Define the relative move to get to target position from the current
+    diff = [x - current[0], y - current[1], 0.0]  # assume no move in z
+    print("moveInc_xyz")
     try:
-        result = measurer.synchCommand(100, cmd)
+        result = positioner.synchCommand(100, "moveInc_xyz", diff[0], diff[1], diff[2])
     except ScriptingTimeoutException, timeout:
         print('Timeout Exception', timeout)
     except Exception, execution:
         print('Execution Exception', execution)
+    print("after moveInc_xyz")
 
     #printf "new axis: %s\nnew coords: %s\n",join(' ',@{$new_axis_list}),join(' ',@{$new_coord_list});
 
@@ -95,15 +97,16 @@ def planestatus(flag, pause):
     # flag is used as a bit-wise mask; pause is a wait in seconds
 
     # query aerotech controller about the motion status
-    chat_cmd = "PLANESTATUS 0"  # may need to double nest quotes
+    chat_cmd = "'PLANESTATUS 0'"  # may need to double nest quotes
     try:
-        result = measurer.synchCommand(100, "aerotechChat " + chat_cmd)
+        result = positioner.synchCommand(100, "aerotechChat " + chat_cmd)
     except ScriptingTimeoutException, timeout:
         print('Timeout Exception', timeout)
     except Exception, execution:
         print('Execution Exception', execution)
 
     if pause > 0:
+        print("pausing in planestatus")
         time.sleep(pause)
 
     # Parse the result returned by the aerotech controller
@@ -164,9 +167,19 @@ except Exception, execution:
 zdists = result.getResult()  # 2-element array of doubles
 print('Keyence:  ' + str(zdists[0]) + ' ' + str(zdists[1]))
 
+try:
+    result = positioner.synchCommand(100, "setSpeed", 1.0)
+except ScriptingTimeoutException, timeout:
+    print('Timeout Exception', timeout)
+except Exception, execution:
+    print('Execution Exception', execution)
+
+print("after setSpeed")
+
 # command aerotech controller to operate in NOWAIT mode
-chat_cmd = '"WAIT MODE NOWAIT"' 
-result = measurer.synchCommandLine(100, "aerotechChat", chat_cmd)
+chat_cmd = "'WAIT MODE NOWAIT'" 
+try:
+    result = positioner.synchCommandLine(100, "aerotechChat " + chat_cmd)
 except ScriptingTimeoutException, timeout:
     print('Timeout Exception', timeout)
 except Exception, execution:
@@ -201,15 +214,20 @@ dwelltime = keyence_filter_model[str(keyence_filter_model_ix)]*keyence_sample_ti
 
 print "dwelltime:  " + str(dwelltime)
 
-# Specify these settings - not sure about the command definitions
-# Maybe need to use the commands defined above and keyenceChat
-result = measurer.synchCommand(100, "setcycles " + str(keyence_filter_model_ix))
-except ScriptingTimeoutException, timeout:
-    print('Timeout Exception', timeout)
-except Exception, execution:
-    print('Execution Exception', execution)
+# Specify these settings using keyenceChat.  For the filter model
+# the setting has to be made for both heads (1 and 2)
+for head in range(1,3):
+    try:
+        chat_cmd = "'SW,OC,%2.2d,0,%1d'" % head, keyence_filter_model_ix
+        result = measurer.synchCommand(100, "keyenceChat " + chat_cmd)
+    except ScriptingTimeoutException, timeout:
+        print('Timeout Exception', timeout)
+    except Exception, execution:
+        print('Execution Exception', execution)
+
 try:
-    result = measurer.synchCommand(100, "setmeasmode " + "0" + str(keyence_sample_time_ix))
+    chat_cmd = "'SW,CA,%d'" % keyence_sample_time_ix
+    result = measurer.synchCommand(100, "keyenceChate " + chat_cmd)
 except ScriptingTimeoutException, timeout:
     print('Timeout Exception', timeout)
 except Exception, execution:
@@ -224,8 +242,9 @@ fout.write('# input file: ' + input_file)
 
 fout.write('dat')
 #fout.write(string.join(output_cols))
+fout.write('aero_x  aero_y  aero_z  key_z1  key_z2  timestamp       label')
 
-start_time = time.time()
+ref_time = time.time()
 
 # Open the file that has the scan positions and labels
 label = ' '
@@ -239,6 +258,7 @@ for line in f:
     else:
         # interpret the entries as coordinates for the stage
         xpos, ypos = float(pieces[0]), float(pieces[1])
+        print(label + ' ' + str(xpos) + ' ' + str(ypos))
         moveTo(xpos, ypos)
 
         # Now wait until the stage has stopped
@@ -246,7 +266,6 @@ for line in f:
         flag = 1  # what is this?  Something to do with planestatus
         while moving:
             moving = planestatus(flag, 0.02)
-        
         try:
             result = positioner.synchCommand(100, "getPos_xyz")
         except ScriptingTimeoutException, timeout:
@@ -257,7 +276,7 @@ for line in f:
         aero_pos = result.getResult()
 
         # Specify the number of samples to read (10 for the REF
-        # surfaces
+        # surfaces)
         if label == 'REREF':
             nsample = 10
         else:
