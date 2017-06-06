@@ -37,7 +37,7 @@ def moveTo(x, y):
     # send aerotech controller the SCURVE setting
     chat_cmd = "'SCURVE 7'"  # may need to double nest quotes
     try:
-        result = positioner.synchCommand(100, "aerotechChat " + chat_cmd)
+        result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
     except ScriptingTimeoutException, timeout:
         print('Timeout Exception', timeout)
     except Exception, execution:
@@ -46,7 +46,7 @@ def moveTo(x, y):
     # send aerotech controller the RAMP RATE setting
     chat_cmd = "'RAMP RATE 10'"  # may need to double nest quotes
     try:
-        result = positioner.synchCommand(100, "aerotechChat " + chat_cmd)
+        result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
     except ScriptingTimeoutException, timeout:
         print('Timeout Exception', timeout)
     except Exception, execution:
@@ -56,7 +56,7 @@ def moveTo(x, y):
     # send aerotech controller the RAMP DIST setting
     #chat_cmd = "'RAMP DIST 10'"  # may need to double nest quotes
     #try:
-    #    result = positioner.synchCommand(100, "aerotechChat " + chat_cmd)
+    #    result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
     #except ScriptingTimeoutException, timeout:
     #    print('Timeout Exception', timeout)
     #except Exception, execution:
@@ -65,7 +65,7 @@ def moveTo(x, y):
     # send aerotech controller the RAMP TIME setting
     chat_cmd = "'RAMP TIME 1'"  # may need to double nest quotes
     try:
-        result = positioner.synchCommand(100, "aerotechChat " + chat_cmd)
+        result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
     except ScriptingTimeoutException, timeout:
         print('Timeout Exception', timeout)
     except Exception, execution:
@@ -74,7 +74,7 @@ def moveTo(x, y):
     # send aerotech controller the speed setting
     chat_cmd = "'F 100'"  # may need to double nest quotes
     try:
-        result = positioner.synchCommand(100, "aerotechChat " + chat_cmd)
+        result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
     except ScriptingTimeoutException, timeout:
         print('Timeout Exception', timeout)
     except Exception, execution:
@@ -99,7 +99,7 @@ def planestatus(flag, pause):
     # query aerotech controller about the motion status
     chat_cmd = "'PLANESTATUS 0'"  # may need to double nest quotes
     try:
-        result = positioner.synchCommand(100, "aerotechChat " + chat_cmd)
+        result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
     except ScriptingTimeoutException, timeout:
         print('Timeout Exception', timeout)
     except Exception, execution:
@@ -179,7 +179,7 @@ print("after setSpeed")
 # command aerotech controller to operate in NOWAIT mode
 chat_cmd = "'WAIT MODE NOWAIT'" 
 try:
-    result = positioner.synchCommandLine(100, "aerotechChat " + chat_cmd)
+    result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
 except ScriptingTimeoutException, timeout:
     print('Timeout Exception', timeout)
 except Exception, execution:
@@ -219,7 +219,7 @@ print "dwelltime:  " + str(dwelltime)
 for head in range(1,3):
     try:
         chat_cmd = "'SW,OC,%2.2d,0,%1d'" % head, keyence_filter_model_ix
-        result = measurer.synchCommand(100, "keyenceChat " + chat_cmd)
+        result = measurer.synchCommand(100, "keyenceChat", chat_cmd)
     except ScriptingTimeoutException, timeout:
         print('Timeout Exception', timeout)
     except Exception, execution:
@@ -227,7 +227,7 @@ for head in range(1,3):
 
 try:
     chat_cmd = "'SW,CA,%d'" % keyence_sample_time_ix
-    result = measurer.synchCommand(100, "keyenceChate " + chat_cmd)
+    result = measurer.synchCommand(100, "keyenceChat", chat_cmd)
 except ScriptingTimeoutException, timeout:
     print('Timeout Exception', timeout)
 except Exception, execution:
