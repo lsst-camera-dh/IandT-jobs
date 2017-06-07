@@ -17,8 +17,17 @@ metrology = CCS.attachSubsystem("metrology");
 positioner = CCS.attachSubsystem("metrology/Positioner")
 measurer = CCS.attachSubsystem("metrology/Measurer")
 
+def aeroHandler(chat_cmd):
+    # Wraps aerotechChat commands to the Aerotech controller
+    try:
+        result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
+    except ScriptingTimeoutException, timeout:
+        print('Timeout Exception', timeout)
+    except Exception, execution:
+        print('Execution Exception', execution)
+
 def moveTo(x, y):
-    # Aerotech move commands, including setting the speed and ramp rates
+    # Commands to move the Aerotech, including setting the speed and ramp rates
     # (may want to set the speed and ramp rates once and for all rather
     #  than every time)
 
@@ -34,79 +43,32 @@ def moveTo(x, y):
     print("current: " + str(current[0]) + " " + str(current[1]) + " "
         + str(current[2]) + " target: " + str(x) + ', ' + str(y))
 
-    # send aerotech controller the SCURVE setting
-    chat_cmd = "'SCURVE 7'"  # may need to double nest quotes
-    try:
-        result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
-    except ScriptingTimeoutException, timeout:
-        print('Timeout Exception', timeout)
-    except Exception, execution:
-        print('Execution Exception', execution)
+    # Send a series of settings
+    aeroHandler("'SCURVE 7'")
+    aeroHandler("'RAMP RATE 10'")
+    aeroHandler("'RAMP DIST 10'")
+    aeroHandler("'RAMP TIME 1'")
 
-    # send aerotech controller the RAMP RATE setting
-    chat_cmd = "'RAMP RATE 10'"  # may need to double nest quotes
-    try:
-        result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
-    except ScriptingTimeoutException, timeout:
-        print('Timeout Exception', timeout)
-    except Exception, execution:
-    #    print('Execution Exception', execution)
+    # Send a 'manual' relative move command (no move in z)
+    # The formatting below potentially leaves extra blank spaces
+    aeroHandler("'LINEAR X %13.7f Y %13.7f F 10'" % (x - current[0], y - current[1]))
 
-    # Set the aerotech stage speed - just a test for the simulator
-    # send aerotech controller the RAMP DIST setting
-    #chat_cmd = "'RAMP DIST 10'"  # may need to double nest quotes
+    #print("moveInc_xyz")
     #try:
-    #    result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
+    #    result = positioner.synchCommand(100, "moveInc_xyz", diff[0], diff[1], diff[2])
     #except ScriptingTimeoutException, timeout:
     #    print('Timeout Exception', timeout)
     #except Exception, execution:
     #    print('Execution Exception', execution)
-
-    # send aerotech controller the RAMP TIME setting
-    chat_cmd = "'RAMP TIME 1'"  # may need to double nest quotes
-    try:
-        result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
-    except ScriptingTimeoutException, timeout:
-        print('Timeout Exception', timeout)
-    except Exception, execution:
-        print('Execution Exception', execution)
-
-    # send aerotech controller the speed setting
-    chat_cmd = "'F 100'"  # may need to double nest quotes
-    try:
-        result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
-    except ScriptingTimeoutException, timeout:
-        print('Timeout Exception', timeout)
-    except Exception, execution:
-        print('Execution Exception', execution)
-
-    # Define the relative move to get to target position from the current
-    diff = [x - current[0], y - current[1], 0.0]  # assume no move in z
-    print("moveInc_xyz")
-    try:
-        result = positioner.synchCommand(100, "moveInc_xyz", diff[0], diff[1], diff[2])
-    except ScriptingTimeoutException, timeout:
-        print('Timeout Exception', timeout)
-    except Exception, execution:
-        print('Execution Exception', execution)
-    print("after moveInc_xyz")
-
-    #printf "new axis: %s\nnew coords: %s\n",join(' ',@{$new_axis_list}),join(' ',@{$new_coord_list});
+    #print("after moveInc_xyz")
 
 def planestatus(flag, pause):
     # flag is used as a bit-wise mask; pause is a wait in seconds
 
     # query aerotech controller about the motion status
-    chat_cmd = "'PLANESTATUS 0'"  # may need to double nest quotes
-    try:
-        result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
-    except ScriptingTimeoutException, timeout:
-        print('Timeout Exception', timeout)
-    except Exception, execution:
-        print('Execution Exception', execution)
+    aeroHandler("'PLANESTATUS 0'")
 
     if pause > 0:
-        print("pausing in planestatus")
         time.sleep(pause)
 
     # Parse the result returned by the aerotech controller
@@ -114,35 +76,104 @@ def planestatus(flag, pause):
     if not(check):  # if the first character is not a %
         return 1
 
-    status = int(result.getResult()[1])  # the next character is to be interpreted
+    status = int(result.getResult()[1:])  # the next character is to be interpreted
     if flag == 0:
         return status
     else:
         return status & flag  # This is a bitwise -and-
+
+def get_settings():
+    # Construct the command string to interrogate the Keyence controller for
+    # its settings
+
+    cmds = []
+
+    for output in [1,2]:  # the two heads
+        cmds.append("SR,LM,%2.2d" % output)
+        cmds.append("SR,HA,M,%2.2d" % output)  # head number assumed equal
+        cmds.append("SR,HA,R,%2.2d" % output)  # to output number
+        cmds.append("SR,HB,M,%2.2d" % output)
+        cmds.append("SR,HB,B,%2.2d" % output)
+        cmds.append("SR,HC,N,%2.2d" % output)
+        cmds.append("SR,HC,L,%2.2d" % output)
+        cmds.append("SR,HE,%2.2d" % output)
+        cmds.append("SR,HF,%2.2d" % output)
+        cmds.append("SR,HG,%2.2d" % output)
+        cmds.append("SR,HI,%2.2d" % output)
+        cmds.append("SR,HJ,%2.2d" % output)
+        cmds.append("SR,OA,H,%2.2d" % output)
+        cmds.append("SR,OA,T,%2.2d" % output)
+        cmds.append("SR,OA,C,%2.2d" % output)
+        cmds.append("SR,OA,M,%2.2d" % output)
+        cmds.append("SR,OB,%2.2d" % output)
+        cmds.append("SR,OC,%2.2d" % output)
+        cmds.append("SR,OD,%2.2d" % output)
+        cmds.append("SR,OE,M,%2.2d" % output)
+        cmds.append("SR,OF,%2.2d" % output)
+        cmds.append("SR,OG,%2.2d" % output)
+        cmds.append("SR,OH,%2.2d" % output)
+        cmds.append("SR,OI,%2.2d" % output)
+        cmds.append("SR,OJ,%2.2d" % output)
+        cmds.append("SR,OK,%2.2d" % output)
+
+    cmds.append("SR,CA")
+    cmds.append("SR,CB")
+    cmds.append("SR,CD")
+    cmds.append("SR,CE")
+    cmds.append("SR,CF")
+
+    for output in [1,2]:  # the two heads
+        cmds.append("SR,CG,%2.2d" % output)
+
+    cmds.append("SR,CH")
+    cmds.append("SR,EE")
+    cmds.append("SR,EF")
+    cmds.append("SR,EG")
+    cmds.append("SR,EH,I")
+    cmds.append("SR,EH,M")
+    cmds.append("SR,EH,G")
+    cmds.append("R0")
+
+
+    preamble = 'Q0'
+    try:
+        result = measurer.synchCommand(100, "keyenceChat", preamble)
+    except ScriptingTimeoutException, timeout:
+        print('Timeout Exception', timeout)
+    except Exception, execution:
+        print('Execution Exception', execution)
+
+    # Step through each of the commands, sending them to the Keyence
+    # controller
+    rets = []
+    for cmd in cmds:
+        try:
+            result = measurer.synchCommand(100, "keyenceChat", cmd)
+        except ScriptingTimeoutException, timeout:
+            print('Timeout Exception', timeout)
+        except Exception, execution:
+            print('Execution Exception', execution)
+        else:
+            # parse the result (assume one line)
+            rets.append(result.getResult())
+
+    closeout = 'R0'
+    try:
+        result = measurer.synchCommand(100, "keyenceChat", closeout)
+    except ScriptingTimeoutException, timeout:
+        print('Timeout Exception', timeout)
+    except Exception, execution:
+        print('Execution Exception', execution)
+    # controller
+
+    return cmds, rets 
+
 
 # Define headings for the output file
 aero_cols = ["aero_x ", "aero_y ", "aero_z "]
 keyence_cols = ["key_z1 ", "key_z2 "]
 bookkeeping_cols = ["timestamp ", "label "]
 output_cols = aero_cols + keyence_cols + bookkeeping_cols
-
-# define a dictionary of dictionaries for measurement and positioning
-#meas = {"target"  : "metrology/Measurer",
-#        "channel" : "keyenceChat",
-#        "dlog"    : \&kchatter,
-#        "save_pars" : "this.txt",
-#        "startup" : 1}
-#posn = {"target"  : "metrology/Positioner",
-#        "channel" : "aerotechChat",
-#        "dlog"    : \&achatter,
-#        "startup" : 1}
-#instr = {"meas": meas, "posn": posn}
-
-# more setup [combine command strings]
-#instr['meas']['prepend'] = instr['meas']['target'] + ' ' + 
-#                           instr['meas']['channel'] 
-#instr['posn']['prepend'] = instr['posn']['target'] + ' ' + 
-#                           instr['posn']['channel']
 
 # Read the aerotech position
 try:
@@ -177,13 +208,7 @@ except Exception, execution:
 print("after setSpeed")
 
 # command aerotech controller to operate in NOWAIT mode
-chat_cmd = "'WAIT MODE NOWAIT'" 
-try:
-    result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
-except ScriptingTimeoutException, timeout:
-    print('Timeout Exception', timeout)
-except Exception, execution:
-    print('Execution Exception', execution)
+aeroHandler("'WAIT MODE NOWAIT'")
 
 # set keyence timing parameters; first define the options
 keyence_sample_time = {"cmd" : "SW,CA,%1d",
@@ -216,9 +241,9 @@ print "dwelltime:  " + str(dwelltime)
 
 # Specify these settings using keyenceChat.  For the filter model
 # the setting has to be made for both heads (1 and 2)
-for head in range(1,3):
+for head in [1, 2]:
     try:
-        chat_cmd = "'SW,OC,%2.2d,0,%1d'" % head, keyence_filter_model_ix
+        chat_cmd = "'SW,OC,%2.2d,0,%1d'" % (head, keyence_filter_model_ix)
         result = measurer.synchCommand(100, "keyenceChat", chat_cmd)
     except ScriptingTimeoutException, timeout:
         print('Timeout Exception', timeout)
@@ -234,11 +259,24 @@ except Exception, execution:
     print('Execution Exception', execution)
 
 # Open the output file and write some headers
-fout = open(output_file, "a")
+fout = open(output_file, "w")
 fout.write('# measurement begun at local time ' + time.asctime())
 fout.write('# input file: ' + input_file)
 
 # Add code to retrieve the configuration parameters
+cmds, rets = get_settings()
+
+print("cmds:")
+print(cmds)
+print("rets:")
+print(rets)
+
+# reverse for popping
+cmds.reverse()
+rets.reverse()
+
+for index in range(len(cmds)):
+    fout.write('# ' + cmds.pop() + ': ' + rets.pop())
 
 fout.write('dat')
 #fout.write(string.join(output_cols))
@@ -266,6 +304,7 @@ for line in f:
         flag = 1  # what is this?  Something to do with planestatus
         while moving:
             moving = planestatus(flag, 0.02)
+
         try:
             result = positioner.synchCommand(100, "getPos_xyz")
         except ScriptingTimeoutException, timeout:
