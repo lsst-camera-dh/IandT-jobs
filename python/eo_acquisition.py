@@ -111,7 +111,8 @@ class EOAcquisition(object):
                               mono='ts8/Monochromator')
         self.sub = CcsSubsystems(subsystems=subsystems, logger=logger)
         self.sub.write_versions(os.path.join(metadata.cwd, 'ccs_versions.txt'))
-        write_REB_info(self.sub.ts8)
+        write_REB_info(self.sub.ts8,
+                       outfile=os.path.join(metadata.cwd, 'reb_info.txt'))
         self._check_subsystems()
         set_ccd_info(self.sub, ccd_names, logger)
         self.sub.ts8.synchCommand(10, 'setDefaultImageDirectory %s/S${sensorLoc}'
