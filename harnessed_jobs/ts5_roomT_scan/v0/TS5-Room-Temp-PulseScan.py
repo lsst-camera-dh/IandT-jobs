@@ -20,7 +20,7 @@ measurer = CCS.attachSubsystem("metrology/Measurer")
 def aeroHandler(chat_cmd):
     # Wraps aerotechChat commands to the Aerotech controller
     try:
-        result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
+        result = positioner.synchCommand(100, "aerotechChat", posnquot(chat_cmd))
     except ScriptingTimeoutException, timeout:
         print('Timeout Exception', timeout)
     except Exception, execution:
@@ -51,15 +51,15 @@ def moveTo(x, y):
         + str(current[2]) + " target: " + str(x) + ', ' + str(y))
 
     # Send a series of settings
-    aeroHandler("'SCURVE 7'")
-    aeroHandler("'RAMP RATE 10'")
-    aeroHandler("'RAMP DIST 10'")
-    aeroHandler("'RAMP TIME 1'")
+    aeroHandler("SCURVE 7")
+    aeroHandler("RAMP RATE 10")
+    aeroHandler("RAMP DIST 10")
+    aeroHandler("RAMP TIME 1")
 
     # Send a 'manual' relative move command (no move in z)
     # The formatting below potentially leaves extra blank spaces
     #aeroHandler("'LINEAR X %13.7f Y %13.7f F 10'" % (x - current[0], y - current[1]))
-    chat_cmd = "'LINEAR X %13.7f Y %13.7f F 10'" % (x - current[0], y - current[1])
+    chat_cmd = posnquot("LINEAR X %13.7f Y %13.7f F 10" % (x - current[0], y - current[1]))
 
     try:
         result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
@@ -74,7 +74,7 @@ def planestatus(flag, pause):
     # flag is used as a bit-wise mask; pause is a wait in seconds
 
     # query aerotech controller about the motion status
-    aeroHandler("'PLANESTATUS 0'")
+    aeroHandler("PLANESTATUS 0")
 
     if pause > 0:
         time.sleep(pause)
@@ -215,7 +215,7 @@ def ts5_pulsescan(xstart, ystart, xend, yend, numpoints, dc, slewspeed=100, ramp
 
     # Initialize keyence acquisition
     try:
-        chat_cmd = "'AQ,AS'"
+        chat_cmd = posnquot("AQ,AS")
         result = measurer.synchCommand(100, "keyenceChat", chat_cmd)
     except ScriptingTimeoutException, timeout:
         print('Timeout Exception', timeout)
@@ -303,8 +303,13 @@ def ts5_pulsescan(xstart, ystart, xend, yend, numpoints, dc, slewspeed=100, ramp
     else:
         # compute the positions based on xstart, ystast, xend, yend,
         # numpoints, and dc
-        dx = xend - xstart
-        dy = yend - ystart
+        dx = []
+        dy = []
+        # awkward subtraction of lists; numpy is not available
+        for i in range(len(dx)):
+            dx.append(xend[i] - xstart[i])
+            dy.append(yend[i] - ystart[i])
+
         for ix in [0, numpoints]:
             scale = ix*aplusb + 0.5*a
             xlist.append(xstart + scale*dx)
@@ -348,10 +353,42 @@ zdists = result.getResult()  # 2-element array of doubles
 print('Keyence:  ' + str(zdists[0]) + ' ' + str(zdists[1]))
 
 
-# command aerotech controller to operate in NOWAIT mode
-aeroHandler("'WAIT MODE NOWAIT'")
-# May need more of Andy's code here
+# stop any program that may be running in thread 1
+try:
+    result = positioner.synchCommand(100, "TASKSTATE 1")
+except ScriptingTimeoutException, timeout:
+    print('Timeout Exception', timeout)
+except Exception, execution:
+    print('Execution Exception', execution)
 
+if result.getResult() == '%3':
+    print("Stopping a running program...\t")
+    aeroHandler("PROGRAM STOP 1")
+    time.sleep(3)
+    print("done.\n")
+
+# stop motor movement if moving
+if planestatus(1,0.0):
+    print("stopping a moving motor...\t")
+    time.sleep(0.5)
+    aeroHandler("ABORT X Y Z")
+    while planestatus(1, 0.05):
+        pass
+    print("done.\n")
+
+# command aerotech controller to operate in NOWAIT mode
+aeroHandler("WAIT MODE NOWAIT")
+
+# and then read parameters queried by GETMODE
+for i in range(13):
+    try:
+        result = positioner.synchCommand(100, "GETMODE %d" % i)
+    except ScriptingTimeoutException, timeout:
+        print('Timeout Exception', timeout)
+    except Exception, execution:
+        print('Execution Exception', execution)
+    print("got mode %d = %s" % (i, result.getResult()))
+    
 # set keyence timing parameters; first define the options
 keyence_sample_time = {"cmd" : "SW,CA,%1d",
                        "0" : 2.55e-6,
@@ -432,6 +469,10 @@ coord = 0  # flag for reading coordinate specifications; this is a bit
            # 'for line in f:' approach
 for line in f:
     # parse the line
+    # if the line contains TF copy it to the output as a transformation spec
+    if line.find('TF') > 0:
+        fout.write('# ' + line[1:])
+
     pieces = line.split()
     if pieces[1] == 'part':
         label = pieces[4]  # label to use for the next measurements
