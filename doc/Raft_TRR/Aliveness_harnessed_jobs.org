@@ -1,0 +1,48 @@
+#+STARTUP: beamer
+#+LaTeX_CLASS: beamer
+#+LaTeX_CLASS_OPTIONS: [10pt, t]
+#+BEAMER_FRAME_LEVEL: 1
+#+TITLE: Aliveness Test Harnessed Jobs
+#+AUTHOR: Jim Chiang
+#+DATE: 2017-06-12
+#+COLUMNS: %45ITEM %10BEAMER_env(Env) %8BEAMER_envargs(Env Args) %4BEAMER_col(Col) %8BEAMER_extra(Extra)
+#+PROPERTY: BEAMER_col_ALL 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 :ETC
+#+OPTIONS: toc:nil
+#+LaTeX_HEADER: \newcommand{\code}[1]{{\tt{#1}}}
+#+LaTeX_HEADER: \newcommand{\mybold}[1]{{\textbf{#1}}}
+#+LaTeX_HEADER: \hypersetup{colorlinks=true, urlcolor=blue}
+
+* Outline
+- Power-on tests: \code{rtm\_aliveness\_power\_on}
+- Exposure tests: \code{rtm\_aliveness\_exposure}
+
+* Power-on tests: rtm\_aliveness\_power\_on
+This harnessed job was derived from [[https://github.com/lsst-camera-dh/harnessed-jobs/tree/master/T08/rebalive_power/v0][\code{harnessed-jobs/T08/rebalive\_power}]],
+which was implemented at BNL.  This job performs the following steps:
+- Define the current limits for the channels (DigI, AnaI, ClkHI, ClkLI, ODI)
+  to be checked.
+- Maps each REB to the corresponding power-line.
+- Loop over the REBs:
+  - Power on each channel in order, checking the currents for ClkHI, ClkLI, ODI.
+  - If a current is out-of-range, power down that channel and abort.
+  - Issue a warning if the current measured by the REB power-supply subsystem
+    differs from the ts8 subsystem by more than 10%.
+- Load the sensor specific configurations.
+- Run the [[https://github.com/lsst-camera-ccs/org-lsst-ccs-subsystem-ts8/blob/master/main/src/main/java/org/lsst/ccs/subsystem/ts8/TS8Subsystem.java#L696][\code{powerOn}]] command from the [[https://github.com/lsst-camera-ccs/org-lsst-ccs-subsystem-ts8][\code{org.lsst.ccs.subsystem.ts8}]]
+  package for each REB.  This performs the "safe power on" sequence and
+  performs a series of tests, and finishes by loading the ASPICs and DACs.
+
+* Exposure tests: \code{rtm\_aliveness\_exposure}
+This job is based on [[https://github.com/lsst-camera-dh/harnessed-jobs/tree/master/T08/rebalive_exposure/v0][\code{harnessed-jobs/T08/rebalive\_exposure}]]:
+- Verify that the three expected REB devices are available.
+- Load the sequencer file specified in the \code{acq.cfg} file.
+- Take a series of test exposures:
+  - zero second (100ms) BIAS frame
+  - 1 second FLAT frame
+  - 4 second FE55 frame
+  These tests exercise different branches of the CCS code, bias vs exposure,
+  XED arm deployment, monochromater shutter.
+- For the initial aliveness testing, these are room temperature
+  exposures, so there will be substantial dark current.  A simple
+  analysis comparing the signal imaging section pixels to the signal
+  in the overscan regions is used to identify "bad" channels.
