@@ -1,0 +1,81 @@
+#+STARTUP: beamer
+#+LaTeX_CLASS: beamer
+#+LaTeX_CLASS_OPTIONS: [10pt, t]
+#+BEAMER_FRAME_LEVEL: 1
+#+TITLE: Aliveness Test Harnessed Jobs
+#+AUTHOR: Jim Chiang
+#+DATE: 2017-06-12
+#+COLUMNS: %45ITEM %10BEAMER_env(Env) %8BEAMER_envargs(Env Args) %4BEAMER_col(Col) %8BEAMER_extra(Extra)
+#+PROPERTY: BEAMER_col_ALL 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 :ETC
+#+OPTIONS: toc:nil
+#+LaTeX_HEADER: \newcommand{\code}[1]{{\tt{#1}}}
+#+LaTeX_HEADER: \newcommand{\mybold}[1]{{\textbf{#1}}}
+#+LaTeX_HEADER: \hypersetup{colorlinks=true, urlcolor=blue}
+
+* Outline
+- Data Acquisition Jobs
+  - Refactoring the BNL Code
+  - Handling Configuration Files
+- Electro-optical Analysis Jobs
+  - LCA-57 EO Check List
+
+* Data Acquisition Jobs
+- Preflight: equipment check of shutter, filter wheel, photodiode readout.
+- Readiness: Fe55 and flat exposures.  Visual inspection of Fe55 data
+  ensures that sufficient Fe55 clusters are present for gain determination,
+  the BSS voltages are on.  Flat checks that signals above bias
+  levels are seen.
+- Fe55
+  - system gain, read noise, PSF size
+- Dark
+  - bright defects, dark current
+- Flat Pair
+  - linearity, PTC
+- Pocket Pumping
+  - charge traps
+- Superflat
+  - dark defects
+  - charge transfer efficiency
+- QE
+  - quantum efficiency
+
+* Refactoring the BNL code
+https://github.com/lsst-camera-dh/IandT-jobs
+https://github.com/lsst-camera-dh/jh-ccs-utils
+- BNL code includes branches to handle TS3-specific tasks
+- Enable I&T-specific customizations, e.g., ultra-flat datasets.
+- Preferred an object-oriented approach:
+  - Avoid complicated logic to handle the different types of acquisitions.
+  - Easier to maintain
+
+* Configuration Files
+- Sequencer files
+https://github.com/lsst-camera-dh/sequencer-files
+- CCS properties files
+https://github.com/lsst-camera-dh/ccs-test-configurations
+
+* Electro-optical Analysis Jobs
+This code is exactly the same code that is run on TS8 at BNL
+https://github.com/lsst-camera-dh/EO-analysis-jobs
+https://github.com/lsst-camera-dh/eotest
+https://confluence.slac.stanford.edu/display/LSSTCAM/ETU1+Electro-optical+testing
+
+* LCA-57 EO Check List
+- C-SRFT-001: u Band Throughput (> 41%)
+- C-SRFT-002: g Band Throughput (> 78%)
+- C-SRFT-003: r Band Throughput (> 83%)
+- C-SRFT-004: i Band Throughput (> 82%)
+- C-SRFT-005: z Band Throughput (> 75%)
+- C-SRFT-006: y Band Throughput (> 20.1%)
+- C-SRFT-007: Delivered Live Pixels (< %1 bad)
+  - Bright Pixels
+  - Dark Pixels
+  - Bright Columns
+  - Dark Columns
+  - Traps
+- C-SRFT-024: Charge Diffusion (PSF sigma < 5 microns)
+- C-SRFT-058: Serial CTE (1-SCTE < 5e-6)
+- C-SRFT-061: Dark Current 95th Percentile (< 0.2 e-/s)
+- C-SRFT-064: Signal Linearity (max. frac. deviation < 0.03)
+- C-SRFT-073: Total Electronic Noise (< 9 e- rms)
+- C-SRFT-122: Parallel CTE (1-PCTE < 3e-6)

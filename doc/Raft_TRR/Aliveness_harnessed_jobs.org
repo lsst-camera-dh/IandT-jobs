@@ -41,7 +41,7 @@ This job is based on [[https://github.com/lsst-camera-dh/harnessed-jobs/tree/mas
   - 1 second FLAT frame
   - 4 second FE55 frame
   These tests exercise different branches of the CCS code, bias vs exposure,
-  XED arm deployment, monochromater shutter.
+  XED arm deployment, opening the monochromator shutter.
 - For the initial aliveness testing, these are room temperature
   exposures, so there will be substantial dark current.  A simple
   analysis comparing the signal imaging section pixels to the signal
