@@ -8,9 +8,10 @@ import time
 
 CCS.setThrowExceptions(True)
 
-input_file = '/Users/digel/Desktop/Documents/LSSTCamera/TS5/metro_scan_stuff2/ts5_update_pulse-scans/try_2.0.t'
+input_file = '/Users/digel/Desktop/Documents/LSSTCamera/TS5/metro_scan_stuff2/ts5_update_pulse-scans/try_0.5_fidreref.t'
 
 output_file = 'output_PulseScan.txt'
+nsample = 10  # repeat count for REREF scan points
 
 #Create the equivalent of a CCS subsystem for scripting
 metrology = CCS.attachSubsystem("metrology");
@@ -27,7 +28,7 @@ def aeroHandler(chat_cmd):
         print('Execution Exception', execution)
 
 def keyenceHandler(chat_cmd):
-    # Wraps keyenceChat commands to the Aerotech controller
+    # Wraps keyenceChat commands to the Keyence controller
     try:
         result = measurer.synchCommand(100, "keyenceChat", chat_cmd)
     except ScriptingTimeoutException, timeout:
@@ -355,7 +356,7 @@ print('Keyence:  ' + str(zdists[0]) + ' ' + str(zdists[1]))
 
 # stop any program that may be running in thread 1
 try:
-    result = positioner.synchCommand(100, "TASKSTATE 1")
+    result = positioner.synchCommand(100, "aerotechChat", posnquot("TASKSTATE 1"))
 except ScriptingTimeoutException, timeout:
     print('Timeout Exception', timeout)
 except Exception, execution:
@@ -467,6 +468,10 @@ f = open(input_file, 'r')
 coord = 0  # flag for reading coordinate specifications; this is a bit
            # awkward but it allows the file to be read using the
            # 'for line in f:' approach
+label = ''
+xref = [0, 0, 0]
+yref = [0, 0, 0]
+
 for line in f:
     # parse the line
     # if the line contains TF copy it to the output as a transformation spec
@@ -480,14 +485,53 @@ for line in f:
         numpoints = int(pieces[2][2:])
         dc = float(pieces[3][3:])
     else:
-        # Read the next two lines as the starting and ending x, y 
-        # coordinates of the current scan line
-        if coord == 0:
-            xstart, ystart = float(pieces[0]), float(pieces[1])
-            coord += 1
+        if label == 'REREF':
+            # Read the next three lines as the coordinates of the reference
+            # measurements
+            if coord < 2:
+                xref[coord], yref[coord] = float(pieces[0]), float(pieces[1])
+                coord += 1
+            else:
+                xref[coord], yref[coord] = float(pieces[0]), float(pieces[1])
+                coord = 0
+
+                # Make -nsample- measurements of each of these points
+                for i in range(3):
+                    iter = 0
+                    while iter < nsample:
+                        # Wait for -dwelltime-
+                        time.sleep(dwelltime)
+                        # Read out the Keyence sensors
+                        try:
+                            result = measurer.synchCommand(100, "readAll")
+                        except ScriptingTimeoutException, timeout:
+                            print('Timeout Exception', timeout)
+                        except Exception, execution:
+                            print('Execution Exception', execution)
+                        key_pos = result.getResult()
+
+                        # get timestamp
+                        current_time = time.time()
+                        delta_time = current_time - ref_time
+
+                        # Append the results to the output file
+                        fout.write('%f %f %f %f %f %f %s' % (aero_pos[0],
+                                                             aero_pos[1],
+                                                             aero_pos[2],
+                                                             key_pos[0],
+                                                             key_pos[1],
+                                                             delta_time, 
+                                                             label))
+
         else:
-            xend, yend = float(pieces[0]), float(pieces[1])
-            coord = 0
+            # Read the next two lines as the starting and ending x, y 
+            # coordinates of the current scan line
+            if coord == 0:
+                xstart, ystart = float(pieces[0]), float(pieces[1])
+                coord += 1
+            else:
+                xend, yend = float(pieces[0]), float(pieces[1])
+                coord = 0
 
             print("label=%s n=%d dutycycle=%f start=(%f, %f) end=(%f, %f)\n" % (label, numpoints, dc, xstart, ystart, xend, yend))
             try:
