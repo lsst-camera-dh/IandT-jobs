@@ -2,7 +2,7 @@
 #+LaTeX_CLASS: beamer
 #+LaTeX_CLASS_OPTIONS: [10pt, t]
 #+BEAMER_FRAME_LEVEL: 1
-#+TITLE: Aliveness Test Harnessed Jobs
+#+TITLE: Electro-Optical Testing Harnessed Jobs
 #+AUTHOR: Jim Chiang
 #+DATE: 2017-06-12
 #+COLUMNS: %45ITEM %10BEAMER_env(Env) %8BEAMER_envargs(Env Args) %4BEAMER_col(Col) %8BEAMER_extra(Extra)
