@@ -1,8 +1,0 @@
-# -*- python -*-
-{
-    'schema_name' : 'Room-Temp-Measurement',
-    'schema_version' : 0,
-    'stat' : int,
-    'teststand_version' : str,
-    'teststand_revision' : str,
-}

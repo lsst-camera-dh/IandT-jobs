@@ -1,6 +1,5 @@
 # This is intended to be a Jython implementation of Andy Rasmussen's
 # ts5_dlog.perl
-# It does not yet read and report the controller configurations
 
 from org.lsst.ccs.scripting import *
 from java.lang import Exception
@@ -9,7 +8,8 @@ import time
 
 CCS.setThrowExceptions(True)
 
-input_file = '/Users/digel/Desktop/Documents/LSSTCamera/TS5/metro_scan_stuff/reref_spp1_sp1.t'
+#input_file = '/Users/digel/Desktop/Documents/LSSTCamera/TS5/metro_scan_stuff/reref_spp1_sp1.t'
+input_file = '/home/ccs/jython_checkout/reref_spp1_sp1.t0'
 output_file = 'output.txt'
 
 #Create the equivalent of a CCS subsystem for scripting
@@ -28,10 +28,8 @@ def aeroHandler(chat_cmd):
 
 def moveTo(x, y):
     # Commands to move the Aerotech, including setting the speed and ramp rates
-    # (may want to set the speed and ramp rates once and for all rather
-    #  than every time)
 
-    # get current position
+    # Get current position
     try:
         result = positioner.synchCommand(100,"getPos_xyz")
     except ScriptingTimeoutException, timeout:
@@ -51,7 +49,17 @@ def moveTo(x, y):
 
     # Send a 'manual' relative move command (no move in z)
     # The formatting below potentially leaves extra blank spaces
-    aeroHandler("'LINEAR X %13.7f Y %13.7f F 10'" % (x - current[0], y - current[1]))
+    #aeroHandler("'LINEAR X %13.7f Y %13.7f F 10'" % (x - current[0], y - current[1]))
+    chat_cmd = "'LINEAR X %13.7f Y %13.7f F 10'" % (x - current[0], y - current[1])
+
+    try:
+        result = positioner.synchCommand(100, "aerotechChat", chat_cmd)
+    except ScriptingTimeoutException, timeout:
+        print('Timeout Exception', timeout)
+    except Exception, execution:
+        print('Execution Exception', execution)
+    print("after LINEAR, returned:")
+    print(result.getResult())
 
     #print("moveInc_xyz")
     #try:
@@ -74,13 +82,14 @@ def planestatus(flag, pause):
     # Parse the result returned by the aerotech controller
     check = (result.getResult()[0] == '%')
     if not(check):  # if the first character is not a %
-        return 1
+        return True  # The response was not understandable; pretend it means
+                     # that the stage is still moving
 
     status = int(result.getResult()[1:])  # the next character is to be interpreted
     if flag == 0:
-        return status
+        return status == 1  # True if the Aerotech returned '%1'
     else:
-        return status & flag  # This is a bitwise -and-
+        return (status & flag) == 1  # The & is bitwise -and-
 
 def get_settings():
     # Construct the command string to interrogate the Keyence controller for
