@@ -1,8 +1,7 @@
 """
 Jython script for generic, R&D-oriented acquisitions at TS8.
 """
-import time
-from eo_acquisition import EOAcquisition, PhotodiodeReadout, AcqMetadata, logger
+from eo_acquisition import EOAcquisition, AcqMetadata, logger
 
 class GenericAcquisition(EOAcquisition):
     """
@@ -25,7 +24,7 @@ class GenericAcquisition(EOAcquisition):
 
         openShutter = True
         actuateXed = False
-        image_type = "FLAT"
+        image_type = "RandD"
 
         # Set wavelength, do the flux calibration, and compute the
         # exposure time to obtain the desired signal per frame.
@@ -33,11 +32,8 @@ class GenericAcquisition(EOAcquisition):
         target_counts = float(self.eo_config['%s_SIGNAL' % self.acqname])
         exptime = self.compute_exptime(target_counts, meas_flux)
 
-        for icount in range(self.imcount):
-            file_template = '${CCDSerialLSST}_${testType}_${imageType}_%4.4d_${RunNumber}_${timestamp}.fits' % int(wl)
-            self.take_image(seqno, exptime, openShutter,
-                            actuateXed, image_type,
-                            file_template=file_template)
+        for seqno in range(self.imcount):
+            self.take_image(seqno, exptime, openShutter, actuateXed, image_type)
 
 if __name__ == '__main__':
     metadata = AcqMetadata(cwd=tsCWD, raft_id=UNITID, run_number=RUNNUM)

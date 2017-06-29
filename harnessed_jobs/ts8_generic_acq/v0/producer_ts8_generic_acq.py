@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Producer script for ts8_generic_acq harnessed job.
+"""
 import os
 from ccsTools import ccsProducer, CcsRaftSetup
 
