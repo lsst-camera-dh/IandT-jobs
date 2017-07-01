@@ -33,6 +33,13 @@ class EOAcquisitionTestCase(unittest.TestCase):
         self.ccd_names["S21"] = SensorInfo("ITL-3800C-139-Dev", "20275")
         self.ccd_names["S22"] = SensorInfo("ITL-3800C-013-Dev", "20289")
 
+    def tearDown(self):
+        for item in ('ccs_versions.txt', 'reb_info.txt'):
+            try:
+                os.remove(item)
+            except OSError:
+                pass
+
     def test_instructions(self):
         "Test that the acquisition instructions are correctly parsed."
         metadata = AcqMetadata(cwd='.', raft_id="my_raft", run_number="my_run")
