@@ -8,9 +8,11 @@ import datetime
 import matplotlib.pyplot as plt
 import lcatr.schema
 import siteUtils
+import ccsTools
 import ccs_trending
 
 job_dir = siteUtils.getJobDir()
+ts8 = ccsTools.ccs_subsystem_mapping()['ts8']
 
 host = os.getenv('LCATR_CCS_HOST', 'lsst-mcm')
 time_axis = ccs_trending.TimeAxis(dt=0.5, nbins=200)
@@ -22,7 +24,7 @@ print("Making trending plots")
 local_time = datetime.datetime.now().isoformat()[:len('2017-01-24T10:44:00')]
 for section in config.sections():
     print("  processing", section)
-    plotter = ccs_trending.TrendingPlotter('ts8', host, time_axis=time_axis)
+    plotter = ccs_trending.TrendingPlotter(ts8, host, time_axis=time_axis)
     plotter.read_config(config, section)
     plotter.plot()
     plt.savefig('%s_%s_%s.png' % (section, local_time, siteUtils.getUnitId()))
