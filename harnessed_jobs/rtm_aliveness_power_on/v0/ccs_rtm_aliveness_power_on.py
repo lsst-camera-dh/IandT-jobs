@@ -110,7 +110,7 @@ if __name__ == '__main__':
     # @todo: Read channels to test and their limits from a configuration file.
     channel \
         = dict(digital=ChannelInfo('digital.IaftLDO', 'DigI', 6., 800., False),
-               analog=ChannelInfo('analog.IaftLDO', 'AnaI', 6., 630., False),
+               analog=ChannelInfo('analog.IaftLDO', 'AnaI', 6., 610., False),
                clockhi=ChannelInfo('clockhi.IaftLDO', 'ClkHI', 6., 300., True),
                clocklo=ChannelInfo('clocklo.IaftLDO', 'ClkLI', 6., 300., True),
                od=ChannelInfo('OD.IaftLDO', 'ODI', 6., 190., True))
