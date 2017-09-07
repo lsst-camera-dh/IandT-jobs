@@ -224,7 +224,7 @@ class EOAcquisition(object):
 
     def take_image(self, seqno, exptime, openShutter, actuateXed,
                    image_type, test_type=None, file_template=None,
-                   timeout=500, max_tries=1, try_wait=10.):
+                   timeout=500, max_tries=3, try_wait=10.):
         """
         Take an image.
 
@@ -258,7 +258,7 @@ class EOAcquisition(object):
             commmand.  Default: 500.
         max_tries : int, optional
             The number of maximum number of tries for the
-            "exposeAcquireAndSave" command.  Default: 1.  If the command
+            "exposeAcquireAndSave" command.  Default: 3.  If the command
             does not succeed in max_tries, the exception from the CCS code
             is re-raised.
         try_wait : float, optional
@@ -282,7 +282,7 @@ class EOAcquisition(object):
         command = 'exposeAcquireAndSave %d %s %s "%s"' \
             % (1000*exptime, openShutter, actuateXed, file_template)
         # ensure timeout exceeds exposure time by 20 seconds.
-        timeout = max(timeout, exptime + 20)
+        timeout = int(max(timeout, exptime + 20))
         for itry in range(max_tries):
             try:
                 result = self.sub.ts8.synchCommand(timeout, command).getResult()
@@ -290,6 +290,7 @@ class EOAcquisition(object):
             except StandardError as eobj:
                 self.logger.info("EOAcquisition.take_image: try %i failed",
                                  itry)
+                self.logger.info(str(eobj))
                 time.sleep(try_wait)
         raise RuntimeError("Failed to take an image after %i tries."
                            % max_tries)
