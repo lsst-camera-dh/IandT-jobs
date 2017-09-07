@@ -20,11 +20,11 @@ class ReadyAcquisition(EOAcquisition):
 
     def run(self):
         """
-        Take 3 images: 100ms Fe55, 1s flat, 4s flat.
+        Take 3 images: 10s Fe55, 1s flat, 4s flat.
         """
         # Fe55
         seqno = 0
-        exptime = 0.1
+        exptime = 10
         openShutter = False
         actuateXed = True
         image_type = "FE55"
