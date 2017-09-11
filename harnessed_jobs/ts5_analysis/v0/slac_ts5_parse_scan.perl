@@ -10,8 +10,7 @@ my $kframe_db=dirname($0);
 my $kframe_datafile={
     ("1" => $kframe_db."/KFrame_data/KFrame1_170228/byregion.tnt",
      "2" => $kframe_db."/KFrame_data/KFrame2_170503/byregion.tnt")};
-printf "%s\nexiting..\n",join(' ',%{$kframe_datafile});
-exit;
+
 # allocate the db array object
 
 my $db=[];
