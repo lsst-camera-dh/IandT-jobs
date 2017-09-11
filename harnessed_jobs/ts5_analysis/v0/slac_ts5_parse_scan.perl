@@ -5,6 +5,9 @@ use POSIX;
 use Statistics::Regression;
 use Getopt::Long;
 
+printf "scriptname: %s\nexiting..",$0;
+exit;
+
 my $kframe_datafile={
     ("1" => "/home/arasmus/ts7-1-kinematic-support-frame/byregion.tnt",
      "2" => "/home/arasmus/ts7-2-kinematic-support-frame/byregion.tnt")};
