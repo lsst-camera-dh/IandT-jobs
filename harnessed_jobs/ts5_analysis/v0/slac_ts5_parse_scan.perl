@@ -4,14 +4,14 @@ use warnings;
 use POSIX;
 use Statistics::Regression;
 use Getopt::Long;
+use File::Basename;
 
-printf "scriptname: %s\nexiting..",$0;
-exit;
-
+my $kframe_db=dirname($0);
 my $kframe_datafile={
-    ("1" => "/home/arasmus/ts7-1-kinematic-support-frame/byregion.tnt",
-     "2" => "/home/arasmus/ts7-2-kinematic-support-frame/byregion.tnt")};
-
+    ("1" => $kframe_db."/KFrame_data/KFrame1_170228/byregion.tnt",
+     "2" => $kframe_db."/KFrame_data/KFrame2_170503/byregion.tnt")};
+printf "%s\nexiting..\n",join(' ',%{$kframe_datafile});
+exit;
 # allocate the db array object
 
 my $db=[];
