@@ -7,6 +7,11 @@
     'peak_valley_95' : float,
     'peak_valley_100' : float,
     'flatness_quantile' : str,
-    'flatness_z' : str
+    'flatness_z' : str,
+    'absheight_025' : float,
+    'absheight_975' : float,
+    'absheight_pv' : float,
+    'absheight_quantile' : str,
+    'absheight_z' : str
 }
 # Needs absolute height quantities
