@@ -4,6 +4,13 @@ import siteUtils
 
 producer = 'INT-SR-MET-01'
 # Will need to make ABSOLUTE HEIGHT a separate harnessed job analysis?
+
+# Locate the output files from the producer step
+# Read and parse the ASCII tables, registering extracted results with the eTraveler database
+# Register the ASCII files and PNG plots with the eTraveler database/Data Catalog - including associated
+# metadata
+# Do this separately for the two different TESTTYPE values?
+
 testtype = 'FLATNESS'
 
 md = siteUtils.DataCatalogMetadata(CCD_MANU=siteUtils.getCcdVendor(),
