@@ -3,13 +3,12 @@ import lcatr.schema
 import siteUtils
 
 producer = 'INT-SR-MET-01'
-# Will need to make ABSOLUTE HEIGHT a separate harnessed job analysis?
 
 # Locate the output files from the producer step
 # Read and parse the ASCII tables, registering extracted results with the eTraveler database
 # Register the ASCII files and PNG plots with the eTraveler database/Data Catalog - including associated
 # metadata
-# Do this separately for the two different TESTTYPE values?
+# Fill two schemas for the different TESTTYPE values
 
 testtype = 'FLATNESS'
 
@@ -23,7 +22,7 @@ results_file = '%s_name_of_results_file.txt' % sensor_id
 results = [lcatr.schema.fileref.make(results_file,
                                      metadata=md(DATA_PRODUCT='MET_RESULTS'))]
 
-# below is just notional
+# Pick up and register all of the PNG files
 png_files = glob.glob('*.png')
 results.extend([lcatr.schema.fileref.make(item,
                                            metadata=md(DATA_PRODUCT='type of data product')

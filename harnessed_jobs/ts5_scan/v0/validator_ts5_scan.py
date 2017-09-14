@@ -15,14 +15,14 @@ md = siteUtils.DataCatalogMetadata(CCD_MANU=siteUtils.getCcdVendor(),
 
 # The pattern matching below needs to be specific enough to find the
 # scan plan file  
-datfile = glob.glob("*plan*.tnt")[0]
+datfile = glob.glob("*scan_plan*.tnt")[0]
 
 results = [lcatr.schema.fileref.make(datfile,
                                      metadata=md(DATA_PRODUCT='MET_DATA'))]
 
 # The pattern matching below needs to be specific enough to find the
-# scan data file (and not, say, the scan plan file).  
-datfile = glob.glob("*scan*tnt")[0]
+# scan data file (and not, say, the scan plan file)
+datfile = glob.glob("__ms.tnt")[0]
 
 results.extend(lcatr.schema.fileref.make(datfile,
                                          metadata=md(DATA_PRODUCT='MET_DATA')))
