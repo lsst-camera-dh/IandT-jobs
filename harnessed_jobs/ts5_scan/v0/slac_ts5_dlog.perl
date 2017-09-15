@@ -8,6 +8,18 @@ use IO::Select;
 use Symbol;
 use DateTime;
 use Time::HiRes qw( gettimeofday tv_interval );
+use Scalar::Util qw(looks_like_number);
+
+open(KEY,">","keyence_dlog.log") || die;
+my $nkey=0;
+open(REB,">","reb_dlog.log") || die;
+my $nreb=0;
+open(TS7,">","ts7_dlog.log") || die;
+my $nts7=0;
+open(AER,">","aerotech_dlog.log") || die;
+my $naer=0;
+open(FLU,">","flushbuffers_dlog.log") || die;
+my $nflu=0;
 
 my $keyence_sample_time_settings={"0" => 2.55e-6,
 				  "1" => 5e-6,
@@ -160,9 +172,30 @@ $instr->{"posn"}={"target"  => "metrology/Positioner",
 		  "dlog"    => \&achatter,
 		  "startup" => 1};
 
+$instr->{"REB0_CCDTemp0"}={"target"  => "ts8-raft/R00.Reb0.CCDTemp0",
+			   "channel" => "getValue",
+			   "dlog"    => \&rebchatter,
+			   "startup" => 1};
+
+$instr->{"REB1_CCDTemp1"}={"target"  => "ts8-raft/R00.Reb1.CCDTemp1",
+			   "channel" => "getValue",
+			   "dlog"    => \&rebchatter,
+			   "startup" => 1};
+
+$instr->{"REB2_CCDTemp2"}={"target"  => "ts8-raft/R00.Reb2.CCDTemp2",
+			   "channel" => "getValue",
+			   "dlog"    => \&rebchatter,
+			   "startup" => 1};
+
+$instr->{"CryoPlateTemp"}={"target"  => "ts7-1/CryoPlate",
+			   "channel" => "getValue",
+			   "dlog"    => \&ts7chatter,
+			   "startup" => 1};
+
 # more setup
 foreach my $ky (keys %{$instr}) {
     $instr->{$ky}->{"prepend"}=join(" ",$instr->{$ky}->{"target"},$instr->{$ky}->{"channel"});
+    printf "for key %s prepend is %s\n",$ky,$instr->{$ky}->{"prepend"};
 }
 
 printf STDERR "keys of instr: %s\n",join(',',keys %{$instr}) 
@@ -175,7 +208,10 @@ do {
     ($pid,$sel,$fh)=shell_command_console($instr);
 } until ($pid != 0);
 # link established
-
+{
+    printf STDERR "connection established!\nexiting..\n";
+#    exit;
+}
 my $ap=aero_pos($sel,$fh,$instr->{"posn"},["X","Y","Z"]);
 printf STDERR "return values: %s\n",join(':',@{$ap}) 
     if ($verbose);
@@ -204,7 +240,7 @@ printf STDERR "return values: %s\n",join(':',@{$tk})
  	select(undef,undef,undef,0.5);
 	$ret=$instr->{"posn"}->{"dlog"}($sel,$fh,$instr->{"posn"}->{"prepend"},
 					posnquot("ABORT X Y Z"));
- 	do {} while (planestatus($instr->{"posn"},1,0.05));
+ 	do {} while (planestatus($instr->{"posn"},1,0.15));
 	printf STDERR "done.\n"
 	    if ($verbose);
     }
@@ -337,7 +373,11 @@ my $starttime=[gettimeofday()];
 my @aero_cols=("aero_x","aero_y","aero_z");
 my @keyence_cols=("key_z1","key_z2");
 my @bookkeeping_cols=("timestamp","label");
-my @output_cols=(@aero_cols,@keyence_cols,@bookkeeping_cols);
+my @temperature_cols;
+@temperature_cols=("REB0_CCDTemp0","REB1_CCDTemp1","REB2_CCDTemp2");
+@temperature_cols=("CryoPlateTemp");
+my @output_cols=(@aero_cols,@keyence_cols,@temperature_cols,@bookkeeping_cols);
+
 printf GG "dat\n%s\n",join("\t",@output_cols);
 # specify INPOS
 my $posn=$instr->{"posn"};
@@ -359,12 +399,19 @@ chomp $inputfile_nlines;
 open(F,"<",$input_file) || die;
 
 my $inputfile_lineno=0;
+my %temperature=();
+
 while (my $line=<F>) {
     printf STDERR "progress: %s/%s (%.1f %% complete)\n",$inputfile_lineno,$inputfile_nlines,$inputfile_lineno*100.0/$inputfile_nlines 
 	if ($verbose && ($inputfile_lineno%5==0));
     $inputfile_lineno++;
     next if ($line =~ /^no/);
     if ($line =~ /^!/) {
+	# update any required temperature measurements
+	foreach my $tchan (@temperature_cols) {
+	    my $T=$instr->{$tchan}->{"dlog"}($sel,$fh,$instr->{$tchan}->{"prepend"},"");
+	    $temperature{$tchan}=sprintf("%7.2f",$T);
+	}
 	if ($line =~ /TF/) {
 	    # this is a transformation spec that was used in generating
 	    # this measurement plan file. echo to output.
@@ -373,6 +420,26 @@ while (my $line=<F>) {
 	}
 	if ($line =~ /label/) {
 	    ($label) = ($line =~ /label (\S+)/);
+	}
+	if ($line =~ /ADJUST/) {
+	    # do a LINEAR movement on that axis
+	    my ($adj_axis,$delta) = ($line =~ /ADJUST (\S+) (\S+)/);
+	    my $posn=$instr->{"posn"};
+	    $posn->{"dlog"}($sel,$fh,$posn->{"prepend"},
+			    posnquot(sprintf("LINEAR %s %f F 0.5",$adj_axis,$delta)));
+	    printf "moving relative axis %s by %f\n",$adj_axis,$delta;
+	    do {
+		printf ".";
+	    } while (planestatus($instr->{"posn"},1,0.15));
+	    printf "\n";
+	}
+	if ($line =~ /WAIT/) {
+	    # pause
+	    my ($wait_time) = ($line =~ /WAIT (\S+)/);
+	    printf "pausing for %s seconds..",$wait_time;
+	    select(undef,undef,undef,$wait_time);
+	    printf "\n";
+	    # and continue..
 	}
 	if ($line =~ /SCAN/) {
 	    my ($n,$dutycycle) = ($line =~ /SCAN\s+n=(\d+)\s+dc=([.\d]+)/);
@@ -401,6 +468,7 @@ while (my $line=<F>) {
 				     sprintf("%.4f",$ap->[0]));
 		@output{@keyence_cols}=($retval->{"key_z1"}->[$ix],
 					$retval->{"key_z2"}->[$ix]);
+		@output{@temperature_cols}=@temperature{@temperature_cols};
 		@output{"timestamp","label"}=
 		    ($retval->{"timestamp"}->[$ix],$label);
 		printf GG "%s\n",join(' ',@output{@output_cols});
@@ -412,7 +480,7 @@ while (my $line=<F>) {
     my ($x,$y) = split(' ',$line);
     ($move_instructions->{"X"},$move_instructions->{"Y"})=($x,$y);
     move_to($move_instructions);
-    do {} while(planestatus($posn,1,0.05));
+    do {} while(planestatus($posn,1,0.15));
     # rather than rely on dwell command, use select()
 #	$tmp=$posn->{"dlog"}($sel,$fh,$posn->{"prepend"},posnquot(sprintf("DWELL %g",$dwelltime)));
     my $nsample=($label =~ /REF/)?10:1;
@@ -425,11 +493,8 @@ while (my $line=<F>) {
 	my %output=();
 	@output{@aero_cols}=@{$ap};
 	@output{@keyence_cols}=@{$tk};
-	@output{"timestamp","label"}=
-	    (
-	     tv_interval($starttime,[gettimeofday()]),
-	     $label
-	    );
+	@output{@temperature_cols}=@temperature{@temperature_cols};
+	@output{"timestamp","label"}=(tv_interval($starttime,[gettimeofday()]),$label);
 	printf GG "%s\n",join(' ',@output{@output_cols});
 	$iter++;
     } while ($iter<$nsample);
@@ -460,15 +525,16 @@ sub shell_command_console {
 #    };
 
     $selwrite->add($write);
+
     $selread->add($read);
     $selerror->add($error);
-    $selany->add($read); $selany->add($error);
 
-    my $fh ={"WRITE"=>$write,
-	     "READ" =>$read,
-	     "ERROR"=>$error};
+    $selany->add($read);
+    $selany->add($error);
+
+    my $fh ={"WRITE"=>$write,"READ" =>$read,"ERROR"=>$error};
     
-    if (0) {
+    if (1) {
  	my $svfh;
  	$svfh = select($write); $|=1; select($svfh);
  	$svfh = select($read);  $|=1; select($svfh);
@@ -496,6 +562,9 @@ sub shell_command_console {
 	if ($verbose);
 
     # turn off monitoring (well, GUI won't work so well without it)
+    # if metrology channels aren't monopolized, it seems to keep
+    # sockets alive, which will preclude restarting the subsystem.
+    # DONT monopolize for now, it seemed to work better in the past.
     monopolize_channels($sel,$fh) if (0);
     
     foreach my $ky ( keys %{$instr} ) {
@@ -521,6 +590,26 @@ sub shell_command_console {
 	    $ret1=$instr->{$ky}->{"dlog"}($sel,$fh,$pre,$snd1);
 	    $instr->{$ky}->{"comm_established"}=1;
 	    if ($snd1 ne $ret1) {
+		$instr->{$ky}->{"comm_established"}=0;
+		last;
+	    }
+	}
+	if ($ky =~ /REB/) {
+	    my ($snd,$ret);
+	    $snd="";
+	    $ret=$instr->{$ky}->{"dlog"}($sel,$fh,$pre,$snd);
+	    $instr->{$ky}->{"comm_established"}=1;
+	    if (! looks_like_number($ret)) {
+		$instr->{$ky}->{"comm_established"}=0;
+		last;
+	    }
+	}
+	if ($ky =~ /Cryo/) {
+	    my ($snd,$ret);
+	    $snd="";
+	    $ret=$instr->{$ky}->{"dlog"}($sel,$fh,$pre,$snd);
+	    $instr->{$ky}->{"comm_established"}=1;
+	    if (! looks_like_number($ret)) {
 		$instr->{$ky}->{"comm_established"}=0;
 		last;
 	    }
@@ -555,13 +644,26 @@ sub kchatter {
     syswrite($fh->{"WRITE"},$snd."\n");
     do {} until ($sel->{"READ"}->can_read(0));
     select(undef,undef,undef,0.05); # 50msec additional
-    my $ret;
-    $ret  = readline($fh->{"READ"});
-    $ret .= readline($fh->{"READ"});
-    my ($echoed_command,$ret_val)=split("\n",$ret);
+    my $ret = readline($fh->{"READ"});
+#    do {
+	$ret .= readline($fh->{"READ"});
+#    } while ($sel->{"READ"}->can_read(0));
+
+    {
+	printf KEY "%d ---\n",$nkey;
+	printf KEY "%s",$ret;
+	$nkey++;
+    }
+
+    my @rets=split("\n",$ret);
+    # arbitrary I know, but there's not a great way to check for return strings
+    # coming from keyence controller. let the last return be interpreted
+    # as return value from Keyence controller.
+    my ($echoed_command,$ret_val)=@rets[0,$#rets];
+    
     if (($ret_val =~ /^ER/) &&
-	($echoed_command ne "Q0") &&
-	($echoed_command ne "R0")) {
+	($echoed_command !~ "Q0") &&
+	($echoed_command !~ "R0")) {
 	printf STDERR "kchatter:\n";
 	printf STDERR ("echoed command was %s but return value was %s\n",
 		       $echoed_command,$ret_val);
@@ -582,11 +684,68 @@ sub monopolize_channels {
     
     do {} until ($sel->{"READ"}->can_read(0));
     select(undef,undef,undef,0.05); # 50msec additional
-    my $ret;
-    $ret  = readline($fh->{"READ"});
+    my $ret = readline($fh->{"READ"});
     $ret .= readline($fh->{"READ"});
     printf STDERR "monopolize: received echoed commands:\n$ret\n";
     flush_read_buffers($sel);
+}
+
+sub rebchatter {
+    my ($sel,$fh,$prepend,$cmd)=@_;
+    $cmd=""; # getting temperature doesn't require an argument, since 
+    # getValue is already part of $prepend
+    my $snd=join(" ",$prepend,$cmd);
+    flush_read_buffers($sel);
+    syswrite($fh->{"WRITE"},$snd."\n");
+    do {} until ($sel->{"READ"}->can_read(0));
+    my $ret = readline($fh->{"READ"});
+#    do {
+    $ret .= readline($fh->{"READ"});
+#    } while ($sel->{"READ"}->can_read(0));
+
+    {
+	printf REB "%d ---\n",$nreb;
+	printf REB "%s",$ret;
+	$nreb++;
+    }
+
+    my @rets=split("\n",$ret);
+    my ($echoed_command,$ret_val)=@rets[0,$#rets];
+    if ($ret_val =~ /Error/) {
+	printf STDERR ("REB CHATTER: sent %s received %s\n".
+		       "proceeding with caution.\n",
+		       $echoed_command,$ret_val);
+    }
+    $ret_val;
+}
+
+sub ts7chatter {
+    my ($sel,$fh,$prepend,$cmd)=@_;
+    $cmd=""; # getting temperature doesn't require an argument, since 
+    # getValue is already part of $prepend
+    my $snd=join(" ",$prepend,$cmd);
+    flush_read_buffers($sel);
+    syswrite($fh->{"WRITE"},$snd."\n");
+    do {} until ($sel->{"READ"}->can_read(0));
+    my $ret = readline($fh->{"READ"});
+#    do {
+    $ret .= readline($fh->{"READ"});
+#    } while ($sel->{"READ"}->can_read(0));
+
+    {
+	printf TS7 "%d ---\n",$nts7;
+	printf TS7 "%s",$ret;
+	$nts7++;
+    }
+
+    my @rets=split("\n",$ret);
+    my ($echoed_command,$ret_val)=@rets[0,$#rets];
+    if ($ret_val =~ /Error/) {
+	printf STDERR ("TS7 CHATTER: sent %s received %s\n".
+		       "proceeding with caution.\n",
+		       $echoed_command,$ret_val);
+    }
+    $ret_val;
 }
 
 sub achatter {
@@ -597,10 +756,23 @@ sub achatter {
     syswrite($fh->{"WRITE"},$snd."\n");
     do {} until ($sel->{"READ"}->can_read(0));
     select(undef,undef,undef,0.05); # 50msec additional
-    my $ret;
-    $ret  = readline($fh->{"READ"});
-    $ret .= readline($fh->{"READ"});
+    my $ret = readline($fh->{"READ"});
+#    do {
+	$ret .= readline($fh->{"READ"});
+#    } while ($sel->{"READ"}->can_read(0));
+
+    {
+	printf AER "%d ---\n",$naer;
+	printf AER "%s",$ret;
+	$naer++;
+    }
+
     my ($echoed_command,$ret_val)=split("\n",$ret);
+    # but look for the right form for $ret_val, can avoid unnecessary crashes
+    foreach my $rv (split("\n",$ret)) {
+	$ret_val=$rv if ($rv =~ /^%/);
+	last;
+    }
     if ($ret_val !~ /^%/) {
 	printf STDERR "achatter:\n";
 	printf STDERR ("echoed command was %s but return value was %s\n",
@@ -640,8 +812,10 @@ sub kphrase {
 	printf STDERR "finished sending.\n" if ($verbose && ($ix == $#{$cmds}));
 
 	while ($j>0) {
-	    do {} until ($sel->{"READ"}->can_read(0));	    $rets->[$i]  = readline($fh->{"READ"});
-	    do {} until ($sel->{"READ"}->can_read(0));	    $rets->[$i] .= readline($fh->{"READ"});
+	    do {} until ($sel->{"READ"}->can_read(0));
+	    $rets->[$i]  = readline($fh->{"READ"});
+	    do {} until ($sel->{"READ"}->can_read(0));
+	    $rets->[$i] .= readline($fh->{"READ"});
 	    ($echoed_command,$ret_vals->[$i])=split("\n",$rets->[$i]);
 	    $echoed_command=(split(' ',$echoed_command))[2];
 	    if ($echoed_command ne $cmds->[$i]) {
@@ -867,6 +1041,14 @@ sub get_aero_register {
 		    posnquot(sprintf("DGLOBAL(%d)",$rix)));
 }
 
+sub adjust_aero_stages {
+    my ($adj_instruct)=@_;
+    my $instr=$adj_instruct->{"instr"};
+    my $adj_axis=$adj_instruct->{"AXIS"};
+    my $delta=$adj_instruct->{"DELTA"};
+    
+}
+
 sub ts5_pulsescan {
     # populate Aerotech register variables with appropriate parameters
     # required parameters
@@ -943,7 +1125,14 @@ sub ts5_pulsescan {
 	    $n1=1;
 	} 
 #	select(undef,undef,undef,$dwelltime/$dutycycle);
-	select(undef,undef,undef,0.2); # while counting only interrogate @1Hz
+	# the following will reduce the number of ACTION commands
+	# being sent to the CCS system..
+	my $waittime=0.2;
+	if (looks_like_number($n1)) {
+	    $waittime=(($scan_nsamp-$n1)*$dwelltime/$dutycycle)/1.5;
+	    $waittime=0.2 if ($waittime<0.2);
+	}
+	select(undef,undef,undef,$waittime); # while counting only interrogate @1Hz
 
 	# capture approximate time of first data latch
 	if (($t->[0]==-1) && ($n1>0)) {
@@ -1030,7 +1219,7 @@ sub ts5_pulsescan {
     }
 
     # read in the aerotech captured positions after move is complete
-    do {} while(planestatus($posn,1,0.05));
+    do {} while(planestatus($posn,1,0.15));
     return($headings,$retval);
 }
 
@@ -1045,6 +1234,13 @@ sub flush_read_buffers {
 	} else {
 	    sysread($fh,$answer,409600);
 	}
+
+	{
+	    printf FLU "%d ---\n",$nflu;
+	    printf FLU "%s",$answer;
+	    $nflu++;
+	}
+	
 	printf STDERR "read orphaned text on fh $fh: $answer\n"
 	    if ($verbose);
 	$ret=1;

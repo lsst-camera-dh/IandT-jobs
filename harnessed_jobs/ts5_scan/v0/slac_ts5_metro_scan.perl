@@ -6,10 +6,13 @@ use Getopt::Long;
 
 my $raft_os=[9.01,-19.105]; # millimeters
 my $raft_theta=0.173;    # degrees (checked against sense of stage x,y)
-my ($include_sensors,$include_reref,$include_fiducials)=(1,1,1);
+my ($include_sensors,$include_reref,$include_fiducials,$include_selfcal)=(1,1,1,0);
 my ($sensor_step_sample,$fiducial_step_sample)=(0,0);
 my $reref_cen=[[-55,-15-42.5],[0,+15+42.5],[55,-15-42.5]];
 my $sensor_dim=[41.0,41.0];
+my $selfcal={"sensor" => [[0,-20],[0,20]],
+	     "fid"    => [[0,-33],[0,33]],
+	     "spacing"=> 0.5};
 
 my $usage="usage:\n".
     "$0 [args] > <plan_file>\n".
@@ -33,13 +36,14 @@ my $usage="usage:\n".
     "\t\t#(colon delimited list, e.g. S00:S10:S20 for bottom row sensors)\n".
     "\t[--reref=reref0_x:reref0_y][--reref=reref1_x:reref1_y].. (raft_x,raft_y)\n".
     "\t[--report_corners] #(report corners of raft for alignment)\n".
+    "\t[--selfcal dz0:dz1:dz2:dz3:..:dzN ] #(acquire defined selfcal scans on specified dz list)\n".
     "\t[--help]\n";
 
 my ($raft_center_x,$raft_center_y,$raft_rotation,
     $exclude_sensors,$exclude_reref,$exclude_fiducials,
     $these_sensors,$report_corners,
     $fiducial_sample_spacing,$sensor_sample_spacing,
-    $samples_betw_reref);
+    $samples_betw_reref,$selfcal_dz_list);
 
 ($fiducial_sample_spacing,$sensor_sample_spacing)=(1,1);
 $samples_betw_reref=160;
@@ -62,6 +66,7 @@ GetOptions("raft_center_x=s" => \$raft_center_x,
 	   "only_sensors=s"  => \$these_sensors,
 	   "reref=s"         => \@reref_coords,
 	   "report_corners"  => \$report_corners,
+	   "selfcal_dz_list=s"  => \$selfcal_dz_list,
 	   "help"            => \$help) ||
     die("Error in command line arguments! exiting..\n".$usage);
 if (@ARGV) {
@@ -72,6 +77,8 @@ if (@ARGV) {
 if ($help) {
     die($usage);
 }
+
+$selfcal->{"dz_list"}=[split(':',$selfcal_dz_list)];
 
 $raft_theta=$raft_rotation if (defined($raft_rotation));
 if (defined($raft_center_x) || defined($raft_center_y)) {
@@ -97,10 +104,11 @@ if (defined($these_sensors)) {
 }
 
 $exclude_sensors=1   if (@do_sensors);
-
 $include_sensors=0   if (defined($exclude_sensors));
 $include_reref=0     if (defined($exclude_reref));
 $include_fiducials=0 if (defined($exclude_fiducials));
+$include_selfcal=1   if (defined($selfcal->{"dz_list"}));
+
 if (@reref_coords) {
     foreach my $rrc (@reref_coords) {
 	push(@{$rerefcoords},[split(':',$rrc)]);
@@ -135,9 +143,20 @@ if (@{$reref_cen}) {
     }
 }
 $str .= sprintf("will scan this set of sensors: %s\n",join(',',@do_sensors));
+if (defined($selfcal->{"dz_list"})) {
+    $str .= sprintf("will self calibrate for the following list of dz values: (%s)\n",
+		    join(',',split(':',$selfcal->{"dz_list"})));
+    $str .= sprintf("\tfor sensors (local coords) (%s,%s)->(%s,%s) in steps of %s\n",
+		    @{$selfcal->{"sensor"}->[0]},@{$selfcal->{"sensor"}->[1]},
+		    $selfcal->{"spacing"});
+    $str .= sprintf("\tfor fiducials (local coords) (%s,%s)->(%s,%s) in steps of %s\n",
+		    @{$selfcal->{"fid"}->[0]},@{$selfcal->{"fid"}->[1]},
+		    $selfcal->{"spacing"});
+}
+
 print STDERR $str;
 
-if (($include_fiducials==0) && 
+if (($include_fiducials==0) && ($include_selfcal==0) &&
     (($include_sensors==0) && (! @do_sensors))) {
     printf STDERR "wait .. nothing to measure, what's the point of rereferencing??\nexiting..\n";
     exit(1);
@@ -158,7 +177,12 @@ if (defined($report_corners)) {
     my %n_by_label=("fid0" => 2,"fid1" => 2,
 		    "S00"  => 1,"S02"  => 1,"S20"  => 1,"S22"  => 1,
 		    "S01"  => 0,"S21"  => 0,"S10"  => 0,"S12"  => 0,"S11"  => 0,
-		    "REREF"=> 0);
+		    "REREF"=> 0,
+		    "SELFCAL_S00" => 0, "SELFCAL_S01" => 0, "SELFCAL_S02" => 0,
+		    "SELFCAL_S10" => 0, "SELFCAL_S11" => 0, "SELFCAL_S12" => 0,
+		    "SELFCAL_S20" => 0, "SELFCAL_S21" => 0, "SELFCAL_S22" => 0,
+		    "SELFCAL_fid0"=> 0, "SELFCAL_fid1"=> 0
+	);
     
     foreach my $ssv (@{$ss}) {
 	foreach my $ix0 (0..$#{$ssv}) {
@@ -208,13 +232,15 @@ if (defined($report_corners)) {
 }
 
 my $scl=[];
-my $reref=[];
 my $lbl=[];
+my $reref=[];
+my $selfc=[];
+my $selfc_lbl=[];
 
-foreach my $ssv (@{$ss}) { # loop over scan types
+foreach my $ssv (@{$ss}) { # loop over scan types - but skip over SELFCAL - those should come at the end
     foreach my $ix0 (sort keys @{$ssv}) { # loop over unique labels
 	if (! $include_fiducials) {
-	    next if ($ssv->[$ix0]->{"label"} =~ /fid/);
+	    next if ($ssv->[$ix0]->{"label"} =~ /^fid/);
 	}
 
 	if ((! $include_sensors) && 
@@ -223,21 +249,30 @@ foreach my $ssv (@{$ss}) { # loop over scan types
 	    if (@do_sensors) {
 		my $match_found=0;
 		foreach my $ds (@do_sensors) {
-		    $match_found=1 if ($ssv->[$ix0]->{"label"} =~ /$ds/);
+		    $match_found=1 if ($ssv->[$ix0]->{"label"} =~ /^$ds/);
 		}
 		next if (!$match_found);
 	    } else {
-		next if ($ssv->[$ix0]->{"label"} =~ /S\d\d/);
+		next if ($ssv->[$ix0]->{"label"} =~ /^S\d\d/);
 	    }
 	}
 
 	my $scan_lists=expand_scan($ssv->[$ix0],$raft_os,$raft_theta);
+	# special scans (reref & selfcal)
 	if ($ssv->[$ix0]->{"label"} =~ /REREF/) {
 	    # divert the rereference to a different list
 	    push(@{$reref},$scan_lists);
 	    printf STDERR "REREF label: %s\n",$ssv->[$ix0]{"label"};
 	    next;
 	}
+	if ($ssv->[$ix0]->{"label"} =~ /SELFCAL/) {
+	    # divert the rereference to a different list
+	    push(@{$selfc},$scan_lists);
+	    push(@{$selfc_lbl},$ssv->[$ix0]->{"label"});
+	    printf STDERR "SELFCAL label: %s\n",$ssv->[$ix0]{"label"};
+	    next;
+	}
+
 	push(@{$scl},$scan_lists);
 	# should make more lists here for use later on (labels, etc.)
 	push(@{$lbl},$ssv->[$ix0]{"label"});
@@ -254,6 +289,7 @@ foreach my $ssv (@{$ss}) { # loop over scan types
 my $scan_ix=0;
 my $full_scan_list=[];
 my $reref_scan_list=[];
+my $selfc_scan_list=[];
 
 foreach my $obj_scan_ix (0..$#{$scl}) {
     foreach my $scan_trace_ix (0..$#{$scl->[$obj_scan_ix]}) {
@@ -290,6 +326,22 @@ foreach my $reref_scan_ix (0..$#{$reref}) {
 }
 # and now $reref_scan_list is populated.
 
+# do something similar for selfcal
+$scan_ix=0;
+foreach my $selfc_scan_ix (0..$#{$selfc}) {
+    foreach my $selfc_trace_ix (0..$#{$selfc->[$selfc_scan_ix]}) {
+	my @coord_pair_list=@{$selfc->[$selfc_scan_ix]->[$selfc_trace_ix]};
+	my @ends=@coord_pair_list[0,$#coord_pair_list];
+	$selfc_scan_list->[$scan_ix]={};
+	$selfc_scan_list->[$scan_ix]->{"scoord"}=$ends[0];
+	$selfc_scan_list->[$scan_ix]->{"direction"}=+1;
+	$selfc_scan_list->[$scan_ix]->{"label"}=$selfc_lbl->[$selfc_scan_ix];
+	$selfc_scan_list->[$scan_ix]->{"scan"}=$selfc->[$selfc_scan_ix]->[$selfc_trace_ix];
+	$scan_ix++;
+    }
+}
+# and now $sefc_scan_list is populated.
+
 my $next_scan_ix=0;
 my ($start,$stop);
 my $total_scan_distance=0;
@@ -297,85 +349,103 @@ my $step_number=0;
 my $prev_coords;
 my $n_scan_samples=0;
 
-if ($include_reref) {
-    printf "%s",sample_reference($reref_scan_list);
+
+if (!(($include_fiducials==0) && (($include_sensors==0) && (! @do_sensors)))) {
+    if ($include_reref) {
+	printf "%s",sample_reference($reref_scan_list);
+    }
+    do {
+	# output scan using next_scan_ix and record the scan array for identifying later.
+	my $target_scan=$full_scan_list->[$next_scan_ix]->{"scan"};
+	# print out the scan as appropriate, ignore label for now
+	my @scanlist=@{$full_scan_list->[$next_scan_ix]->{"scan"}};
+	@scanlist=reverse @scanlist if ($full_scan_list->[$next_scan_ix]->{"direction"}==-1);
+	my $stop=$scanlist[$#scanlist];
+	$total_scan_distance += sqrt(pow($scanlist[0]->[0]-$stop->[0],2)+
+				     pow($scanlist[0]->[1]-$stop->[1],2));
+
+	my $lbl=$full_scan_list->[$next_scan_ix]->{"label"};
+	printf "! part of label %s\n",$lbl;
+	my $do_step=0;
+	$do_step=1 if ((($lbl =~ /^S\d\d/) &&   ($sensor_step_sample==1))|| 
+		       (($lbl =~ /^fid\d/) && ($fiducial_step_sample==1)));
+
+	if (! $do_step) {
+	    # prepares scan delimeters
+	    printf "! SCAN n=%d dc=%f\n",$#scanlist-$[+1,0.95;
+	    foreach my $i (0,$#scanlist) {
+		printf "%g %g\n",@{$scanlist[$i]};
+	    }
+	    $n_scan_samples += ($#scanlist-$[+1);
+	} else { # prepares a visit list
+	    foreach my $i (0..$#scanlist) {
+		printf "%g %g\n",@{$scanlist[$i]};
+		$n_scan_samples++;
+	    }
+	}
+
+	# and remove elements that contain this scan.
+	my $i=0;
+	do {
+	    if ($target_scan eq $full_scan_list->[$i]->{"scan"}) {
+		splice(@{$full_scan_list},$i,1);
+		$i--;
+	    }
+	    $i++;
+	} until ($i>$#{$full_scan_list});
+	# identify the next starting point based on separation
+	my @scan_ixlist_by_distance;
+	@scan_ixlist_by_distance=
+	    sort {(pow($full_scan_list->[$a]->{"scoord"}->[0]-$stop->[0],2)+
+		   pow($full_scan_list->[$a]->{"scoord"}->[1]-$stop->[1],2)) <=>
+		   (pow($full_scan_list->[$b]->{"scoord"}->[0]-$stop->[0],2)+
+		    pow($full_scan_list->[$b]->{"scoord"}->[1]-$stop->[1],2))}
+	(0..$#{$full_scan_list});
+
+	# @scan_ixlist_by_distance = reverse @scan_ixlist_by_distance;
+
+	# every 10 scans pick a number out of a hat to resume with a randomly chose location
+	my $lookup_index=0;
+#    if ( ($step_number+1) % $scans_per_patch == 0) {
+	if ( ($n_scan_samples) / $samples_betw_reref >= 1) {
+	    $n_scan_samples=0; # to reset the condition
+	    # rereference, if applicable
+	    if ($include_reref) {
+		printf "%s",sample_reference($reref_scan_list);
+	    }
+#	printf "no no\n";
+	    $lookup_index = rand($#{$full_scan_list});
+	}
+	
+	$next_scan_ix=$scan_ixlist_by_distance[$lookup_index];
+
+	if (defined($next_scan_ix)) {
+	    $total_scan_distance += 
+		sqrt(pow($full_scan_list->[$next_scan_ix]->{"scoord"}->[0]-$stop->[0],2)+
+		     pow($full_scan_list->[$next_scan_ix]->{"scoord"}->[1]-$stop->[1],2));
+	}
+	$step_number++;
+    } until ($#{$full_scan_list}<0);
+    if ($include_reref) {
+	printf "%s",sample_reference($reref_scan_list);
+    }
 }
 
-do {
-    # output scan using next_scan_ix and record the scan array for identifying later.
-    my $target_scan=$full_scan_list->[$next_scan_ix]->{"scan"};
-    # print out the scan as appropriate, ignore label for now
-    my @scanlist=@{$full_scan_list->[$next_scan_ix]->{"scan"}};
-    @scanlist=reverse @scanlist if ($full_scan_list->[$next_scan_ix]->{"direction"}==-1);
-    my $stop=$scanlist[$#scanlist];
-    $total_scan_distance += sqrt(pow($scanlist[0]->[0]-$stop->[0],2)+
-				 pow($scanlist[0]->[1]-$stop->[1],2));
-
-    my $lbl=$full_scan_list->[$next_scan_ix]->{"label"};
-    printf "! part of label %s\n",$lbl;
-    my $do_step=0;
-    $do_step=1 if ((($lbl =~ /^S\d\d/) &&   ($sensor_step_sample==1))|| 
-		   (($lbl =~ /^fid\d/) && ($fiducial_step_sample==1)));
-
-    if (! $do_step) {
-	# prepares scan delimeters
-	printf "! SCAN n=%d dc=%f\n",$#scanlist-$[+1,0.95;
-	foreach my $i (0,$#scanlist) {
-	    printf "%g %g\n",@{$scanlist[$i]};
-	}
-	$n_scan_samples += ($#scanlist-$[+1);
-    } else { # prepares a visit list
-	foreach my $i (0..$#scanlist) {
-	    printf "%g %g\n",@{$scanlist[$i]};
-	    $n_scan_samples++;
-	}
-    }
-
-    # and remove elements that contain this scan.
-    my $i=0;
-    do {
-	if ($target_scan eq $full_scan_list->[$i]->{"scan"}) {
-	    splice(@{$full_scan_list},$i,1);
-	    $i--;
-	}
-	$i++;
-    } until ($i>$#{$full_scan_list});
-    # identify the next starting point based on separation
-    my @scan_ixlist_by_distance;
-    @scan_ixlist_by_distance=
-	sort {(pow($full_scan_list->[$a]->{"scoord"}->[0]-$stop->[0],2)+
-	       pow($full_scan_list->[$a]->{"scoord"}->[1]-$stop->[1],2)) <=>
-		  (pow($full_scan_list->[$b]->{"scoord"}->[0]-$stop->[0],2)+
-		   pow($full_scan_list->[$b]->{"scoord"}->[1]-$stop->[1],2))}
-    (0..$#{$full_scan_list});
-
-    # @scan_ixlist_by_distance = reverse @scan_ixlist_by_distance;
-
-    # every 10 scans pick a number out of a hat to resume with a randomly chose location
-    my $lookup_index=0;
-#    if ( ($step_number+1) % $scans_per_patch == 0) {
-    if ( ($n_scan_samples) / $samples_betw_reref >= 1) {
-	$n_scan_samples=0; # to reset the condition
-	# rereference, if applicable
+# do the selfcal here.
+if ($include_selfcal==1) {
+    foreach my $delta_z (@{$selfcal->{"dz_list"}}) {
+	printf "! ADJUST Z %f\n",$delta_z;
+	printf "! WAIT %f\n",5;
 	if ($include_reref) {
 	    printf "%s",sample_reference($reref_scan_list);
 	}
-#	printf "no no\n";
-	$lookup_index = rand($#{$full_scan_list});
+	printf "%s",sample_selfcal($selfc_scan_list);
+	if ($include_reref) {
+	    printf "%s",sample_reference($reref_scan_list);
+	}
+	printf "! ADJUST Z %f\n",-1*$delta_z; # set things back
+	printf "! WAIT %f\n",5;
     }
-    
-    $next_scan_ix=$scan_ixlist_by_distance[$lookup_index];
-
-    if (defined($next_scan_ix)) {
-	$total_scan_distance += 
-	    sqrt(pow($full_scan_list->[$next_scan_ix]->{"scoord"}->[0]-$stop->[0],2)+
-		 pow($full_scan_list->[$next_scan_ix]->{"scoord"}->[1]-$stop->[1],2));
-    }
-    $step_number++;
-} until ($#{$full_scan_list}<0);
-
-if ($include_reref) {
-    printf "%s",sample_reference($reref_scan_list);
 }
 
 printf STDERR "total scan distance: %g\n",$total_scan_distance;
@@ -448,17 +518,33 @@ sub get_scanspecs {
     }
 
     my $scanspec_fiducial=[];
+    my $selfcal_spec_fiducial=[];
+
+    my $selfcal_dim=[abs($selfcal->{"fid"}->[0]->[0]-$selfcal->{"fid"}->[1]->[0]),
+		     abs($selfcal->{"fid"}->[0]->[1]-$selfcal->{"fid"}->[1]->[1])];
+
     $fid_cen=[$raft_cen->[0]-$fid_x_offset,$raft_cen->[1]];
     $scanspec_fiducial->[0]={"x" => [-$fid_dim->[0]/2.0,+$fid_dim->[0]/2.0],
-				 "y" => [$fid_cen->[1]-$fid_dim->[1]/2.0,
-					 $fid_cen->[1]+$fid_dim->[1]/2.0],
-				 "nx" => floor($fid_dim->[0]/$samp->[0]+1),
-				 "ny" => floor($fid_dim->[1]/$samp->[1]+1),
+			     "y" => [$fid_cen->[1]-$fid_dim->[1]/2.0,
+				     $fid_cen->[1]+$fid_dim->[1]/2.0],
+			     "nx" => floor($fid_dim->[0]/$samp->[0]+1),
+			     "ny" => floor($fid_dim->[1]/$samp->[1]+1),
+			     "cen" => $fid_cen,
+			     "rot"=> 0,
+			     "lat_offset" => [0,0],
+			     "outer_loop_y" => 0,
+			     "label" => "fid0"};
+
+    $selfcal_spec_fiducial->[0]={"x" => [$selfcal->{"fid"}->[0]->[0],$selfcal->{"fid"}->[1]->[0]],
+				 "y" => [$selfcal->{"fid"}->[0]->[1],$selfcal->{"fid"}->[1]->[1]],
+				 "nx" => floor($selfcal_dim->[0]/$selfcal->{"spacing"}+1),
+				 "ny" => floor($selfcal_dim->[1]/$selfcal->{"spacing"}+1),
 				 "cen" => $fid_cen,
 				 "rot"=> 0,
 				 "lat_offset" => [0,0],
 				 "outer_loop_y" => 0,
-				 "label" => "fid0"};
+				 "label" => "SELFCAL_fid0"};
+
     $fid_cen=[$raft_cen->[0]+$fid_x_offset,$raft_cen->[1]];
     $scanspec_fiducial->[1]={"x" => [-$fid_dim->[0]/2.0,+$fid_dim->[0]/2.0],
 				 "y" => [-$fid_dim->[1]/2.0,+$fid_dim->[1]/2.0],
@@ -469,38 +555,55 @@ sub get_scanspecs {
 				 "lat_offset" => [0,0],
 				 "outer_loop_y" => 1,
 				 "label" => "fid1"};
+
+    $selfcal_spec_fiducial->[1]={"x" => [$selfcal->{"fid"}->[0]->[0],$selfcal->{"fid"}->[1]->[0]],
+				 "y" => [$selfcal->{"fid"}->[0]->[1],$selfcal->{"fid"}->[1]->[1]],
+				 "nx" => floor($selfcal_dim->[0]/$selfcal->{"spacing"}+1),
+				 "ny" => floor($selfcal_dim->[1]/$selfcal->{"spacing"}+1),
+				 "cen" => $fid_cen,
+				 "rot"=> 0,
+				 "lat_offset" => [0,0],
+				 "outer_loop_y" => 0,
+				 "label" => "SELFCAL_fid1"};
+
     # move onto sensors
     $samp=[1,1];
     $samp=[$sensor_sample_spacing,
 	   $sensor_sample_spacing];
     my $sensor_cen;
     my $scanspec_sensors=[];
+    my $selfcal_spec_sensors=[];
 
+    $selfcal_dim=[abs($selfcal->{"sensor"}->[0]->[0]-$selfcal->{"sensor"}->[1]->[0]),
+		  abs($selfcal->{"sensor"}->[0]->[1]-$selfcal->{"sensor"}->[1]->[1])];
+    
     foreach my $sen_i ( 0..2 ) {
 	foreach my $sen_j ( 0..2 ) {
 	    $sensor_cen=[$raft_cen->[0]+($sen_i-1)*(-42.25),  # sign flip:
 			 $raft_cen->[1]+($sen_j-1)*(+42.25)]; # CCS coordsys
 	    $scanspec_sensors->[3*$sen_j+$sen_i]={
 		"x" => [-$sensor_dim->[0]/2.0,+$sensor_dim->[0]/2.0],
-		    "y" => [-$sensor_dim->[1]/2.0,+$sensor_dim->[1]/2.0],
-		    "nx" => floor($sensor_dim->[0]/$samp->[0]+1),
-		    "ny" => floor($sensor_dim->[1]/$samp->[1]+1),
-		    "cen" => $sensor_cen,
-		    "rot"=> $ip_rot->{$sen_i,$sen_j},
-		    "outer_loop_y" => ($sen_i+$sen_j)%2,
-		    "lat_offset"   => $lat_offset->{$sen_i,$sen_j},
-		    "label"        => "S".$sen_i.$sen_j};
+		"y" => [-$sensor_dim->[1]/2.0,+$sensor_dim->[1]/2.0],
+		"nx" => floor($sensor_dim->[0]/$samp->[0]+1),
+		"ny" => floor($sensor_dim->[1]/$samp->[1]+1),
+		"cen" => $sensor_cen,
+		"rot"=> $ip_rot->{$sen_i,$sen_j},
+		"outer_loop_y" => ($sen_i+$sen_j)%2,
+		"lat_offset"   => $lat_offset->{$sen_i,$sen_j},
+		"label"        => "S".$sen_i.$sen_j};
+	    $selfcal_spec_sensors->[3*$sen_j+$sen_i]={
+		"x" => [$selfcal->{"sensor"}->[0]->[0],$selfcal->{"sensor"}->[1]->[0]],
+		"y" => [$selfcal->{"sensor"}->[0]->[1],$selfcal->{"sensor"}->[1]->[1]],
+		"nx" => floor($selfcal_dim->[0]/$selfcal->{"spacing"}+1),
+		"ny" => floor($selfcal_dim->[1]/$selfcal->{"spacing"}+1),
+		"cen" => $sensor_cen,
+		"rot"=> $ip_rot->{$sen_i,$sen_j},
+		"outer_loop_y" => 0,
+		"lat_offset"   => $lat_offset->{$sen_i,$sen_j},
+		"label"        => "SELFCAL_"."S".$sen_i.$sen_j};
 	}
     }
     my $scanspec_rereference=[];
-
-    # if (0) {
-    # 	# this reref is for positions on the fiducials
-    # 	$reref_cen=[[$scanspec_fiducial->[0]->{"cen"}->[0]+3,-30],
-    # 		    [$scanspec_fiducial->[0]->{"cen"}->[0]+3,+30],
-    # 		    [$scanspec_fiducial->[1]->{"cen"}->[0]-3,
-    # 		     $scanspec_fiducial->[1]->{"cen"}->[1]]];
-    # }
 
     foreach my $i (0..$#{$reref_cen}) {
 	$scanspec_rereference->[$i]={"x" => [0,0],
@@ -513,7 +616,9 @@ sub get_scanspecs {
 					 "lat_offset"   => [0,0],
 					 "label"        => "REREF"};
     }
-    return( [ $scanspec_sensors,$scanspec_fiducial,$scanspec_rereference ] );
+    return( [ $scanspec_sensors,$scanspec_fiducial,
+	      $scanspec_rereference,
+	      $selfcal_spec_fiducial,$selfcal_spec_sensors ] );
 }
 
 sub sample_reference {
@@ -526,7 +631,38 @@ sub sample_reference {
 		$ret .= sprintf("%s\n",join(' ',@{$cl}));
 	    }
 	}
-#	$ret .= "no no\n";
+    }
+    $ret;
+}
+
+sub sample_selfcal {
+    my ($slist)=@_;
+    my $ret="";
+    if ($#{$slist}) {
+	foreach my $sl_ix (0..$#{$slist}) {
+	    $ret .= sprintf("! part of label %s\n",$slist->[$sl_ix]->{"label"});
+	    my @scanlist = @{$slist->[$sl_ix]->{"scan"}};
+	    my $do_step=0;
+	    if (! $do_step) {
+		# prepares scan delimeters
+		$ret .= sprintf("! SCAN n=%d dc=%f\n",$#scanlist-$[+1,0.95);
+		foreach my $i (0,$#scanlist) {
+		    $ret .= sprintf("%g %g\n",@{$scanlist[$i]});
+		}
+		# $n_scan_samples += ($#scanlist-$[+1);
+	    } else {
+		foreach my $i (0..$#scanlist) {
+		    $ret .= sprintf("%g %g\n",@{$scanlist[$i]});
+		    # $n_scan_samples++;
+		}
+	    }
+	    if (0) {
+		my @cl=@{$slist->[$sl_ix]->{"scan"}};
+		foreach my $cls (@cl[0,$#cl]) {
+		    $ret .= sprintf("%s\n",join(' ',@{$cls}));
+		}
+	    }
+	}
     }
     $ret;
 }
