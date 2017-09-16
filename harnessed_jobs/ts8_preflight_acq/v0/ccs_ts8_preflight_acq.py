@@ -17,17 +17,17 @@ class PreflightAcquisition(EOAcquisition):
                                                    subsystems, ccd_names,
                                                    logger=logger)
         self.sub.pd.synchCommand(10, "setCurrentRange", 0.00002)
-        self.imcount = 1
-        # There are no preflight instructions in the acq_config_file,
-        # so enter the desired ones here.
-        self.instructions = ["lambda 0450 3".split(),
-                             "lambda 0450 3".split(),
-                             "lambda 0450 3".split(),
-                             "lambda 0823 3".split()]
+        # If there are no preflight instructions in the
+        # acq_config_file, use these defaults.
+        if not self.instructions:
+            self.instructions = ["preflight 0450 3".split(),
+                                 "preflight 0450 3".split(),
+                                 "preflight 0450 3".split(),
+                                 "preflight 0823 3".split()]
 
     def run(self):
         """
-        Take images at 450, 823 nm.
+        Take the preflight flats.
         """
         openShutter = True
         actuateXed = True

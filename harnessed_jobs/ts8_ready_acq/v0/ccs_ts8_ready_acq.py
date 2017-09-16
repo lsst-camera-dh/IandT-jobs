@@ -18,26 +18,25 @@ class ReadyAcquisition(EOAcquisition):
                                                logger=logger)
         self.sub.pd.synchCommand(10, "setCurrentRange", 0.00002)
 
+        if not self.instructions:
+            # Use the default image sequence.
+            self.instructions = ["ready FE55 10".split(),
+                                 "ready FLAT 1".split(),
+                                 "ready FLAT 4".split()]
+
     def run(self):
         """
-        Take 3 images: 10s Fe55, 1s flat, 4s flat.
+        Take the readiness acquisition images.
         """
-        # Fe55
-        seqno = 0
-        exptime = 10
-        openShutter = False
-        actuateXed = True
-        image_type = "FE55"
-        self.image_clears()
-        self.take_image(seqno, exptime, openShutter, actuateXed, image_type)
+        openShutter = {'FE55': False, 'FLAT': True}
+        actuateXed = {'FE55': True, 'FLAT': False}
 
-        # Flats
-        openShutter = True
-        actuateXed = False
-        image_type = "FLAT"
-        for seqno, exptime in zip((1, 2), (1., 4.)):
+        for seqno, tokens in enumerate(self.instructions):
+            image_type = tokens[1]
+            exptime = float(tokens[2])
             self.image_clears()
-            self.take_image(seqno, exptime, openShutter, actuateXed, image_type)
+            self.take_image(seqno, exptime, openShutter[image_type],
+                            actuateXed[image_type], image_type)
 
 if __name__ == '__main__':
     metadata = AcqMetadata(cwd=tsCWD, raft_id=UNITID, run_number=RUNNUM)
