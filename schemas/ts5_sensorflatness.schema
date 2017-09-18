@@ -1,0 +1,11 @@
+# -*- python -*-
+{
+    'schema_name' : 'ts5_sensorflatness',
+    'schema_version' : 0,
+    'sensorflatness_025' : float,
+    'sensorflatness_975' : float,
+    'sensorflatness_pv_95' : float,
+    'sensorflatness_pv_100' : float,
+    'sensorflatness_quantile' : str,
+    'sensorflatness_z' : str
+}

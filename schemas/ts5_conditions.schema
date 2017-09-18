@@ -1,0 +1,19 @@
+# -*- python -*-
+{
+    'schema_name' : 'ts5_conditions',
+    'schema_version' : 0,
+    'start_time' : float,
+    'end_time' : float,
+    'temp_cryo_start' : float,
+    'temp_reb0_start' : float,
+    'temp_reb1_start' : float,
+    'temp_reb2_start' : float,
+    'temp_cryo_end' : float,
+    'temp_reb0_end' : float,
+    'temp_reb1_end' : float,
+    'temp_reb2_end' : float,
+    'temp_cryo_avg' : float,
+    'temp_reb0_avg' : float,
+    'temp_reb1_avg' : float,
+    'temp_reb2_avg' : float
+}

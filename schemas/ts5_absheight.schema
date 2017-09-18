@@ -1,0 +1,11 @@
+# -*- python -*-
+{
+    'schema_name' : 'ts5_absheight',
+    'schema_version' : 0,
+    'absheight_025' : float,
+    'absheight_975' : float,
+    'absheight_pv_95' : float,
+    'absheight_pv_100' : float,
+    'absheight_quantile' : str,
+    'absheight_z' : str
+}
