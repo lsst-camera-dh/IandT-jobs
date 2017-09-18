@@ -661,9 +661,10 @@ sub split_reref_meas {
     # now pass through the data space and allocate array entries as needed.
     my $is_reref=0;
     my $this_reref=-1;
+    my $last_aero_z=-1;
     for (my $ix=0;$ix<$this->{"n_entry"};$ix++) {
 	if ($this->{"label"}->[$ix] eq $reref_label) {
-	    if ($is_reref) { # still in sequence of reref values. append to existing list
+	    if ($is_reref && ($this->{"aero_z"}->[$ix] == $last_aero_z)) { # still in sequence of reref values. append to existing list
 	    } else {
 		# append a new reref entry to $this->{"_reref"}
 		$this_reref++;
@@ -671,6 +672,7 @@ sub split_reref_meas {
 		$this->{$rrf}->[$this_reref]->{"ixs"}=[];
 	    }
 	    push(@{$this->{$rrf}->[$this_reref]->{"ixs"}},$ix);
+	    $last_aero_z=$this->{"aero_z"}->[$ix];
 	    $is_reref=1;
 	} else {
 	    $is_reref=0;
@@ -741,7 +743,10 @@ sub read_scan_contents {
 	    # to contain keyword/values for X0, Y0, theta which should be traced to metro_scan.perl
 	    next;
 	}
+
 	next if (/FFF/);
+	next if (/SELFCAL/); # dont include selfcal in data
+
 	$this->{"hdr"}=$_ if ($strip_counter==0); # probably won't use it, save it for now
 	if ($strip_counter==1) {
 	    $this->{"colnames"}=[split('\t')];

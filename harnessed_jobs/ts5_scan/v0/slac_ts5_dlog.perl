@@ -375,8 +375,11 @@ my @aero_cols=("aero_x","aero_y","aero_z");
 my @keyence_cols=("key_z1","key_z2");
 my @bookkeeping_cols=("timestamp","label");
 my @temperature_cols;
-@temperature_cols=("REB0_CCDTemp0","REB1_CCDTemp1","REB2_CCDTemp2");
-@temperature_cols=("CryoPlateTemp");
+# the following selection of temperature monitors is failsafe but requires scan parser
+# to figure out what's going on. Reason is that CCDTemp targets return values even if
+# REBs are turned off. If CryoPlateTemp reports a cold value but the REB returned values
+# are room temperature, it should be safe to discredit these data.
+@temperature_cols=("CryoPlateTemp","REB0_CCDTemp0","REB1_CCDTemp1","REB2_CCDTemp2");
 my @output_cols=(@aero_cols,@keyence_cols,@temperature_cols,@bookkeeping_cols);
 
 printf GG "dat\n%s\n",join("\t",@output_cols);
