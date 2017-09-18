@@ -240,7 +240,8 @@ printf STDERR "return values: %s\n",join(':',@{$tk})
  	select(undef,undef,undef,0.5);
 	$ret=$instr->{"posn"}->{"dlog"}($sel,$fh,$instr->{"posn"}->{"prepend"},
 					posnquot("ABORT X Y Z"));
- 	do {} while (planestatus($instr->{"posn"},1,0.15));
+# 	do {} while (planestatus($instr->{"posn"},1,0.15));
+ 	do {} while (planestatus($instr->{"posn"},1,0.05));
 	printf STDERR "done.\n"
 	    if ($verbose);
     }
@@ -430,7 +431,7 @@ while (my $line=<F>) {
 	    printf "moving relative axis %s by %f\n",$adj_axis,$delta;
 	    do {
 		printf ".";
-	    } while (planestatus($instr->{"posn"},1,0.15));
+	    } while (planestatus($instr->{"posn"},1,0.15)); 
 	    printf "\n";
 	}
 	if ($line =~ /WAIT/) {
@@ -480,7 +481,8 @@ while (my $line=<F>) {
     my ($x,$y) = split(' ',$line);
     ($move_instructions->{"X"},$move_instructions->{"Y"})=($x,$y);
     move_to($move_instructions);
-    do {} while(planestatus($posn,1,0.15));
+#    do {} while(planestatus($posn,1,0.15));
+    do {} while(planestatus($posn,1,0.05));
     # rather than rely on dwell command, use select()
 #	$tmp=$posn->{"dlog"}($sel,$fh,$posn->{"prepend"},posnquot(sprintf("DWELL %g",$dwelltime)));
     my $nsample=($label =~ /REF/)?10:1;
@@ -1128,9 +1130,15 @@ sub ts5_pulsescan {
 	# the following will reduce the number of ACTION commands
 	# being sent to the CCS system..
 	my $waittime=0.2;
-	if (looks_like_number($n1)) {
-	    $waittime=(($scan_nsamp-$n1)*$dwelltime/$dutycycle)/1.5;
-	    $waittime=0.2 if ($waittime<0.2);
+	if (0) { 
+	    # adjusting the wait time may have caused the program 
+	    # to crash more often because errors would occur not 
+	    # inside this loop but elsewhere!! 
+	    # revert to using waittime=0.2 for now
+	    if (looks_like_number($n1)) {
+		$waittime=(($scan_nsamp-$n1)*$dwelltime/$dutycycle)/1.5;
+		$waittime=0.2 if ($waittime<0.2);
+	    }
 	}
 	select(undef,undef,undef,$waittime); # while counting only interrogate @1Hz
 
@@ -1219,7 +1227,8 @@ sub ts5_pulsescan {
     }
 
     # read in the aerotech captured positions after move is complete
-    do {} while(planestatus($posn,1,0.15));
+#    do {} while(planestatus($posn,1,0.15));
+    do {} while(planestatus($posn,1,0.05));
     return($headings,$retval);
 }
 
