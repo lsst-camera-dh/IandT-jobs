@@ -295,13 +295,13 @@ if ($device eq "/cps") {
 	my $cmd;
 #	foreach my $suffix ("pdf","png") {
 	foreach my $suffix ("png") {
-	    $cmd=sprintf("convert pgplot.pdf[%d] %s.%s",
+	    $cmd=sprintf("convert -density 150 pgplot.pdf['%d'] %s.%s",
 			 $ix,$output_graphics_file_list->[$ix],$suffix);
-	    printf "converting pgplot.pdf[%d] as %s.%s\n",$ix,$output_graphics_file_list->[$ix],$suffix;
+	    printf "converting pgplot.ps[%d] as %s.%s\n",$ix,$output_graphics_file_list->[$ix],$suffix;
 	    `$cmd`;
 	}
     }
-    unlink glob "pgplot*";
+#    unlink glob "pgplot*";
 }
 
 # now convert pgpplot.ps into a pdf, then extract into individual png files
@@ -464,7 +464,7 @@ sub draw_falsecolor_map {
 		my ($xl,$xu,$yl,$yu)=($xc-0.5*$xw,$xc+0.5*$xw,
 				      $yc-0.5*$yw,$yc+0.5*$yw);
 		my ($tzh,$tns)=([],[]);
-		my ($tnx,$tny)=(40,40);
+		my ($tnx,$tny)=(60,60);
 		for (my $j=0;$j<$tny;$j++) {
 		    $tzh->[$j]=[];
 		    $tns->[$j]=[];
