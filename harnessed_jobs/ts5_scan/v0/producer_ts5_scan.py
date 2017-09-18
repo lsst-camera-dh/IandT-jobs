@@ -16,7 +16,7 @@ commandstr = 'perl /lnfs/lsst/devel/digel/IandT-jobs/harnessed_jobs/ts5_scan/v0/
              '--raft_center_y=-15 ' + \
              '--raft_theta=0.173 ' + \
 	     '--selfcal -0.5:-0.25:0:0.2350:0.5 ' + \
-             '> ' + raft_id + '_scan_plan.txt'
+             '> ' + raft_id + '_scanplan.txt'
 
 subprocess.check_call(commandstr, shell=True)
 
