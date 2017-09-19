@@ -360,6 +360,7 @@ my $timestr=timestr();
 
 open(GG,">",$output_filename_root."_".$timestr.".tnt") || die;
 printf GG "# measurement begun at UTC %s\n",$timestr;
+printf GG "# START_TIME %f\n",time();
 printf GG "# input file: %s\n",$input_file;
 
 if (defined($instr->{"meas"}->{"save_pars"})) {
@@ -506,6 +507,7 @@ while (my $line=<F>) {
 }
 $timestr=timestr();
 printf GG "# measurement completed at UTC %s\n",$timestr;
+printf GG "# STOP_TIME %f\n",time();
 close(GG);
 
 exit;
