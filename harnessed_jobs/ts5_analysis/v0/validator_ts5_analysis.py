@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import lcatr.schema
 import siteUtils
+import numpy as np
 
 producer = 'INT-SR-MET-01'
 
@@ -10,7 +11,7 @@ producer = 'INT-SR-MET-01'
 # metadata
 # Fill two schemas for the different TESTTYPE values
 
-testtype = 'FLATNESS'
+#testtype = 'FLATNESS'
 
 raft_id = siteUtils.getUnitID()
 
@@ -22,7 +23,7 @@ md = siteUtils.DataCatalogMetadata(CCD_MANU=siteUtils.getCcdVendor(),
 
 results_file = glob.glob("*__ms.tnt")[0]
 results = [lcatr.schema.fileref.make(results_file,
-                                     metadata=md(DATA_PRODUCT='MET_RESULTS'))]
+                                     metadata=md(DATA_PRODUCT='MET'))]
 
 # Pick up and register all of the PNG files
 png_files = glob.glob('*.png')
@@ -43,10 +44,10 @@ for line in open(raftData.infile):
         end_time = float(tokens[9])
     if not line.startswith('#'):
         tokens = line.split()
-        temp_cryo.append(float(tokens[5]))
-        temp_reb0.append(float(tokens[6]))
-        temp_reb1.append(float(tokens[7]))
-        temp_reb2.append(float(tokens[8]))
+        temp_cryo.append(float(tokens[6]))
+        temp_reb0.append(float(tokens[7]))
+        temp_reb1.append(float(tokens[8]))
+        temp_reb2.append(float(tokens[9]))
 
 temp_cryo_start = temp_cryo[0]
 temp_cryo_end = temp_cryo[-1]
