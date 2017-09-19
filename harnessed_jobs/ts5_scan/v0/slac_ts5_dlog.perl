@@ -51,6 +51,7 @@ my $usage="USAGE:\t$0 [args]\n".
     "\n[args] are any combination of:\n\n".
     "\t--input_file=<scan_input_file>\n\t\t(e.g., prepared using slac_ts5_metro_scan.perl)\n".
     "\t[--output_filename_root=<output_filename_root>]\n\t\t(output file will only begin with this string)\n".
+    "\t[--fixed_output_filename=<output_filename>]\n\t\t(if specified, this output filename will be used)\n".
     "\t[--keyence_sampletime_par=<(0[2.55usec]) | (1[5usec]) | \n".
     "\t\t(2[10usec])  | (3[20usec])  | (4[50usec]) | (5|[100usec]) |\n".
     "\t\t(6[200usec]) | (7[500usec]) | (8[1000usec])>]\n".
@@ -72,7 +73,8 @@ my ($keyence_sample_time_ix,$keyence_filter_model_ix,
 my ($keyence_out1_maskpars,$keyence_out2_maskpars);
 my $keyence_head_mask_ix=[1,1];
 my $keyence_head_mask_setting=[[+1.0,-1.0],[+5.0,-5.0]];
-my $output_filename_root="my_output";
+my $output_filename_root;
+my $fixed_output_filename;
 my $incomplete_output;
 my $help=0;
 
@@ -87,6 +89,7 @@ if (! defined($opts)) {
 	       "verbose"                  => \$verbose,
 	       "input_file=s"             => \$input_file,
 	       "output_filename_root=s"   => \$output_filename_root,
+	       "fixed_output_filename=s"  => \$fixed_output_filename,
 	       "incomplete=s"             => \$incomplete_output,
 	       "help"                     => \$help) || 
 	die("error in command line arguments! exiting..\n",$usage);
@@ -109,7 +112,8 @@ if (! defined($opts)) {
 	"TS5_DLOG_KEYENCE_OUT2_MASKPARS"        => \$keyence_out2_maskpars,
 	"TS5_DLOG_PULSESCAN_RAMPRATE"           => \$pulsescan_ramprate,
 	"TS5_DLOG_VERBOSE"                      => \$verbose,
-	"TS5_DLOG_OUTPUT_FILENAME_ROOT"         => \$output_filename_root);
+	"TS5_DLOG_OUTPUT_FILENAME_ROOT"         => \$output_filename_root,
+	"TS5_DLOG_FIXED_OUTPUT_FILENAME"        => \$fixed_output_filename);
     
     foreach my $key (keys %{$pars}) {
 	if (defined($par_hash{$key})) {
@@ -155,6 +159,27 @@ die("ERROR - keyence_filter_nsample (".
     ") is set to an undefined value.\nexiting..\n".$usage)
     if (!defined($keyence_filter_model_settings->{$keyence_filter_model_ix}));
 
+if (defined($output_filename_root) && defined($fixed_output_filename)) {
+    printf STDERR ("BOTH fixed_output_filename (%s)\n".
+		   "and output_filename_root (%s) are defined!\n".
+		   "because the fixed output filename is specified, this program\n".
+		   "(%s) will ignore the output_filename_root for now and use\n".
+		   "the fixed_output_filename (%s)\n",
+		   $fixed_output_filename,$output_filename_root,$0,
+		   $fixed_output_filename);
+    undef $output_filename_root;
+} else {
+    if (!defined($output_filename_root) && !defined($fixed_output_filename)) {
+	$output_filename_root="my_output"; # needs to be named something..
+	printf STDERR "neither fixed nor root filenames are set.\n";
+	printf STDERR "setting nominal output filename root to %s\n",$output_filename_root;
+    } else {
+	# only one of $output_filename_root and $fixed_output_filename is defined.
+	# this is normal so continue.
+    }
+}
+
+
 # summarize settings
 if ($verbose || $help){
     my $str="";
@@ -164,8 +189,14 @@ if ($verbose || $help){
     } else {
 	$str .= sprintf("\tWill use scan input (plan) file $input_file\n");
     }
-    $str .= sprintf("\tOutput file will look like: %s_<UTC_timestamp>.tnt\n",
-		    $output_filename_root);
+    if (defined($output_filename_root)) {
+	$str .= sprintf("\tOutput file will look like: %s_<UTC_timestamp>.tnt\n",
+			$output_filename_root);
+    }
+    if (defined($fixed_output_filename)) {
+	$str .= sprintf("\tOutput file will be: %s\n",
+			$fixed_output_filename);
+    }
     $str .= sprintf("\tKeyence sampling time parameter: %d (%g s)\n",
 		    $keyence_sample_time_ix,
 		    $keyence_sample_time_settings->{$keyence_sample_time_ix});
@@ -396,7 +427,12 @@ exit if (!defined($input_file));
 
 my $timestr=timestr();
 
-open(GG,">",$output_filename_root."_".$timestr.".tnt") || die;
+if (defined($fixed_output_filename)) {
+    open(GG,">",$fixed_output_filename) || die;
+} else {
+    open(GG,">",$output_filename_root."_".$timestr.".tnt") || die;
+}
+
 printf GG "# measurement begun at UTC %s\n",$timestr;
 printf GG "# START_TIME %f\n",time();
 printf GG "# input file: %s\n",$input_file;
