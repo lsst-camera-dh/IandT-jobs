@@ -281,10 +281,14 @@ if (defined($report_corners)) {
 			       sprintf("metrology/Positioner aerotechChat \"\'MOVEABS X %f XF %g Y %f YF %g\'\"",
 				       $tf_coords->[0],50,$tf_coords->[1],50));
 	    }
-
 	}
     }
-    exit;
+    # finally print out instructions to move to raft center
+    printf STDERR ("RAFT CENTER:\n");
+    printf STDERR ("%s\n",
+		   sprintf("metrology/Positioner aerotechChat \"\'MOVEABS X %f XF %g Y %f YF %g\'\"",
+			   $raft_os->[0],50,$raft_os->[1],50));
+    exit(1);
 }
 
 my $scl=[];
