@@ -14,8 +14,10 @@ my $selfcal={"sensor" => [[0,-20],[0,20]],
 	     "fid"    => [[0,-33],[0,33]],
 	     "spacing"=> 0.5};
 
-my $usage="usage:\n".
-    "$0 [args] > <plan_file>\n".
+my $usage="USAGE:\t$0 [args] [> <plan_file>]\n".
+    "\nif the environment variable LCATR_TS5_OPTS is defined, the file that\n".
+    "\tthis points to will be scanned for options usable by $0 and all\n".
+    "\t[args] will throw an error.\n".
     "\n[args] are any combination of:\n".
     "\t[--sensor_sample_spacing=<spacing[mm/sample]>]\n".
     "\t[--fiducial_sample_spacing=<spacing[mm/sample]>]\n".
@@ -39,11 +41,21 @@ my $usage="usage:\n".
     "\t[--selfcal dz0:dz1:dz2:dz3:..:dzN ] #(acquire defined selfcal scans on specified dz list)\n".
     "\t[--help]\n";
 
+# >>> TS5_METRO_SCAN_FIDUCIAL_SAMPLE_SPACING  	0.5                 
+# >>> TS5_METRO_SCAN_PLAN                     	~/scanplan_170918.sp
+# >>> TS5_METRO_SCAN_RAFT_CENTER_X            	9.2                 
+# >>> TS5_METRO_SCAN_RAFT_CENTER_Y            	-15                 
+# >>> TS5_METRO_SCAN_RAFT_THETA               	0.173               
+# >>> TS5_METRO_SCAN_REPORT_CORNERS           	TRUE                
+# >>> TS5_METRO_SCAN_SAMPLES_BETWEEN_REREF    	200                 
+# >>> TS5_METRO_SCAN_SELFCAL                  	-0.5:-0.25:0:0.25:0.5
+# >>> TS5_METRO_SCAN_SENSOR_SAMPLE_SPACING    	0.5                 
+
 my ($raft_center_x,$raft_center_y,$raft_rotation,
     $exclude_sensors,$exclude_reref,$exclude_fiducials,
     $these_sensors,$report_corners,
     $fiducial_sample_spacing,$sensor_sample_spacing,
-    $samples_betw_reref,$selfcal_dz_list);
+    $samples_betw_reref,$selfcal_dz_list,$metro_scan_plan_file);
 
 ($fiducial_sample_spacing,$sensor_sample_spacing)=(1,1);
 $samples_betw_reref=160;
@@ -52,26 +64,60 @@ my $rerefcoords;
 my @do_sensors;
 my $help=0;
 
-GetOptions("raft_center_x=s" => \$raft_center_x,
-	   "raft_center_y=s" => \$raft_center_y,
-	   "raft_theta=s"    => \$raft_rotation,
-	   "sensor_sample_spacing=s" => \$sensor_sample_spacing,
-	   "fiducial_sample_spacing=s" => \$fiducial_sample_spacing,
-	   "samples_between_reref=i" => \$samples_betw_reref,
-	   "exclude_sensors" => \$exclude_sensors,
-	   "exclude_reref"   => \$exclude_reref,
-	   "exclude_fiducials" => \$exclude_fiducials,
-	   "sensor_step_sample" => \$sensor_step_sample,
-	   "fiducial_step_sample" => \$fiducial_step_sample,
-	   "only_sensors=s"  => \$these_sensors,
-	   "reref=s"         => \@reref_coords,
-	   "report_corners"  => \$report_corners,
-	   "selfcal_dz_list=s"  => \$selfcal_dz_list,
-	   "help"            => \$help) ||
-    die("Error in command line arguments! exiting..\n".$usage);
-if (@ARGV) {
-    printf STDERR "left over command line entries: %s\n",join(' ',@ARGV);
-    die($usage);
+my $opts=$ENV{join("_","LCATR","TS5_OPTS")};
+if (! defined($opts)) {
+    GetOptions("raft_center_x=s" => \$raft_center_x,
+	       "raft_center_y=s" => \$raft_center_y,
+	       "raft_theta=s"    => \$raft_rotation,
+	       "sensor_sample_spacing=s" => \$sensor_sample_spacing,
+	       "fiducial_sample_spacing=s" => \$fiducial_sample_spacing,
+	       "samples_between_reref=i" => \$samples_betw_reref,
+	       "exclude_sensors" => \$exclude_sensors,
+	       "exclude_reref"   => \$exclude_reref,
+	       "exclude_fiducials" => \$exclude_fiducials,
+	       "sensor_step_sample" => \$sensor_step_sample,
+	       "fiducial_step_sample" => \$fiducial_step_sample,
+	       "only_sensors=s"  => \$these_sensors,
+	       "reref=s"         => \@reref_coords,
+	       "report_corners"  => \$report_corners,
+	       "selfcal_dz_list=s"  => \$selfcal_dz_list,
+	       "help"            => \$help) ||
+	die("Error in command line arguments! exiting..\n".$usage);
+    if (@ARGV) {
+	printf STDERR "left over command line entries: %s\n",join(' ',@ARGV);
+	die($usage);
+    }
+} else {
+    printf STDERR "opts is defined as %s\n",$opts;
+    if ($#ARGV>-1) {
+	printf STDERR ("command line arguments will be ignored: %s\n",
+		       join(' ',@ARGV));
+	printf STDERR ("re-run $0 without arguments or unset environment ".
+		       "variable %s.\nexiting..\n",
+		       join("_","LCATR","TS5_OPTS"));
+	exit(1);
+    }
+    my $pars=retrieve_opts($opts);
+    my %par_hash=(
+	"TS5_METRO_SCAN_FIDUCIAL_SAMPLE_SPACING"=> \$fiducial_sample_spacing,
+	"TS5_METRO_SCAN_PLAN"                   => \$metro_scan_plan_file,
+	"TS5_METRO_SCAN_RAFT_CENTER_X"          => \$raft_center_x,
+	"TS5_METRO_SCAN_RAFT_CENTER_Y"          => \$raft_center_y,
+	"TS5_METRO_SCAN_RAFT_THETA"             => \$raft_rotation,
+	"TS5_METRO_SCAN_REPORT_CORNERS"         => \$report_corners,
+	"TS5_METRO_SCAN_SAMPLES_BETWEEN_REREF"  => \$samples_betw_reref,
+	"TS5_METRO_SCAN_SELFCAL"                => \$selfcal_dz_list,
+	"TS5_METRO_SCAN_SENSOR_SAMPLE_SPACING"  => \$sensor_sample_spacing);
+
+    foreach my $key (keys %{$pars}) {
+	if (defined($par_hash{$key})) {
+	    ${$par_hash{$key}} = $pars->{$key};
+	} else {
+	    # no corresponding $par_hash{$key}. probably for another TS5 program. skipping..
+	}
+    }
+    $report_corners =~ uc;
+    undef $report_corners if (($report_corners eq "FALSE") || ($report_corners eq 0));
 }
 
 if ($help) {
@@ -136,12 +182,14 @@ $str .= sprintf("exclude_(sensors,reref,fiducials) = (%d,%d,%d)\n",
 		($include_sensors)?0:1,
 		($include_reref)?0:1,
 		($include_fiducials)?0:1);
+
 if (@{$reref_cen}) {
     $str .= sprintf("will use rereference coordinates (raft cooordinate system):\n");
     foreach my $rrc (@{$reref_cen}) {
 	$str .= sprintf("\t(%f,%f)\n",@{$rrc});
     }
 }
+
 $str .= sprintf("will scan this set of sensors: %s\n",join(',',@do_sensors));
 if (defined($selfcal->{"dz_list"})) {
     $str .= sprintf("will self calibrate for the following list of dz values: (%s)\n",
@@ -162,13 +210,21 @@ if (($include_fiducials==0) && ($include_selfcal==0) &&
     exit(1);
 }
 
+# specify the output file..
+my $SPF;
+if (defined($metro_scan_plan_file)) {
+    open($SPF,">",$metro_scan_plan_file) || die "can't open $metro_scan_plan_file. exiting..\n";
+} else {
+    $SPF=*STDOUT;
+}
+
 ##################################################################
 # PROCEED WITH SCAN PLAN GENERATION
 ##################################################################
 
-printf "! TF X0=%f\n",$raft_os->[0];
-printf "! TF Y0=%f\n",$raft_os->[1];
-printf "! TF theta=%f\n",$raft_theta;
+printf $SPF "! TF X0=%f\n",$raft_os->[0];
+printf $SPF "! TF Y0=%f\n",$raft_os->[1];
+printf $SPF "! TF theta=%f\n",$raft_theta;
 
 my $ss=get_scanspecs();
 
@@ -352,7 +408,7 @@ my $n_scan_samples=0;
 
 if (!(($include_fiducials==0) && (($include_sensors==0) && (! @do_sensors)))) {
     if ($include_reref) {
-	printf "%s",sample_reference($reref_scan_list);
+	printf $SPF "%s",sample_reference($reref_scan_list);
     }
     do {
 	# output scan using next_scan_ix and record the scan array for identifying later.
@@ -365,21 +421,21 @@ if (!(($include_fiducials==0) && (($include_sensors==0) && (! @do_sensors)))) {
 				     pow($scanlist[0]->[1]-$stop->[1],2));
 
 	my $lbl=$full_scan_list->[$next_scan_ix]->{"label"};
-	printf "! part of label %s\n",$lbl;
+	printf $SPF "! part of label %s\n",$lbl;
 	my $do_step=0;
 	$do_step=1 if ((($lbl =~ /^S\d\d/) &&   ($sensor_step_sample==1))|| 
 		       (($lbl =~ /^fid\d/) && ($fiducial_step_sample==1)));
 
 	if (! $do_step) {
 	    # prepares scan delimeters
-	    printf "! SCAN n=%d dc=%f\n",$#scanlist-$[+1,0.95;
+	    printf $SPF "! SCAN n=%d dc=%f\n",$#scanlist-$[+1,0.95;
 	    foreach my $i (0,$#scanlist) {
-		printf "%g %g\n",@{$scanlist[$i]};
+		printf $SPF "%g %g\n",@{$scanlist[$i]};
 	    }
 	    $n_scan_samples += ($#scanlist-$[+1);
 	} else { # prepares a visit list
 	    foreach my $i (0..$#scanlist) {
-		printf "%g %g\n",@{$scanlist[$i]};
+		printf $SPF "%g %g\n",@{$scanlist[$i]};
 		$n_scan_samples++;
 	    }
 	}
@@ -411,9 +467,8 @@ if (!(($include_fiducials==0) && (($include_sensors==0) && (! @do_sensors)))) {
 	    $n_scan_samples=0; # to reset the condition
 	    # rereference, if applicable
 	    if ($include_reref) {
-		printf "%s",sample_reference($reref_scan_list);
+		printf $SPF "%s",sample_reference($reref_scan_list);
 	    }
-#	printf "no no\n";
 	    $lookup_index = rand($#{$full_scan_list});
 	}
 	
@@ -427,24 +482,24 @@ if (!(($include_fiducials==0) && (($include_sensors==0) && (! @do_sensors)))) {
 	$step_number++;
     } until ($#{$full_scan_list}<0);
     if ($include_reref) {
-	printf "%s",sample_reference($reref_scan_list);
+	printf $SPF "%s",sample_reference($reref_scan_list);
     }
 }
 
 # do the selfcal here.
 if ($include_selfcal==1) {
     foreach my $delta_z (@{$selfcal->{"dz_list"}}) {
-	printf "! ADJUST Z %f\n",$delta_z;
-	printf "! WAIT %f\n",5;
+	printf $SPF "! ADJUST Z %f\n",$delta_z;
+	printf $SPF "! WAIT %f\n",5;
 	if ($include_reref) {
-	    printf "%s",sample_reference($reref_scan_list);
+	    printf $SPF "%s",sample_reference($reref_scan_list);
 	}
-	printf "%s",sample_selfcal($selfc_scan_list);
+	printf $SPF "%s",sample_selfcal($selfc_scan_list);
 	if ($include_reref) {
-	    printf "%s",sample_reference($reref_scan_list);
+	    printf $SPF "%s",sample_reference($reref_scan_list);
 	}
-	printf "! ADJUST Z %f\n",-1*$delta_z; # set things back
-	printf "! WAIT %f\n",5;
+	printf $SPF "! ADJUST Z %f\n",-1*$delta_z; # set things back
+	printf $SPF "! WAIT %f\n",5;
     }
 }
 
@@ -665,4 +720,20 @@ sub sample_selfcal {
 	}
     }
     $ret;
+}
+
+sub retrieve_opts {
+    my ($filename)=@_;
+    my $pars={};
+    open(OPT,"<",$filename) || die "can't open options file $filename..\n";
+    while (my $line=<OPT>) {
+	next if ($line =~ /^#/);
+	chomp $line;
+	$line =~ tr /=/ /;
+	my @entry=split(' ',$line);
+	my $value=$entry[$#entry];
+	$pars->{$entry[0]}=$value;
+    }
+    close(OPT);
+    $pars;
 }

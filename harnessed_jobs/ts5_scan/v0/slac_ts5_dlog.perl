@@ -45,7 +45,10 @@ my $keyence_filter_model_settings={"0" => 1,
 my $pulsescan_ramprate=10.0;
 
 my $usage="USAGE:\t$0 [args]\n".
-    "\t[args] are any combination of:\n\n".
+    "\tif the environment variable LCATR_TS5_OPTS is defined the file that\n".
+    "\tthis points to will be scanned for options usable by $0 and all\n".
+    "\t[args] will throw an error.\n".
+    "\n[args] are any combination of:\n\n".
     "\t--input_file=<scan_input_file>\n\t\t(e.g., prepared using slac_ts5_metro_scan.perl)\n".
     "\t[--output_filename_root=<output_filename_root>]\n\t\t(output file will only begin with this string)\n".
     "\t[--keyence_sampletime_par=<(0[2.55usec]) | (1[5usec]) | \n".
@@ -73,17 +76,52 @@ my $output_filename_root="my_output";
 my $incomplete_output;
 my $help=0;
 
-GetOptions("keyence_sampletime_par=i" => \$keyence_sample_time_ix,
-	   "keyence_filter_nsample=i" => \$keyence_filter_model_ix,
-	   "keyence_out1_maskpars=s"  => \$keyence_out1_maskpars,
-	   "keyence_out2_maskpars=s"  => \$keyence_out2_maskpars,
-	   "pulsescan_ramprate=s"     => \$pulsescan_ramprate,
-	   "verbose"                  => \$verbose,
-	   "input_file=s"             => \$input_file,
-	   "output_filename_root=s"   => \$output_filename_root,
-	   "incomplete=s"             => \$incomplete_output,
-	   "help"                     => \$help) || 
-    die("error in command line arguments! exiting..\n",$usage);
+my $opts=$ENV{join("_","LCATR","TS5_OPTS")};
+
+if (! defined($opts)) {
+    GetOptions("keyence_sampletime_par=i" => \$keyence_sample_time_ix,
+	       "keyence_filter_nsample=i" => \$keyence_filter_model_ix,
+	       "keyence_out1_maskpars=s"  => \$keyence_out1_maskpars,
+	       "keyence_out2_maskpars=s"  => \$keyence_out2_maskpars,
+	       "pulsescan_ramprate=s"     => \$pulsescan_ramprate,
+	       "verbose"                  => \$verbose,
+	       "input_file=s"             => \$input_file,
+	       "output_filename_root=s"   => \$output_filename_root,
+	       "incomplete=s"             => \$incomplete_output,
+	       "help"                     => \$help) || 
+	die("error in command line arguments! exiting..\n",$usage);
+} else {
+    printf STDERR "opts is defined as %s\n",$opts;
+    if ($#ARGV>-1) {
+	printf STDERR ("command line arguments will be ignored: %s\n",
+		       join(' ',@ARGV));
+	printf STDERR ("re-run $0 without arguments or unset environment ".
+		       "variable %s.\nexiting..\n",
+		       join("_","LCATR","TS5_OPTS"));
+	exit(1);
+    }
+    my $pars=retrieve_opts($opts);
+    my %par_hash=(
+	"TS5_METRO_SCAN_PLAN"                   => \$input_file,
+	"TS5_DLOG_KEYENCE_SAMPLETIME_PAR"       => \$keyence_sample_time_ix,
+	"TS5_DLOG_KEYENCE_FILTER_NSAMPLE"       => \$keyence_filter_model_ix,
+	"TS5_DLOG_KEYENCE_OUT1_MASKPARS"        => \$keyence_out1_maskpars,
+	"TS5_DLOG_KEYENCE_OUT2_MASKPARS"        => \$keyence_out2_maskpars,
+	"TS5_DLOG_PULSESCAN_RAMPRATE"           => \$pulsescan_ramprate,
+	"TS5_DLOG_VERBOSE"                      => \$verbose,
+	"TS5_DLOG_OUTPUT_FILENAME_ROOT"         => \$output_filename_root);
+    
+    foreach my $key (keys %{$pars}) {
+	if (defined($par_hash{$key})) {
+	    ${$par_hash{$key}} = $pars->{$key};
+	    printf STDERR "setting %s to %s.\n",$key,$pars->{$key};
+	} else {
+	    # no corresponding $par_hash{$key}. probably for another TS5 program. skipping..
+	}
+    }
+    $verbose = uc $verbose;
+    undef $verbose if (($verbose eq "FALSE") || ($verbose eq 0));
+}
 
 if (0) {
     if (!defined($incomplete_output)) {
@@ -1262,3 +1300,18 @@ sub flush_read_buffers {
     $ret;
 }
 
+sub retrieve_opts {
+    my ($filename)=@_;
+    my $pars={};
+    open(OPT,"<",$filename) || die "can't open options file $filename..\n";
+    while (my $line=<OPT>) {
+	next if ($line =~ /^#/);
+	chomp $line;
+	$line =~ tr /=/ /;
+	my @entry=split(' ',$line);
+	my $value=$entry[$#entry];
+	$pars->{$entry[0]}=$value;
+    }
+    close(OPT);
+    $pars;
+}
