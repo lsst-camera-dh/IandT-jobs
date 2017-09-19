@@ -1,0 +1,11 @@
+# -*- python -*-
+{
+    'schema_name' : 'ts5_flatness',
+    'schema_version' : 0,
+    'flatness_025' : float,
+    'flatness_975' : float,
+    'flatness_pv_95' : float,
+    'flatness_pv_100' : float,
+    'flatness_quantile' : str,
+    'flatness_z' : str
+}
