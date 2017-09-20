@@ -18,6 +18,9 @@ commandstr = 'perl /lnfs/lsst/devel/digel/IandT-jobs/harnessed_jobs/ts5_scan/v0/
 	     '--selfcal -0.5:-0.25:0:0.2350:0.5 ' + \
              '> ' + raft_id + '_scanplan.txt'
 
+commandstr = 'perl /lnfs/lsst/devel/ccs/ts5/install_dir/share/ts5_scan/v0/slac_ts5_metro_scan.perl'
+
+
 subprocess.check_call(commandstr, shell=True)
 
 # Below the Perl script executes the scan plan.
@@ -28,4 +31,7 @@ subprocess.check_call(commandstr, shell=True)
 commandstr = 'perl /lnfs/lsst/devel/digel/IandT-jobs/harnessed_jobs/ts5_scan/v0/slac_ts5_dlog.perl --input_file=' + \
               raft_id + '_scan_plan.txt --output_filename_root=' + raft_id + ' --keyence_sampletime_par=6 --keyence_filter_nsample=5 --verbose --keyence_out1_maskpars=0.7:-0.7 --keyence_out2_maskpars=1.7:-1.7'
 
-subprocess.check_call(commandstr, shell=True)
+# commented out to inhibit scan execution
+# subprocess.check_call(commandstr, shell=True)
+
+subprocess.check_call('cp /lnfs/lsst/devel/ccs/ts5/LCA-10753_RSA_004_ETU02_170919221019.tnt dont_trust_this_data.tnt', shell=True)

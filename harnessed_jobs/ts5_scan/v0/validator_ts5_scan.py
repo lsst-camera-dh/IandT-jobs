@@ -5,7 +5,7 @@ import os
 import lcatr.schema
 import siteUtils
 
-raft_id = siteUtils.getUnitID()
+raft_id = siteUtils.getUnitId()
 
 md = siteUtils.DataCatalogMetadata(CCD_MANU=siteUtils.getCcdVendor(),
                                    LSST_NUM=raft_id,
@@ -15,17 +15,16 @@ md = siteUtils.DataCatalogMetadata(CCD_MANU=siteUtils.getCcdVendor(),
 
 # The pattern matching below needs to be specific enough to find the
 # scan plan file  
-datfile = glob.glob("*scanplan*.tnt")[0]
-
-results = [lcatr.schema.fileref.make(datfile,
-                                     metadata=md(DATA_PRODUCT='MET_DATA'))]
+scanplan = glob.glob("*scanplan*")[0]
 
 # The pattern matching below needs to be specific enough to find the
 # scan data file (and not, say, the scan plan file)
-datfile = glob.glob("*.tnt")[0]
+scandata = glob.glob("*.tnt")[0]
 
-results.extend(lcatr.schema.fileref.make(datfile,
-                                         metadata=md(DATA_PRODUCT='MET_DATA')))
+results = [lcatr.schema.fileref.make(scanplan, metadata=md(DATA_PRODUCT='MET_DATA')),
+           lcatr.schema.fileref.make(scandata, metadata=md(DATA_PRODUCT='MET_DATA'))]
+
+print(results)
 
 results.extend(siteUtils.jobInfo())
 results.extend(siteUtils.packageVersions())

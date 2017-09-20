@@ -289,6 +289,7 @@ if (defined($report_corners)) {
 		   sprintf("metrology/Positioner aerotechChat \"\'MOVEABS X %f XF %g Y %f YF %g\'\"",
 			   $raft_os->[0],50,$raft_os->[1],50));
     exit(1);
+#    exit;
 }
 
 my $scl=[];
