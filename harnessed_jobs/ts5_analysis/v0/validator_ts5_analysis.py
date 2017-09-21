@@ -4,16 +4,6 @@ import siteUtils
 import glob
 import numpy as np
 
-producer = 'INT-SR-MET-01'
-
-# Locate the output files from the producer step
-# Read and parse the ASCII tables, registering extracted results with the eTraveler database
-# Register the ASCII files and PNG plots with the eTraveler database/Data Catalog - including associated
-# metadata
-# Fill two schemas for the different TESTTYPE values
-
-#testtype = 'FLATNESS'
-
 raft_id = siteUtils.getUnitId()
 
 md = siteUtils.DataCatalogMetadata(CCD_MANU=siteUtils.getCcdVendor(),
@@ -22,6 +12,7 @@ md = siteUtils.DataCatalogMetadata(CCD_MANU=siteUtils.getCcdVendor(),
                                   ORIGIN='SLAC',
                                   TEST_CATEGORY='MET')
 
+# Locate the output files from the producer step
 results_file = glob.glob("*__ms.tnt")[0]
 png_files = glob.glob('*.png')
 
@@ -29,11 +20,12 @@ png_files = glob.glob('*.png')
 files = png_files
 files.append(results_file)
 
-print('Files to be registered:  ')
-print(files)
-
+# Register the ASCII files and PNG plots with the eTraveler
+# database/Data Catalog - including associated metadata
 results = [lcatr.schema.fileref.make(file, metadata=md(DATA_PRODUCT='MET')) for file in files]
 
+# Read and parse the ASCII tables, registering extracted results with the
+# eTraveler database
 # Parse the metadata from the original scan file
 scan_file = siteUtils.dependency_glob('*.tnt',
                                    jobname=siteUtils.getProcessName('ts5_scan'),
@@ -47,6 +39,7 @@ for line in open(scan_file):
     if line.startswith('# START_TIME'):
         tokens = line.split()
         start_time = float(tokens[2])
+    # Skip header lines
     if not (line.startswith('#') or line.startswith('dat') or line.startswith('aero_x')):
         tokens = line.split()
         temp_cryo.append(float(tokens[5]))
@@ -73,8 +66,7 @@ temp_reb2_start = temp_reb2[0]
 temp_reb2_end = temp_reb2[-1]
 temp_reb2_avg = np.mean(temp_reb2)
 
-
-# Read analysis results for the eTraveler database
+# Read analysis results to register in the eTraveler database
 datfile = glob.glob('*sensor-flatness_histogram_results*')[0]
 sensorflatness_quantile = []
 sensorflatness_z = []
@@ -155,7 +147,7 @@ results.append(lcatr.schema.valid(lcatr.schema.get('ts5_flatness'),
 				  flatness_025 = flatness_025, \
 				  flatness_975 = flatness_975, \
 				  flatness_pv_95 = flatness_pv_95, \
-				  flatness_pv_100 = flatness_pv_100,\
+				  flatness_pv_100 = flatness_pv_100, \
 				  flatness_quantile = flatness_quantile, \
 				  flatness_z = flatness_z))
 

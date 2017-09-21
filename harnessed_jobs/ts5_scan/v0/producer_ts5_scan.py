@@ -1,14 +1,14 @@
 #!/usr/bin/env python
-# from ccsTools import ccsProducer
 import subprocess
 import os.path
-#import siteUtils
+import siteUtils
 
-#raft_id = siteUtils.getUnitId()
-raft_id = 'LCA-10753_ETU2'
+print('ts5_scan:')
 
-# get the working directory of this script because it contains other executables that we'll use
+raft_id = siteUtils.getUnitId()
+#raft_id = 'LCA-10753_ETU2'
 
+# Get the working directory of this script because it contains other executables that we'll use
 path_to_executables = os.path.dirname(__file__)
 
 commandstr = 'perl ' + path_to_executables + '/slac_ts5_metro_scan.perl'
