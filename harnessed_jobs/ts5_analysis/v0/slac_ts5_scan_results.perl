@@ -297,11 +297,16 @@ if ($device eq "/cps") {
 	foreach my $suffix ("png") {
 	    $cmd=sprintf("convert -density 150 pgplot.pdf['%d'] %s.%s",
 			 $ix,$output_graphics_file_list->[$ix],$suffix);
-	    printf "converting pgplot.ps[%d] as %s.%s\n",$ix,$output_graphics_file_list->[$ix],$suffix;
+	    printf "converting pgplot.pdf[%d] as %s.%s\n",$ix,$output_graphics_file_list->[$ix],$suffix;
 	    `$cmd`;
+	    { # move output file to current directory, jh needs to find them here.
+		my $cmd=sprintf("mv %s.%s .",$output_graphics_file_list->[$ix],$suffix);
+		printf "moving %s.%s to current directory.\n",$ix,$output_graphics_file_list->[$ix],$suffix;
+		`$cmd`;
+	    }
 	}
     }
-#    unlink glob "pgplot*";
+    unlink glob "pgplot*";
 }
 
 # now convert pgpplot.ps into a pdf, then extract into individual png files
@@ -312,7 +317,7 @@ sub read_tnt {
     my ($input)=@_;
     my $dat={};
     my $filter={"raft_x" => [-70,70]};
-    open(F,"<",$input) || die;
+    open(F,"<",$input) || die "can't load input file ".$input;
     my $line=<F>;
     $line=<F>;
     chomp $line;

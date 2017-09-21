@@ -177,6 +177,11 @@ foreach my $fn_ix (0..$#{$filenames}) {
 
     describe_contents($db->[$fn_ix]);
     export_file($db->[$fn_ix],$filenames->[$fn_ix]."__ms.tnt",["label","I"],$db->[$fn_ix]->{"_meas"});
+
+    { # the following moves the output file back to this working directory for jh to register the output file to the catalog
+	my $cmd=sprintf("mv %s .",$filenames->[$fn_ix]."__ms.tnt");
+	`$cmd`;
+    }
     
     remove_regression($tmpdb,"_fidplane","fiducialsamp_rr");
     export_file($tmpdb,"kmsf_temp.tnt",["I"],[0..$tmpdb->{"n_entry"}-1]);
