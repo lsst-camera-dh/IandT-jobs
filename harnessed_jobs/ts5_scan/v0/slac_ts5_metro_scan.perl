@@ -116,7 +116,7 @@ if (! defined($opts)) {
 	    # no corresponding $par_hash{$key}. probably for another TS5 program. skipping..
 	}
     }
-    $report_corners =~ uc;
+    $report_corners = uc $report_corners;
     undef $report_corners if (($report_corners eq "FALSE") || ($report_corners eq 0));
 }
 
