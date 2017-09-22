@@ -6,11 +6,10 @@ import numpy as np
 
 raft_id = siteUtils.getUnitId()
 
-md = siteUtils.DataCatalogMetadata(CCD_MANU=siteUtils.getCcdVendor(),
-                                  LSST_NUM=raft_id,
-                                  PRODUCER='INT-SR-MET-01',
-                                  ORIGIN='SLAC',
-                                  TEST_CATEGORY='MET')
+md = siteUtils.DataCatalogMetadata(LSST_NUM=raft_id,
+                                   PRODUCER='INT-SR-MET-01',
+                                   ORIGIN='SLAC',
+                                   TEST_CATEGORY='MET')
 
 # Locate the output files from the producer step
 results_file = glob.glob("*__ms.tnt")[0]
