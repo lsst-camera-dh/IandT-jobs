@@ -11,7 +11,7 @@ raft_id = siteUtils.getUnitId()
 # Find the TS5 metrology scan data from the data-taking step
 # siteUtils returns a list with one member;
 # here take the first (and only) member
-infile = siteUtils.dependency_glob('*.tnt',
+infile = siteUtils.dependency_glob('*data.txt',
                                    jobname=siteUtils.getProcessName('ts5_scan'),
                                    description='')[0]
 
@@ -51,8 +51,8 @@ subprocess.check_call(commandstr, shell=True)
 
 # Construct the name of the processed scan file (to be written to the
 # current working directory with the same name as the scan data file +
-# '__ms.tnt' appended
-processed_scan_file = os.path.basename(infile) + '__ms.tnt'
+# '__ms.txt' appended
+processed_scan_file = os.path.basename(infile) + '__ms.txt'
 
 commandstr = 'perl ' + os.path.dirname(__file__) + '/slac_ts5_scan_results.perl' + flag + processed_scan_file + \
              ' ' + temperature

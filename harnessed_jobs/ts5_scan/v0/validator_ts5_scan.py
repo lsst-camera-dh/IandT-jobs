@@ -16,7 +16,7 @@ md = siteUtils.DataCatalogMetadata(LSST_NUM=raft_id,
 scanplan = glob.glob("*scanplan*")[0]
 
 # Find the scan data file
-scandata = glob.glob("*.tnt")[0]
+scandata = glob.glob("*data.txt")[0]
 
 results = [lcatr.schema.fileref.make(scanplan, metadata=md(DATA_PRODUCT='MET_DATA')),
            lcatr.schema.fileref.make(scandata, metadata=md(DATA_PRODUCT='MET_DATA'))]

@@ -12,11 +12,13 @@ md = siteUtils.DataCatalogMetadata(LSST_NUM=raft_id,
                                    TEST_CATEGORY='MET')
 
 # Locate the output files from the producer step
-results_file = glob.glob("*__ms.tnt")[0]
+results_file = glob.glob("*__ms.txt")[0]
 png_files = glob.glob('*.png')
+fits_files = glob.glob('*.fits')
 
 # Make a single list of files to be registered
 files = png_files
+files.extend(fits_files)
 files.append(results_file)
 
 # Register the ASCII files and PNG plots with the eTraveler
@@ -26,7 +28,7 @@ results = [lcatr.schema.fileref.make(file, metadata=md(DATA_PRODUCT='MET')) for 
 # Read and parse the ASCII tables, registering extracted results with the
 # eTraveler database
 # Parse the metadata from the original scan file
-scan_file = siteUtils.dependency_glob('*.tnt',
+scan_file = siteUtils.dependency_glob('*data.txt',
                                    jobname=siteUtils.getProcessName('ts5_scan'),
                                    description='')[0]
 temp_cryo = []

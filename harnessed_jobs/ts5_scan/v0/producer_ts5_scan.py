@@ -20,4 +20,4 @@ commandstr = 'perl ' + path_to_executables + '/slac_ts5_dlog.perl'
 if 0:
     subprocess.check_call(commandstr, shell=True)
 else:
-    subprocess.check_call('cp /lnfs/lsst/devel/ccs/ts5/LCA-10753_RSA_004_ETU02_170919221019.tnt dont_trust_this_data.tnt', shell=True)
+    subprocess.check_call('cp /lnfs/lsst/devel/ccs/ts5/LCA-10753_RSA_004_ETU02_170919221019.tnt dont_trust_this_data.txt', shell=True)
