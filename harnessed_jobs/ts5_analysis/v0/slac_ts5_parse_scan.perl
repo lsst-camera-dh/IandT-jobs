@@ -5,6 +5,7 @@ use POSIX;
 use Statistics::Regression;
 use Getopt::Long;
 use File::Basename;
+use Astro::FITS::CFITSIO qw( :constants );
 
 my $kframe_db=dirname($0);
 my $kframe_datafile={
@@ -58,6 +59,7 @@ foreach my $fn_ix (0..$#{$filenames}) {
     $db->[$fn_ix]->{"filename"} = $filenames->[$fn_ix];
     read_scan_contents($db->[$fn_ix],{"gain"=>{"key_z1"=>cos((24.0/2.0)*atan2(1,1)/45.0),
 						   "key_z2"=>cos((17.0/2.0)*atan2(1,1)/45.0)}});
+
     # check for presence of a transform spec and provide "raft" coordinate system columns.
     if (defined($db->[$fn_ix]->{"TF"})) {
 	my ($x0,$y0,$theta)=($db->[$fn_ix]->{"TF"}->{"X0"},
@@ -178,13 +180,39 @@ foreach my $fn_ix (0..$#{$filenames}) {
     describe_contents($db->[$fn_ix]);
     export_file($db->[$fn_ix],$filenames->[$fn_ix]."__ms.tnt",["label","I"],$db->[$fn_ix]->{"_meas"});
 
-    { # the following moves the output file back to this working directory for jh to register the output file to the catalog
-	my $cmd=sprintf("mv %s .",$filenames->[$fn_ix]."__ms.tnt");
+    { # the following moves the output files back to this working directory for jh to register the output file to the catalog
+	my $cmd;
+	$cmd=sprintf("mv %s .",$filenames->[$fn_ix]."__ms.tnt");
+	`$cmd`;
+	$cmd=sprintf("mv %s .",$filenames->[$fn_ix]."__ms.tnt_.rgrs");
 	`$cmd`;
     }
     
     remove_regression($tmpdb,"_fidplane","fiducialsamp_rr");
     export_file($tmpdb,"kmsf_temp.tnt",["I"],[0..$tmpdb->{"n_entry"}-1]);
+    
+    my $status=0;
+    my $fits_filename=$filenames->[$fn_ix].".fits";
+    unlink $fits_filename if (-e $fits_filename);
+
+    $db->[$fn_ix]->{"fitsfile"}=
+	Astro::FITS::CFITSIO::create_file($fits_filename,$status);
+    my $fptr=$db->[$fn_ix]->{"fitsfile"};
+    printf "status=$status\n" if ($status);
+    $fptr->create_img(DOUBLE_IMG,2,[0,0],$status);
+    printf "status=$status\n" if ($status);
+    stash_fits_version($fptr,$db->[$fn_ix],
+		       {"labels"=>"all"},["I"],"SLAC::TS5 DATA");
+    foreach my $label ("S00", "S01", "S02",
+		       "S10", "S11", "S12",
+		       "S20", "S21", "S22",
+		       "fid0","fid1"       ) {
+	stash_fits_version($fptr,$db->[$fn_ix],
+			   {"labels"=>[$label]},["I","label"],
+			   "SLAC::TS5 DATA"." (".$label.")");
+    }
+    $db->[$fn_ix]->{"fitsfile"}->close_file($status);
+    printf "status=$status\n" if ($status);
 }
 
 sub save_regressions {
@@ -213,6 +241,21 @@ sub save_regressions {
 	}
     }
     close(GG);
+    # the part to save regressions to the "regress" extension in the fits file
+    if (0) {
+    my $fptr=$this->{"fitsfile"};
+    my $status=0;
+    $fptr->movnam_hdu(BINARY_TBL,"REGRESSIONS",0,$status);
+    if ($status) {
+	printf "status=$status\n";
+	if ($status == 500) {
+	} else {
+	    exit(1);
+	}
+    } else {
+	# HDU exists, carry on here.
+    }
+    }
 }
 
 sub remove_regression {
@@ -774,4 +817,66 @@ sub read_scan_contents {
 	$strip_counter++;
     }
     close(F);
+}
+
+sub stash_fits_version {
+    my ($fptr,$this,$include_regions,$exclude_columns,$extension_name)=@_;
+    my $status=0;
+    my $tfields=0;
+    my ($ttype,$tform,$tunit,$dtype)=([],[],[],[]);
+    my $extname="the_data";
+    my @incl_cols=();
+    foreach my $col (@{$this->{"colnames"}}) {
+	my $skip_col=0;
+	foreach my $excl_col (@{$exclude_columns}) {
+	    $skip_col=1 if ($col eq $excl_col);
+	}
+	next if ($skip_col);
+	push(@incl_cols,$col);
+	if ($col eq "label") {
+	    push(@{$tform},"40A");
+	    push(@{$dtype},TSTRING);
+	    push(@{$tunit},"surface part label");
+	} else {
+	    if ($col =~ /Temp/) {
+		push(@{$tunit},"Celsius");
+	    } else {
+		push(@{$tunit},"millimeters");
+	    }
+	    push(@{$tform},"1E");
+	    push(@{$dtype},TDOUBLE);
+	}
+	my $fieldname=$col;
+	$fieldname =~ tr / /_/;
+	push(@{$ttype},$fieldname);
+	$tfields++;
+    }
+    $fptr->create_tbl(BINARY_TBL,0,
+		      $tfields,$ttype,$tform,$tunit,$extension_name,$status);
+    printf "status=$status\n" if ($status);
+    foreach my $col_ix (0..$#incl_cols) {
+	my $colname=$incl_cols[$col_ix];
+	if ($include_regions->{"labels"} eq "all") {
+	    $fptr->write_col($dtype->[$col_ix],
+			     $col_ix+1,1,1,
+			     $#{$this->{$colname}}-$[+1,
+			     $this->{$colname},$status);
+	    printf "status=$status\n" if ($status);
+	} else {
+	    my $row=0;
+	    for (my $i=0;$i<=$#{$this->{$colname}};$i++) {
+		# check for the label field for this entry
+		my $include_this=0;
+		foreach my $lbl (@{$include_regions->{"labels"}}) {
+		    $include_this=1 if ($lbl eq $this->{"label"}->[$i]);
+		}
+		next if (!$include_this);
+		$fptr->write_col($dtype->[$col_ix],
+				 $col_ix+1,$row+1,
+				 1,1,[$this->{$colname}->[$i]],$status);
+		printf "status=$status\n" if ($status);
+		$row++;
+	    }
+	}
+    }
 }
