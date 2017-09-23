@@ -3,10 +3,7 @@ import subprocess
 import os.path
 import siteUtils
 
-print('ts5_scan:')
-
 raft_id = siteUtils.getUnitId()
-#raft_id = 'LCA-10753_ETU2'
 
 # Get the working directory of this script because it contains other executables that we'll use
 path_to_executables = os.path.dirname(__file__)

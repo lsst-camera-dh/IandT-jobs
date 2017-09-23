@@ -4,8 +4,6 @@ import os
 import siteUtils
 import subprocess
 
-print('ts5_analysis:')
-
 raft_id = siteUtils.getUnitId()
 
 # Find the TS5 metrology scan data from the data-taking step

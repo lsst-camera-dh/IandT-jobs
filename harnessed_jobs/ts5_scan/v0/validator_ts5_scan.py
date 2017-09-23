@@ -21,8 +21,6 @@ scandata = glob.glob("*data.txt")[0]
 results = [lcatr.schema.fileref.make(scanplan, metadata=md(DATA_PRODUCT='MET_DATA')),
            lcatr.schema.fileref.make(scandata, metadata=md(DATA_PRODUCT='MET_DATA'))]
 
-print(results)
-
 results.extend(siteUtils.jobInfo())
 results.extend(siteUtils.packageVersions())
 
