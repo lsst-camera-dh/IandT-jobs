@@ -57,6 +57,15 @@ if (!@{$filenames}) {
 foreach my $fn_ix (0..$#{$filenames}) {
     $db->[$fn_ix] = {};
     $db->[$fn_ix]->{"filename"} = $filenames->[$fn_ix];
+
+    {
+	my $status=0;
+	my $fits_filename=$filenames->[$fn_ix].".fits";
+	unlink $fits_filename if (-e $fits_filename);
+	$db->[$fn_ix]->{"fitsfile"}=
+	    Astro::FITS::CFITSIO::create_file($fits_filename,$status);
+    }
+    
     read_scan_contents($db->[$fn_ix],{"gain"=>{"key_z1"=>cos((24.0/2.0)*atan2(1,1)/45.0),
 						   "key_z2"=>cos((17.0/2.0)*atan2(1,1)/45.0)}});
 
@@ -178,25 +187,20 @@ foreach my $fn_ix (0..$#{$filenames}) {
     remove_regression($db->[$fn_ix],"_fidplane","fiducialsamp_rr");
 
     describe_contents($db->[$fn_ix]);
-    export_file($db->[$fn_ix],$filenames->[$fn_ix]."__ms.tnt",["label","I"],$db->[$fn_ix]->{"_meas"});
+    export_file($db->[$fn_ix],$filenames->[$fn_ix]."__ms.txt",["label","I"],$db->[$fn_ix]->{"_meas"});
 
     { # the following moves the output files back to this working directory for jh to register the output file to the catalog
 	my $cmd;
-	$cmd=sprintf("mv %s .",$filenames->[$fn_ix]."__ms.tnt");
+	$cmd=sprintf("mv %s .",$filenames->[$fn_ix]."__ms.txt");
 	`$cmd`;
-	$cmd=sprintf("mv %s .",$filenames->[$fn_ix]."__ms.tnt_.rgrs");
+	$cmd=sprintf("mv %s .",$filenames->[$fn_ix]."__ms.txt_.rgrs");
 	`$cmd`;
     }
     
     remove_regression($tmpdb,"_fidplane","fiducialsamp_rr");
-    export_file($tmpdb,"kmsf_temp.tnt",["I"],[0..$tmpdb->{"n_entry"}-1]);
+    export_file($tmpdb,"kmsf_temp.txt",["I"],[0..$tmpdb->{"n_entry"}-1]);
     
     my $status=0;
-    my $fits_filename=$filenames->[$fn_ix].".fits";
-    unlink $fits_filename if (-e $fits_filename);
-
-    $db->[$fn_ix]->{"fitsfile"}=
-	Astro::FITS::CFITSIO::create_file($fits_filename,$status);
     my $fptr=$db->[$fn_ix]->{"fitsfile"};
     printf "status=$status\n" if ($status);
     $fptr->create_img(DOUBLE_IMG,2,[0,0],$status);
@@ -211,6 +215,8 @@ foreach my $fn_ix (0..$#{$filenames}) {
 			   {"labels"=>[$label]},["I","label"],
 			   "SLAC::TS5 DATA"." (".$label.")");
     }
+    stash_regressions_fits_version($fptr,$db->[$fn_ix]);
+    # finally close the fits file
     $db->[$fn_ix]->{"fitsfile"}->close_file($status);
     printf "status=$status\n" if ($status);
 }
@@ -241,21 +247,6 @@ sub save_regressions {
 	}
     }
     close(GG);
-    # the part to save regressions to the "regress" extension in the fits file
-    if (0) {
-    my $fptr=$this->{"fitsfile"};
-    my $status=0;
-    $fptr->movnam_hdu(BINARY_TBL,"REGRESSIONS",0,$status);
-    if ($status) {
-	printf "status=$status\n";
-	if ($status == 500) {
-	} else {
-	    exit(1);
-	}
-    } else {
-	# HDU exists, carry on here.
-    }
-    }
 }
 
 sub remove_regression {
@@ -877,6 +868,81 @@ sub stash_fits_version {
 		printf "status=$status\n" if ($status);
 		$row++;
 	    }
+	}
+    }
+}
+
+sub stash_regressions_fits_version {
+    my ($fptr,$this)=@_;
+    # the part to save regressions to the "regress" extension in the fits file
+    my $status=0;
+    $fptr->movnam_hdu(BINARY_TBL,"REGRESSIONS",0,$status);
+    my ($tfields,$ttype,$tform,$tunit,$dtype,$extionsion_name)=
+	(8,["regression_name","referenced against",
+	    "indep_axis_z","indep_axis_x","indep_axis_y",
+	    "coeff._z0","coeff._dz_dx","coeff._dz_dy"],
+	 ["40A","40A","40A","40A","40A","1E","1E","1E"],
+	 ["identifier","column name","column name","column name","column name",
+	  "mm","mm/mm","mm/mm"],
+	 [TSTRING,TSTRING,TSTRING,
+	  TSTRING,TSTRING,TDOUBLE,
+	  TDOUBLE,TDOUBLE],"REGRESSIONS");
+    if ($status == 301) {
+	# create this new extension
+	$status=0;
+	$fptr->create_tbl(BINARY_TBL,0,$tfields,$ttype,$tform,$tunit,$extionsion_name,$status);
+	printf "status=$status\n" if ($status);
+    }
+    # extension exists, carry on here.
+    foreach my $key (sort keys %{$this}) {
+	if ((ref $this->{$key} eq ref {}) &&
+	    defined($this->{$key}->{"regr"})) {
+	    my @data=($key,$this->{$key}->{"regr"}->{"regr_dep_axis"},
+		      @{$this->{$key}->{"regr"}->{"regr_indep_axes"}},
+		      @{$this->{$key}->{"regr"}->{"theta"}});
+	    # get the current number of rows.
+	    my $nrows;
+	    $fptr->get_num_rows($nrows,$status);
+	    printf "status=$status\n" if ($status);
+	    for (my $col=0;$col<$tfields;$col++) {
+		$fptr->write_col($dtype->[$col],$col+1,$nrows+1,1,1,[$data[$col]],$status);
+		printf "status=$status\n" if ($status);
+	    }
+	}
+    }
+
+    return if (!(defined($this->{"_reref"}) && (ref $this->{"_reref"} eq ref [])));
+    $fptr->movnam_hdu(BINARY_TBL,"REREF_REGR",0,$status);
+    ($tfields,$ttype,$tform,$tunit,$dtype,$extionsion_name)=
+	(7,["timestamp",
+	    "indep_axis_z","indep_axis_x","indep_axis_y",
+	    "coeff._z0","coeff._dz_dx","coeff._dz_dy"],
+	 ["1E","40A","40A","40A","1E","1E","1E"],
+	 ["seconds","column name","column name","column name",
+	  "mm","mm/mm","mm/mm"],
+	 [TDOUBLE,
+	  TSTRING,TSTRING,TSTRING,
+	  TDOUBLE,TDOUBLE,TDOUBLE],"REREF_REGR");
+    if ($status == 301) {
+	# create this new extension
+	$status=0;
+	$fptr->create_tbl(BINARY_TBL,0,$tfields,$ttype,$tform,$tunit,$extionsion_name,$status);
+	printf "status=$status\n" if ($status);
+    }
+    # extension exists, carry on here.
+    foreach my $entry (@{$this->{"_reref"}}) {
+	next if (!defined($entry->{"regr"}));
+	my $st=$entry->{"regr"}->{"sort_term"};
+	my @data=($entry->{"regr"}->{$st},
+		  @{$entry->{"regr"}->{"regr_indep_axes"}},
+		  @{$entry->{"regr"}->{"theta"}});
+	# get the current number of rows.
+	my $nrows;
+	$fptr->get_num_rows($nrows,$status);
+	printf "status=$status\n" if ($status);
+	for (my $col=0;$col<$tfields;$col++) {
+	    $fptr->write_col($dtype->[$col],$col+1,$nrows+1,1,1,[$data[$col]],$status);
+	    printf "status=$status\n" if ($status);
 	}
     }
 }
