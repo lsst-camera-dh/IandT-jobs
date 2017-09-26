@@ -5,6 +5,7 @@ use POSIX;
 use Statistics::Regression;
 use Getopt::Long;
 use File::Basename;
+use Cwd;
 use Astro::FITS::CFITSIO qw( :constants );
 
 my $kframe_db=dirname($0);
@@ -39,6 +40,7 @@ GetOptions("KFrame=s" => \$kframe_id,
 my $filenames=[@ARGV];
 
 my $str="\n";
+$str .= sprintf("\nSLAC_TS5_PARSE_SCAN.PERL running with CWD = %s\n\n",getcwd());
 $str .= sprintf("$0 will run with the following parameters:\n");
 $str .= sprintf("\tKFrame id = %s\n",$kframe_id);
 $str .= sprintf("\t\t(%s)\n",$kframe_datafile->{$kframe_id});
@@ -55,12 +57,25 @@ if (!@{$filenames}) {
 }
 
 foreach my $fn_ix (0..$#{$filenames}) {
+    my $cleanup=0;
+
     $db->[$fn_ix] = {};
     $db->[$fn_ix]->{"filename"} = $filenames->[$fn_ix];
 
+    if (dirname($filenames->[$fn_ix]) ne ".") {
+	# copy the input file to the working directory for operating on
+	my $cmd=sprintf("cp %s .",$filenames->[$fn_ix]);
+	`$cmd`;
+	$filenames->[$fn_ix] = basename($filenames->[$fn_ix]);
+	$db->[$fn_ix]->{"filename"} = $filenames->[$fn_ix];
+	$cleanup=1;
+    }
+
     {
 	my $status=0;
-	my $fits_filename=$filenames->[$fn_ix].".fits";
+	my $fits_filename=$filenames->[$fn_ix];
+	$fits_filename =~ s/.txt$//;
+	$fits_filename .= ".fits";
 	unlink $fits_filename if (-e $fits_filename);
 	$db->[$fn_ix]->{"fitsfile"}=
 	    Astro::FITS::CFITSIO::create_file($fits_filename,$status);
@@ -187,9 +202,12 @@ foreach my $fn_ix (0..$#{$filenames}) {
     remove_regression($db->[$fn_ix],"_fidplane","fiducialsamp_rr");
 
     describe_contents($db->[$fn_ix]);
-    export_file($db->[$fn_ix],$filenames->[$fn_ix]."__ms.txt",["label","I"],$db->[$fn_ix]->{"_meas"});
+    my $export_file=$filenames->[$fn_ix];
+    $export_file =~ s/.txt$//;
+    $export_file .= "__ms.txt";
+    export_file($db->[$fn_ix],$export_file,["label","I"],$db->[$fn_ix]->{"_meas"});
 
-    { # the following moves the output files back to this working directory for jh to register the output file to the catalog
+    if (0) { # the following moves the output files back to this working directory for jh to register the output file to the catalog
 	my $cmd;
 	$cmd=sprintf("mv %s .",$filenames->[$fn_ix]."__ms.txt");
 	`$cmd`;
@@ -219,6 +237,11 @@ foreach my $fn_ix (0..$#{$filenames}) {
     # finally close the fits file
     $db->[$fn_ix]->{"fitsfile"}->close_file($status);
     printf "status=$status\n" if ($status);
+
+    if ($cleanup==1) {
+	unlink $db->[$fn_ix]->{"filename"};
+	$cleanup=0;
+    } 
 }
 
 sub save_regressions {

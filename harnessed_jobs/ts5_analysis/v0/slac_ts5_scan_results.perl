@@ -3,6 +3,7 @@ use warnings;
 use strict;
 use POSIX;
 use PGPLOT;
+use Cwd;
 use File::Basename;
 use Getopt::Long;
 
@@ -78,12 +79,16 @@ $device="/cps";
 
 pgbegin(0,$device,1,1);
 
+my $str = sprintf("\n\nSLAC_TS5_SCAN_RESULTS.PERL running with CWD = %s\n\n",getcwd());
+printf STDERR "%s\n",$str;
+
 foreach my $infile (@{$infiles}) {
     $tnt->{$infile}=read_tnt($infile);
 }
 
 my $xax="raft_x";
 my $yax="raft_y";
+
 
 foreach my $zax_ix (0..$#{$report_axes}) {
     my $zax=$report_axes->[$zax_ix];
@@ -300,9 +305,12 @@ if ($device eq "/cps") {
 	    printf "converting pgplot.pdf[%d] as %s.%s\n",$ix,$output_graphics_file_list->[$ix],$suffix;
 	    `$cmd`;
 	    { # move output file to current directory, jh needs to find them here.
-		my $cmd=sprintf("mv %s.%s .",$output_graphics_file_list->[$ix],$suffix);
-		printf "moving %s.%s to current directory.\n",$ix,$output_graphics_file_list->[$ix],$suffix;
-		`$cmd`;
+		my $of=sprintf("%s.%s .",$output_graphics_file_list->[$ix],$suffix);
+		if (dirname($of) ne ".") {
+		    my $cmd=sprintf("mv %s.%s .",$of);
+		    printf "moving %s.%s to current directory.\n",$ix,$output_graphics_file_list->[$ix],$suffix;
+		    `$cmd`;
+		}
 	    }
 	}
     }

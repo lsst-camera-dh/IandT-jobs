@@ -3,6 +3,9 @@ import sys
 import os
 import siteUtils
 import subprocess
+import glob
+
+print('ts5_analysis:')
 
 raft_id = siteUtils.getUnitId()
 
@@ -47,10 +50,10 @@ subprocess.check_call(commandstr, shell=True)
 
 # Run Andy's analysis script (Perl) to generate the various data products
 
-# Construct the name of the processed scan file (to be written to the
-# current working directory with the same name as the scan data file +
-# '__ms.txt' appended
-processed_scan_file = os.path.basename(infile) + '__ms.txt'
+# Find the processed scan file (written to the
+# current working directory with 
+# '__ms.txt' as the end
+processed_scan_file = glob.glob('*__ms.txt')[0]
 
 commandstr = 'perl ' + os.path.dirname(__file__) + '/slac_ts5_scan_results.perl' + flag + processed_scan_file + \
              ' ' + temperature
