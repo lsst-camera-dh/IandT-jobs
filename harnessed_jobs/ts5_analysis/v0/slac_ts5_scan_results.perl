@@ -6,6 +6,7 @@ use PGPLOT;
 use Cwd;
 use File::Basename;
 use Getopt::Long;
+use Astro::FITS::CFITSIO qw( :constants );
 
 my $usage=
     "\nusage:\n".
@@ -20,6 +21,11 @@ my $usage=
     "\t  .....\n".
     "\t [--cold <cold_inputM.tnt> <cold_inputM temperature>]]\n".
     "\t[--compute_cold_minus_warm]\n".
+    "\t[ --set <dataset_input1.tnt> <dataset1_identifier>\n".
+    "\t [--set <dataset_input2.tnt> <dataset2_identifier>]\n".
+    "\t  .....\n".
+    "\t [--set <dataset_inputR.tnt> <datasetR_identifier>]]\n".
+    "\t[--compute_set_differences]\n".
     "\t[--help]\n\n".
     "$0 will read in as many <warm_input.tnt> and\n".
     "<cold_input.tnt> files as are named, and will generate\n".
@@ -34,15 +40,19 @@ my $usage=
 
 my @warm_opts;
 my @cold_opts;
+my @set_opts;
 my $warm_temperatures;
 my $cold_temperatures;
 my $temperatures;
 my $compute_cold_minus_warm=0;
+my $compute_set_differences=0;
 my $help=0;
 
 GetOptions("warm=s{2}" => \@warm_opts,
 	   "cold=s{2}" => \@cold_opts,
+	   "set=s{2}"  => \@set_opts,
 	   "compute_cold_minus_warm" => \$compute_cold_minus_warm,
+	   "compute_set_differences" => \$compute_set_differences,
 	   "help"      => \$help) || ($help=1);
 
 if ($help) {
@@ -53,8 +63,10 @@ if ($help) {
 $warm_temperatures={@warm_opts};
 $cold_temperatures={@cold_opts};
 $temperatures={@warm_opts,@cold_opts};
+my $sets={@set_opts};
 
-my $infiles=[keys %{$temperatures}];
+my $infiles1=[keys %{$temperatures}];
+my $infiles2=[keys %{$sets}];
 
 my $output_graphics_file_list;
 
@@ -79,212 +91,249 @@ $device="/cps";
 
 pgbegin(0,$device,1,1);
 
-my $str = sprintf("\n\nSLAC_TS5_SCAN_RESULTS.PERL running with CWD = %s\n\n",getcwd());
-printf STDERR "%s\n",$str;
-
-foreach my $infile (@{$infiles}) {
+foreach my $infile (@{$infiles1},@{$infiles2}) {
     $tnt->{$infile}=read_tnt($infile);
 }
 
 my $xax="raft_x";
 my $yax="raft_y";
 
+my $status=0;
+my $fptr=Astro::FITS::CFITSIO::create_file("!test_output.fits",$status);
+printf "status=$status\n" if ($status);
+$fptr->create_img(DOUBLE_IMG,2,[0,0],$status);
+printf "status=$status\n" if ($status);
 
 foreach my $zax_ix (0..$#{$report_axes}) {
     my $zax=$report_axes->[$zax_ix];
-    foreach my $infile (@{$infiles}) {
-	#    printf "headings are: %s\n",join(" ",@{$tnt->{$infile}->{"headings"}});
+    foreach my $infiles ($infiles1,$infiles2) {
 	
-	$tnt->{$infile}->{"hist"}=make_histogram(
-	    {("data" => $tnt->{$infile},
-	      "axis" => $zax,
-	      "nbin" => 200,
-	      "title" => sprintf("%s distribution (T=%s)",
-				 $titles->[$zax_ix],
-				 $temperatures->{$infile})
-		)});
-	
-	draw_histogram($tnt->{$infile}->{"hist"});
-	record_filename([$infile]);
-	{
-	    my $title=$titles->[$zax_ix];
-	    $title =~ tr/\ /-/;
-	    my $output_root=join('_',$infile,$title,"histogram");
-	    push(@{$output_graphics_file_list},$output_root);
-	    output_histogram_results($output_root,$tnt->{$infile}->{"hist"}->{"results"});
-	}
+	foreach my $infile (@{$infiles}) {
+	    #    printf "headings are: %s\n",join(" ",@{$tnt->{$infile}->{"headings"}});
+	    my $cond;
+	    if ($infiles eq $infiles1) {
+		$cond=sprintf("(T=%s)",$temperatures->{$infile});
+	    } else {
+		$cond=sprintf("(%s)",$sets->{$infile});
+	    }
 
-	my $qlvls=$tnt->{$infile}->{"hist"}->{"qlvls"};
-	my $lmts=[$tnt->{$infile}->{"hist"}->{"quant"}->{$qlvls->[1]},
-		  $tnt->{$infile}->{"hist"}->{"quant"}->{$qlvls->[7]}];
+	    $tnt->{$infile}->{"hist"}=make_histogram(
+		{("data" => $tnt->{$infile},
+		  "axis" => $zax,
+		  "nbin" => 200,
+		  "title" => sprintf("%s distribution %s",
+				     $titles->[$zax_ix],
+				     $cond)    )});
+	    
+	    draw_histogram($tnt->{$infile}->{"hist"});
+	    record_filename([$infile]);
+	    {
+		my $title=$titles->[$zax_ix];
+		$title =~ tr/\ /-/;
+		my $output_root=join('_',$infile,$title,"histogram");
+		push(@{$output_graphics_file_list},$output_root);
+		output_histogram_results($output_root,$tnt->{$infile}->{"hist"}->{"results"});
+	    }
 
-	draw_falsecolor_map({("data" => $tnt->{$infile},
-			      "xax" => $xax,"yax" => $yax,"zax" => $zax,
-			      "title" => sprintf("%s map (T=%s)",$titles->[$zax_ix],$temperatures->{$infile}),
-			      "limits" => $lmts)});
-	record_filename([$infile]);
-	{
-	    my $title=$titles->[$zax_ix];
-	    $title =~ tr/\ /-/;
-	    push(@{$output_graphics_file_list},
-		 join('_',$infile,$title,"map"));
+	    my $qlvls=$tnt->{$infile}->{"hist"}->{"qlvls"};
+	    my $lmts=[$tnt->{$infile}->{"hist"}->{"quant"}->{$qlvls->[1]},
+		      $tnt->{$infile}->{"hist"}->{"quant"}->{$qlvls->[7]}];
+
+	    draw_falsecolor_map({("data" => $tnt->{$infile},
+				  "xax" => $xax,"yax" => $yax,"zax" => $zax,
+				  "title" => sprintf("%s map %s",$titles->[$zax_ix],$cond),
+				  "limits" => $lmts,
+				  "fitsfile" => $fptr)});
+	    record_filename([$infile]);
+	    {
+		my $title=$titles->[$zax_ix];
+		$title =~ tr/\ /-/;
+		push(@{$output_graphics_file_list},
+		     join('_',$infile,$title,"map"));
+	    }
 	}
     }
+
+    my $differences=[];
 
     if ($compute_cold_minus_warm) {
 	foreach my $cold (keys %{$cold_temperatures}) {
 	    foreach my $warm (keys %{$warm_temperatures}) {
-		# make up a difference map.
-		my $diff_maps=[];
-		my $diff_hist;
-		# allocate new difference arrays that will be stored as 
-		# $tnt->{$infiles->[0]."_diff_".$infiles->[1]}
-		my $key=$zax." : ".$cold."_diff_".$warm;
-		my $dat;
-		if (!defined($tnt->{$key})) {
-		    $dat={};
-		    $tnt->{$key}={};
-		    $tnt->{$key}->{"dat"}=$dat;
-		    $tnt->{$key}->{"headings"}=[];
-		    $tnt->{$key}->{"ndat"}=0;
-		    $tnt->{$key}->{"nxs"}=0;
-		    $tnt->{$key}->{"ixs"}={};
-		    foreach my $ax ($xax,$yax) {
-			$dat->{$ax}=[];
-			push(@{$tnt->{$key}->{"headings"}},$ax);
-			my $this_ix=$tnt->{$key}->{"nxs"};
-			$tnt->{$key}->{"ixs"}->{$ax} = $this_ix;
-			$tnt->{$key}->{"nxs"}++;
-		    }
-		}
-		$dat->{$zax."_diff"}=[];
-		push(@{$tnt->{$key}->{"headings"}},$zax."_diff");
-		$tnt->{$key}->{"ixs"}->{$zax."_diff"} = $tnt->{$key}->{"nxs"};
+		push(@{$differences},{("set1" => $cold,
+				       "set2" => $warm,,
+				       "key"  => $zax." : ".$cold."_diff_".$warm,
+				       "hist_comment" => 
+				       sprintf("%s difference distribution (T: %s vs. %s)",
+					       $titles->[$zax_ix],
+					       @{$temperatures}{$cold,$warm}),
+				       "map_comment" => 
+				       sprintf("%s difference map (T: %s vs. %s)",
+					       $titles->[$zax_ix],
+					       @{$temperatures}{$cold,$warm})
+				       )});
+	    }
+	}
+    }
+
+    if ($compute_set_differences) {
+	my @s_sets=keys %{$sets};
+	foreach my $s1_ix (0..$#s_sets-1) {
+	    foreach my $s2_ix (1..$#s_sets) {
+		my ($set1,$set2) = @s_sets[$s1_ix,$s2_ix];
+		push(@{$differences},{("set1" => $set1,
+				       "set2" => $set2,
+				       "key"  => $zax." : ".$set1."_diff_".$set2,
+				       "hist_comment" => 
+				       sprintf("%s difference distribution (%s minus %s)",
+					       $titles->[$zax_ix],@{$sets}{$set1,$set2}),
+				       "map_comment"=> sprintf("%s difference map (%s minus %s)",
+							       $titles->[$zax_ix],
+							       @{$sets}{$set1,$set2}))});
+	    }
+	}
+    }
+
+    foreach my $diff_ix (0..$#{$differences}) {
+	my ($set1,$set2)=@{$differences->[$diff_ix]}{"set1","set2"};
+	# make up a difference map.
+	my $diff_maps=[];
+	my $diff_hist;
+	# allocate new difference arrays that will be stored as 
+	# $tnt->{$infiles1->[0]."_diff_".$infiles1->[1]}
+	my $key=$differences->[$diff_ix]->{"key"};
+	my $dat;
+	if (!defined($tnt->{$key})) {
+	    $dat={};
+	    $tnt->{$key}={};
+	    $tnt->{$key}->{"dat"}=$dat;
+	    $tnt->{$key}->{"headings"}=[];
+	    $tnt->{$key}->{"ndat"}=0;
+	    $tnt->{$key}->{"nxs"}=0;
+	    $tnt->{$key}->{"ixs"}={};
+	    foreach my $ax ($xax,$yax) {
+		$dat->{$ax}=[];
+		push(@{$tnt->{$key}->{"headings"}},$ax);
+		my $this_ix=$tnt->{$key}->{"nxs"};
+		$tnt->{$key}->{"ixs"}->{$ax} = $this_ix;
 		$tnt->{$key}->{"nxs"}++;
-		for (my $k=0;$k<9;$k++) {
-		    
-		    my ($map1,$map2)=($tnt->{$cold}->{"maps"}->{$zax}->[$k],
-				      $tnt->{$warm}->{"maps"}->{$zax}->[$k]);
-		    my @tf=@{$map1->{"transform"}};
-		    my ($tnx,$tny)=@{$map1->{"dim"}};
-		    my ($value,$samples,$vals)=([],[],[]);
-		    for (my $j=0;$j<$tny;$j++) {
-			$value->[$j]=[];
-			$samples->[$j]=[];
-			for (my $i=0;$i<$tnx;$i++) {
-			    $samples->[$j]->[$i] = ($map1->{"samples"}->[$j]->[$i]*
-						    $map2->{"samples"}->[$j]->[$i]);
-			    $value->[$j]->[$i] = ($map1->{"value"}->[$j]->[$i]-
-						  $map2->{"value"}->[$j]->[$i]);
-			    if ($samples->[$j]->[$i]!=0) {
-				push(@{$vals},$value->[$j]->[$i]);
+	    }
+	}
+	$dat->{$zax."_diff"}=[];
+	push(@{$tnt->{$key}->{"headings"}},$zax."_diff");
+	$tnt->{$key}->{"ixs"}->{$zax."_diff"} = $tnt->{$key}->{"nxs"};
+	$tnt->{$key}->{"nxs"}++;
+	for (my $k=0;$k<9;$k++) {
+	    
+	    my ($map1,$map2)=($tnt->{$set1}->{"maps"}->{$zax}->[$k],
+			      $tnt->{$set2}->{"maps"}->{$zax}->[$k]);
+	    my @tf=@{$map1->{"transform"}};
+	    my ($tnx,$tny)=@{$map1->{"dim"}};
+	    my ($value,$samples,$vals)=([],[],[]);
+	    for (my $j=0;$j<$tny;$j++) {
+		$value->[$j]=[];
+		$samples->[$j]=[];
+		for (my $i=0;$i<$tnx;$i++) {
+		    $samples->[$j]->[$i] = ($map1->{"samples"}->[$j]->[$i]*
+					    $map2->{"samples"}->[$j]->[$i]);
+		    $value->[$j]->[$i] = ($map1->{"value"}->[$j]->[$i]-
+					  $map2->{"value"}->[$j]->[$i]);
+		    if ($samples->[$j]->[$i]!=0) {
+			push(@{$vals},$value->[$j]->[$i]);
 
-				push(@{$tnt->{$key}->{$xax}},
-				     $tf[0] + $tf[1]*($i+1) + $tf[2]*($j+1));
-				push(@{$tnt->{$key}->{$yax}},
-				     $tf[3] + $tf[4]*($i+1) + $tf[5]*($j+1));
-				push(@{$tnt->{$key}->{$zax."_diff"}},
-				     $value->[$j]->[$i]);
-				$tnt->{$key}->{"ndat"}++;
-			    }
-			}
+			push(@{$tnt->{$key}->{$xax}},
+			     $tf[0] + $tf[1]*($i+1) + $tf[2]*($j+1));
+			push(@{$tnt->{$key}->{$yax}},
+			     $tf[3] + $tf[4]*($i+1) + $tf[5]*($j+1));
+			push(@{$tnt->{$key}->{$zax."_diff"}},
+			     $value->[$j]->[$i]);
+			$tnt->{$key}->{"ndat"}++;
 		    }
-		    my @zv=sort {$a<=>$b} @{$vals};
-		    my $map={("value"   => $value,
-			      "samples" => $samples,
-			      "diffs"   => $vals,
-			      "ndim"    => 2,
-			      "dim"     => [$tnx,$tny],
-			      "zsc"     => [@zv[0,$#zv]],
-			      "transform" => $map1->{"transform"})};
-		    $diff_maps->[$k] = $map;
-		}
-		# now establish llim & ulim.
-		$tnt->{$key}->{"llim"}=[];
-		$tnt->{$key}->{"ulim"}=[];
-		for (my $ix=0;$ix<$tnt->{$key}->{"nxs"};$ix++) {
-		    my @ary=(sort {$a<=>$b} 
-			     @{$tnt->{$key}->{$tnt->{$key}->{"headings"}->[$ix]}});
-		    ($tnt->{$key}->{"llim"}->[$ix],
-		     $tnt->{$key}->{"ulim"}->[$ix])=@ary[0,$#ary];
-#    printf "limits for axis %d: (%g,%g)\n",$ix,@ary[0,$#ary];
-		}
-		# try out the 2d hist sampled values.. generated
-# printf "zax = $zax.. headings are %s\n",join(' ',@{$tnt->{$key}->{"headings"}});
-		$tnt->{$key}->{"hist"}=
-		    make_histogram({("data"  => $tnt->{$key},
-				     "axis"  => $zax."_diff",
-				     "nbin"  => 200,
-				     "title" => sprintf("%s difference distribution (T: %s vs. %s)",
-							$titles->[$zax_ix],
-							@{$temperatures}{$cold,$warm}))});
-		draw_histogram($tnt->{$key}->{"hist"});
-		record_filename([$cold,$warm]);
-		{
-		    my $title=$titles->[$zax_ix];
-		    $title =~ tr/\ /-/;
-		    push(@{$output_graphics_file_list},
-			 join('_',$cold,"diff",
-			      $warm,$title,"histogram"));
-		}
-
-		my $qlvls=$tnt->{$key}->{"hist"}->{"qlvls"};
-		my $lmts=[$tnt->{$key}->{"hist"}->{"quant"}->{$qlvls->[1]},
-			  $tnt->{$key}->{"hist"}->{"quant"}->{$qlvls->[7]}];
-		
-#	draw_falsecolor_map({("data"=>$tnt->{$key},
-#			      "xax" => $xax,"yax" => $yax,"zax" => $zax."_diff",
-#			      "title" => $titles->[$zax_ix]." difference map",
-#			      "limits" => $lmts)});
-
-		# maps are ready to go, but need to determine common scaling first
-		my ($zlvals,$zuvals)=([],[]);
-		for (my $k=0;$k<9;$k++) {
-		    push(@{$diff_hist},@{$diff_maps->[$k]->{"diffs"}});
-		    push(@{$zlvals},$diff_maps->[$k]->{"zsc"}->[0]);
-		    push(@{$zuvals},$diff_maps->[$k]->{"zsc"}->[1]);
-		}
-#printf "lower limits in diff: %s\n",join(' ',sort {$a<=>$b} @{$zlvals});
-#printf "upper limits in diff: %s\n",join(' ',sort {$a<=>$b} @{$zuvals});
-
-		# the false color plot
-		my $llim=$tnt->{$cold}->{"llim"};
-		my $ulim=$tnt->{$cold}->{"ulim"};
-		my $xix=$tnt->{$cold}->{"ixs"}->{$xax};
-		my $yix=$tnt->{$cold}->{"ixs"}->{$yax};
-		my $xsp=0.03*($tnt->{$cold}->{"ulim"}->[$xix]-
-			      $tnt->{$cold}->{"llim"}->[$xix]);
-		my $ysp=0.03*($tnt->{$cold}->{"ulim"}->[$yix]-
-			      $tnt->{$cold}->{"llim"}->[$yix]);
-		pgenv($llim->[$xix]-$xsp,$ulim->[$xix]+$xsp,
-		      $llim->[$yix]-$ysp,$ulim->[$yix]+$ysp,1,0);
-		pglabel($tnt->{$cold}->{"headings"}->[$xix]." [mm]",
-			$tnt->{$cold}->{"headings"}->[$yix]." [mm]",
-			sprintf("%s difference map (T: %s vs. %s)",
-				$titles->[$zax_ix],
-				@{$temperatures}{$cold,$warm}));
-		my ($zu,$zl)=($diff_maps->[0]->{"zsc"}->[1],
-			      $diff_maps->[0]->{"zsc"}->[0]);
-		($zu,$zl)=($zu-0.25*($zu-$zl),$zl+0.25*($zu-$zl));
-		($zu,$zl)=(+10e-3,-10e-3);
-		($zl,$zu)=@{$lmts};
-		for (my $i=0;$i<3;$i++) {
-		    for (my $j=0;$j<3;$j++) {
-			my $k=3*$j+$i;
-			@{$diff_maps->[$k]->{"zsc"}}=($zl,$zu);
-			pgimag_by_parts($diff_maps->[$k]);
-		    }
-		}
-		record_filename([$cold,$warm]);
-		pgwedg("RI",1,3,$zu,$zl,$zax." difference [mm]");
-		pgiden();
-		{
-		    my $title=$titles->[$zax_ix];
-		    $title =~ tr/\ /-/;
-		    push(@{$output_graphics_file_list},
-			 join('_',$cold,"diff",$warm,$title,"map"));
 		}
 	    }
+	    my @zv=sort {$a<=>$b} @{$vals};
+	    my $map={("value"   => $value,
+		      "samples" => $samples,
+		      "diffs"   => $vals,
+		      "ndim"    => 2,
+		      "dim"     => [$tnx,$tny],
+		      "zsc"     => [@zv[0,$#zv]],
+		      "transform" => $map1->{"transform"})};
+	    $diff_maps->[$k] = $map;
+	}
+	# now establish llim & ulim.
+	$tnt->{$key}->{"llim"}=[];
+	$tnt->{$key}->{"ulim"}=[];
+	for (my $ix=0;$ix<$tnt->{$key}->{"nxs"};$ix++) {
+	    my @ary=(sort {$a<=>$b} 
+		     @{$tnt->{$key}->{$tnt->{$key}->{"headings"}->[$ix]}});
+	    ($tnt->{$key}->{"llim"}->[$ix],
+	     $tnt->{$key}->{"ulim"}->[$ix])=@ary[0,$#ary];
+	    #    printf "limits for axis %d: (%g,%g)\n",$ix,@ary[0,$#ary];
+	}
+	# try out the 2d hist sampled values.. generated
+	# printf "zax = $zax.. headings are %s\n",join(' ',@{$tnt->{$key}->{"headings"}});
+	$tnt->{$key}->{"hist"}=
+	    make_histogram({("data"  => $tnt->{$key},
+			     "axis"  => $zax."_diff",
+			     "nbin"  => 200,
+			     "title" => $differences->[$diff_ix]->{"hist_comment"})});
+	draw_histogram($tnt->{$key}->{"hist"});
+	record_filename([$set1,$set2]);
+	{
+	    my $title=$titles->[$zax_ix];
+	    $title =~ tr/\ /-/;
+	    push(@{$output_graphics_file_list},
+		 dirname($set1)."/".join('_',basename($set1),"diff",basename($set2),$title,"histogram"));
+	}
+
+	my $qlvls=$tnt->{$key}->{"hist"}->{"qlvls"};
+	my $lmts=[$tnt->{$key}->{"hist"}->{"quant"}->{$qlvls->[1]},
+		  $tnt->{$key}->{"hist"}->{"quant"}->{$qlvls->[7]}];
+	
+	# maps are ready to go, but need to determine common scaling first
+	my ($zlvals,$zuvals)=([],[]);
+	for (my $k=0;$k<9;$k++) {
+	    push(@{$diff_hist},@{$diff_maps->[$k]->{"diffs"}});
+	    push(@{$zlvals},$diff_maps->[$k]->{"zsc"}->[0]);
+	    push(@{$zuvals},$diff_maps->[$k]->{"zsc"}->[1]);
+	}
+	#printf "lower limits in diff: %s\n",join(' ',sort {$a<=>$b} @{$zlvals});
+	#printf "upper limits in diff: %s\n",join(' ',sort {$a<=>$b} @{$zuvals});
+
+	# the false color plot
+	my $llim=$tnt->{$set1}->{"llim"};
+	my $ulim=$tnt->{$set1}->{"ulim"};
+	my $xix=$tnt->{$set1}->{"ixs"}->{$xax};
+	my $yix=$tnt->{$set1}->{"ixs"}->{$yax};
+	my $xsp=0.03*($tnt->{$set1}->{"ulim"}->[$xix]-
+		      $tnt->{$set1}->{"llim"}->[$xix]);
+	my $ysp=0.03*($tnt->{$set1}->{"ulim"}->[$yix]-
+		      $tnt->{$set1}->{"llim"}->[$yix]);
+	pgenv($llim->[$xix]-$xsp,$ulim->[$xix]+$xsp,
+	      $llim->[$yix]-$ysp,$ulim->[$yix]+$ysp,1,0);
+	pglabel($tnt->{$set1}->{"headings"}->[$xix]." [mm]",
+		$tnt->{$set1}->{"headings"}->[$yix]." [mm]",
+		$differences->[$diff_ix]->{"map_comment"});
+	my ($zu,$zl)=($diff_maps->[0]->{"zsc"}->[1],
+		      $diff_maps->[0]->{"zsc"}->[0]);
+	($zu,$zl)=($zu-0.25*($zu-$zl),$zl+0.25*($zu-$zl));
+	($zu,$zl)=(+10e-3,-10e-3);
+	($zl,$zu)=@{$lmts};
+	for (my $i=0;$i<3;$i++) {
+	    for (my $j=0;$j<3;$j++) {
+		my $k=3*$j+$i;
+		@{$diff_maps->[$k]->{"zsc"}}=($zl,$zu);
+		pgimag_by_parts($diff_maps->[$k]);
+	    }
+	}
+	record_filename([$set1,$set2]);
+	pgwedg("RI",1,3,$zu,$zl,$zax." difference [mm]");
+	pgiden();
+	{
+	    my $title=$titles->[$zax_ix];
+	    $title =~ tr/\ /-/;
+	    push(@{$output_graphics_file_list},
+		 dirname($set1)."/".join('_',basename($set1),"diff",basename($set2),$title,"map"));
 	}
     }
 }
@@ -307,7 +356,7 @@ if ($device eq "/cps") {
 	    { # move output file to current directory, jh needs to find them here.
 		my $of=sprintf("%s.%s .",$output_graphics_file_list->[$ix],$suffix);
 		if (dirname($of) ne ".") {
-		    my $cmd=sprintf("mv %s.%s .",$of);
+		    my $cmd=sprintf("mv %s.%s .",$of,$suffix);
 		    printf "moving %s.%s to current directory.\n",$ix,$output_graphics_file_list->[$ix],$suffix;
 		    `$cmd`;
 		}
@@ -371,11 +420,14 @@ sub read_tnt {
 
 sub draw_falsecolor_map {
     my ($specs)=@_;
-    my ($tnt,$xax,$yax,$zax,$title,$limits)=($specs->{"data"},$specs->{"xax"},
-					     $specs->{"yax"},$specs->{"zax"},
-					     $specs->{"title"},
-					     $specs->{"limits"});
+    my ($tnt,$xax,$yax,$zax,$title,$limits,$fitsfile)=
+	($specs->{"data"},$specs->{"xax"},
+	 $specs->{"yax"},$specs->{"zax"},
+	 $specs->{"title"},
+	 $specs->{"limits"},
+	 $specs->{"fitsfile"});
 
+    
     my ($xix,$yix,$zix)=($tnt->{"ixs"}->{$xax},
 			 $tnt->{"ixs"}->{$yax},
 			 $tnt->{"ixs"}->{$zax});
@@ -389,13 +441,16 @@ sub draw_falsecolor_map {
 			      ($tnt->{"ulim"}->[$yix]-$tnt->{"llim"}->[$yix])/($ny*1.0));
     my ($xbin,$ybin);
     my ($xa,$ya,$za)=($tnt->{$xax},$tnt->{$yax},$tnt->{$zax});
+    my $fh=[];
     my $zh=[];
     my $ns=[];
 
     for (my $j=0;$j<$ny;$j++) {
 	$zh->[$j]=[];
 	$ns->[$j]=[];
+	$fh->[$j]=[];
 	for (my $i=0;$i<$nx;$i++) {
+	    $fh->[$j]->[$i]=0;
 	    $zh->[$j]->[$i]=0;
 	    $ns->[$j]->[$i]=0;
 	}
@@ -412,12 +467,53 @@ sub draw_falsecolor_map {
     my @zv=();
     for (my $j=0;$j<$ny;$j++) {
 	for (my $i=0;$i<$nx;$i++) {
-	    if ($ns->[$j]->[$i]>0) {
+	    if ($ns->[$j]->[$i]<=0) {
+		$fh->[$j]->[$i]=-99;
+	    } else {
 		$zh->[$j]->[$i] /= (1.0*$ns->[$j]->[$i]);
+		$fh->[$j]->[$i] = $zh->[$j]->[$i];
 		push(@zv,$zh->[$j]->[$i]);
 	    }
 	}
     }
+
+    if (defined($fitsfile)) {
+	my $status=0;
+	$fptr->create_img(DOUBLE_IMG,2,[$ny,$nx],$status);
+	printf "status=$status\n" if ($status);
+
+	$fptr->write_key(TSTRING,"EXTNAME",$title,"",$status);
+	$fptr->write_key(TSTRING,"PIXVAL",$zax,$title,$status);
+	$fptr->write_key_unit("PIXVAL","mm",$status);
+
+	$fptr->write_key(TDOUBLE,"LTM1_1",-1,"",$status);
+	$fptr->write_key(TDOUBLE,"LTM1_2", 0,"",$status);
+	$fptr->write_key(TDOUBLE,"LTM2_1", 0,"",$status);
+	$fptr->write_key(TDOUBLE,"LTM2_2",+1,"",$status);
+
+	$fptr->write_key(TDOUBLE,"LTV1",(1+$nx)/2.0,"",$status);
+	$fptr->write_key_unit("LTV1","bin at raft center",$status);
+	$fptr->write_key(TDOUBLE,"LTV2",(1+$ny)/2.0,"",$status);
+	$fptr->write_key_unit("LTV2","bin at raft center",$status);
+
+	$fptr->write_key(TDOUBLE,"DTM1_1",$xbw,"",$status);
+	$fptr->write_key(TDOUBLE,"DTM1_2",0,"",$status);
+	$fptr->write_key(TDOUBLE,"DTM2_1",0,"",$status);
+	$fptr->write_key(TDOUBLE,"DTM2_2",$ybw,"",$status);
+
+	$fptr->write_key(TDOUBLE,"DTV1",0,"",$status);
+	$fptr->write_key_unit("DTV1","mm from raft center, CCS_x",$status);
+	$fptr->write_key(TDOUBLE,"DTV2",0,"",$status);
+	$fptr->write_key_unit("DTV2","mm from raft center, CCS_y",$status);
+	
+	printf "status=$status\n" if ($status);
+	my $null=-99;
+	for (my $row=0;$row<$ny;$row++) {
+	    $fptr->write_pixnull(TDOUBLE,[1,$row+1],$nx,$fh->[$row],$null,$status);
+	    printf "status=$status\n" if ($status);
+	}
+    }
+
     @zv = sort {$a<=>$b} @zv;
 
 

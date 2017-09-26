@@ -40,7 +40,6 @@ GetOptions("KFrame=s" => \$kframe_id,
 my $filenames=[@ARGV];
 
 my $str="\n";
-$str .= sprintf("\nSLAC_TS5_PARSE_SCAN.PERL running with CWD = %s\n\n",getcwd());
 $str .= sprintf("$0 will run with the following parameters:\n");
 $str .= sprintf("\tKFrame id = %s\n",$kframe_id);
 $str .= sprintf("\t\t(%s)\n",$kframe_datafile->{$kframe_id});
