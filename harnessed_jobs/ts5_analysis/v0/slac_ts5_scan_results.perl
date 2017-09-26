@@ -99,7 +99,8 @@ my $xax="raft_x";
 my $yax="raft_y";
 
 my $status=0;
-my $fptr=Astro::FITS::CFITSIO::create_file("!test_output.fits",$status);
+my $fitsfile_out=sprintf("%s_ts5_maps.fits",$ENV{"LCATR_UNIT_ID"});
+my $fptr=Astro::FITS::CFITSIO::create_file("!".$fitsfile_out,$status);
 printf "status=$status\n" if ($status);
 $fptr->create_img(DOUBLE_IMG,2,[0,0],$status);
 printf "status=$status\n" if ($status);
