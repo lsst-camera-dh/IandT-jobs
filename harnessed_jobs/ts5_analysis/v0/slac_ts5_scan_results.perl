@@ -99,7 +99,14 @@ my $xax="raft_x";
 my $yax="raft_y";
 
 my $status=0;
-my $fitsfile_out=sprintf("%s_ts5_maps.fits",$ENV{"LCATR_UNIT_ID"});
+my $fitsfile_out;
+
+if (defined($ENV{"LCATR_UNIT_ID"})) {
+    $fitsfile_out=sprintf("%s_ts5_maps.fits",$ENV{"LCATR_UNIT_ID"});
+} else {
+    $fitsfile_out="ts5_maps.fits";
+}
+
 my $fptr=Astro::FITS::CFITSIO::create_file("!".$fitsfile_out,$status);
 printf "status=$status\n" if ($status);
 $fptr->create_img(DOUBLE_IMG,2,[0,0],$status);
@@ -301,6 +308,43 @@ foreach my $zax_ix (0..$#{$report_axes}) {
 	#printf "lower limits in diff: %s\n",join(' ',sort {$a<=>$b} @{$zlvals});
 	#printf "upper limits in diff: %s\n",join(' ',sort {$a<=>$b} @{$zuvals});
 
+	# if (defined(undef)) {
+	#     my $status=0;
+	#     $fptr->create_img(DOUBLE_IMG,2,[$ny,$nx],$status);
+	#     printf "status=$status\n" if ($status);
+
+	#     $fptr->write_key(TSTRING,"EXTNAME",$title,"",$status);
+	#     $fptr->write_key(TSTRING,"PIXVAL",$zax,$title,$status);
+	#     $fptr->write_key_unit("PIXVAL","mm",$status);
+
+	#     $fptr->write_key(TDOUBLE,"LTM1_1",-1,"",$status);
+	#     $fptr->write_key(TDOUBLE,"LTM1_2", 0,"",$status);
+	#     $fptr->write_key(TDOUBLE,"LTM2_1", 0,"",$status);
+	#     $fptr->write_key(TDOUBLE,"LTM2_2",+1,"",$status);
+
+	#     $fptr->write_key(TDOUBLE,"LTV1",(1+$nx)/2.0,"",$status);
+	#     $fptr->write_key_unit("LTV1","bin at raft center",$status);
+	#     $fptr->write_key(TDOUBLE,"LTV2",(1+$ny)/2.0,"",$status);
+	#     $fptr->write_key_unit("LTV2","bin at raft center",$status);
+
+	#     $fptr->write_key(TDOUBLE,"DTM1_1",$xbw,"",$status);
+	#     $fptr->write_key(TDOUBLE,"DTM1_2",0,"",$status);
+	#     $fptr->write_key(TDOUBLE,"DTM2_1",0,"",$status);
+	#     $fptr->write_key(TDOUBLE,"DTM2_2",$ybw,"",$status);
+
+	#     $fptr->write_key(TDOUBLE,"DTV1",0,"",$status);
+	#     $fptr->write_key_unit("DTV1","mm from raft center, CCS_x",$status);
+	#     $fptr->write_key(TDOUBLE,"DTV2",0,"",$status);
+	#     $fptr->write_key_unit("DTV2","mm from raft center, CCS_y",$status);
+	    
+	#     printf "status=$status\n" if ($status);
+	#     my $null=-99;
+	#     for (my $row=0;$row<$ny;$row++) {
+	# 	$fptr->write_pixnull(TDOUBLE,[1,$row+1],$nx,$fh->[$row],$null,$status);
+	# 	printf "status=$status\n" if ($status);
+	#     }
+	# }
+
 	# the false color plot
 	my $llim=$tnt->{$set1}->{"llim"};
 	my $ulim=$tnt->{$set1}->{"ulim"};
@@ -348,8 +392,8 @@ if ($device eq "/cps") {
     `ps2pdf pgplot.ps`;
     foreach my $ix (0..$#{$output_graphics_file_list}) {
 	my $cmd;
-#	foreach my $suffix ("pdf","png") {
-	foreach my $suffix ("png") {
+	foreach my $suffix ("pdf","png") {
+#	foreach my $suffix ("png") {
 	    $cmd=sprintf("convert -density 150 pgplot.pdf['%d'] %s.%s",
 			 $ix,$output_graphics_file_list->[$ix],$suffix);
 	    printf "converting pgplot.pdf[%d] as %s.%s\n",$ix,$output_graphics_file_list->[$ix],$suffix;
