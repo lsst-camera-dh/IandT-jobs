@@ -430,7 +430,7 @@ my $timestr=timestr();
 if (defined($fixed_output_filename)) {
     open(GG,">",$fixed_output_filename) || die;
 } else {
-    open(GG,">",$output_filename_root."_".$timestr.".tnt") || die;
+    open(GG,">",$output_filename_root."_".$timestr."_data.txt") || die;
 }
 
 printf GG "# measurement begun at UTC %s\n",$timestr;
