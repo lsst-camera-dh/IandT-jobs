@@ -35,44 +35,7 @@ def power_off_rebs(rebps, lines=(0, 1, 2)):
 
 def map_power_lines_to_rebs(ccs_sub, ntries=20, wait_between_tries=10,
                             num_lines=3):
-    """
-    Map power lines to REBs by powering on one at a time for each REB
-    and trying to read the 1-wire ID register.  This function will
-    leave the REBs in a powered-off state.
-    """
-    rebids = ccs_sub.ts8.synchCommand(10, "getREBIds").getResult()
-    rebnames = ccs_sub.ts8.synchCommand(10, "getREBDeviceNames").getResult()
-
-    # Ensure that all of the power-lines to the REBs are off to start.
-    power_off_rebs(ccs_sub.rebps)
-
-    # Loop over each REB to find the line it uses.
-    power_lines = {}
-    for rebid, rebname in zip(rebids, rebnames):
-        line = 0
-        power_line = None
-        while power_line is None and line < num_lines:
-            if line in power_lines.values():
-                line += 1
-                continue
-            ccs_sub.rebps.synchCommand(10, 'sequencePower', line, True)
-            time.sleep(wait_between_tries)
-            for i in range(ntries):
-                logger.info("%s, try %i", rebname, i)
-                try:
-                    ccs_sub.ts8.synchCommand(10, 'readRegister %s 1' % rebname)
-                    power_line = line
-                    logger.info("%s: %i", rebname, power_line)
-                    break
-                except java.lang.Exception:
-                    time.sleep(wait_between_tries)
-            power_off_rebs(ccs_sub.rebps, lines=(line,))
-            line += 1
-        if power_line is None:
-            raise java.lang.Exception("Could not read register of %s."
-                                      % rebname)
-        power_lines[rebid] = power_line
-    return power_lines
+    return {i: i for i in range(num_lines)}
 
 def check_values(ccs_sub, rebid, name, rebps_channel, ts8_mon_chan, low_lim,
                  high_lim, chkreb, logger=logger):
