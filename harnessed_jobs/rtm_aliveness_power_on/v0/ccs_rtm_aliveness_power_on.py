@@ -31,8 +31,7 @@ def set_monitoring_interval(ts8, period_ms):
 def power_off_rebs(rebps, lines=(0, 1, 2)):
     "Power-off the requested REBs via the specified power-lines."
     for power_line in lines:
-        command = "setNamedPowerOn %d master False" % power_line
-        rebps.synchCommand(10, command)
+        rebps.synchCommand(10, 'sequencePower', power_line, False)
 
 def map_power_lines_to_rebs(ccs_sub, ntries=20, wait_between_tries=10,
                             num_lines=3):
@@ -56,10 +55,7 @@ def map_power_lines_to_rebs(ccs_sub, ntries=20, wait_between_tries=10,
             if line in power_lines.values():
                 line += 1
                 continue
-            for name in 'master digital analog'.split():
-                ccs_sub.rebps.synchCommand(10, 'setNamedPowerOn %d %s True'
-                                           % (line, name))
-                time.sleep(0.5)
+            ccs_sub.rebps.synchCommand(10, 'sequencePower', line, True)
             time.sleep(wait_between_tries)
             for i in range(ntries):
                 logger.info("%s, try %i", rebname, i)
@@ -95,8 +91,7 @@ def check_values(ccs_sub, rebid, name, rebps_channel, ts8_mon_chan, low_lim,
     logger.info("TS8 Monitor: %s = %s", ts8_channel_name, cur_reb)
 
     if cur_ps < low_lim or cur_ps > high_lim:
-        ccs_sub.rebps.synchCommand(10, "setNamedPowerOn %d %s False"
-                                   % (rebid, name))
+        ccs_sub.rebps.synchCommand(10, 'sequencePower', rebid, False)
         stat = "%s: %s with value %f mA not within specified range %f mA to %f mA.  Power to this channel has been shut off." % (rebname, reb_channel_name, cur_ps, low_lim, high_lim)
         raise java.lang.Exception(stat)
 
@@ -144,20 +139,8 @@ if __name__ == '__main__':
         logger.info("Starting power-on procedure for %s (power line %s)",
                     rebname, power_line)
         logger.info("*****************************************************")
-
+        ccs_sub.rebps.synchCommand(10, 'sequencePower', power_line, True)
         for name in named_lines:
-            try:
-                logger.info("%s: turning on %s power at %s", rebname,
-                            name, time.ctime().split()[3])
-                ccs_sub.rebps.synchCommand(10, "setNamedPowerOn %d %s True"
-                                           % (power_line, name))
-            except java.lang.Exception as eobj:
-                logger.info("%s: failed to turn on current %s!", rebname, name)
-                raise eobj
-
-            # Allow current to settle after powering on.
-            time.sleep(10)
-
             # Check the channel values:
             try:
                 if name in channel:
