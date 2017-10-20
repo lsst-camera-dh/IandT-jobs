@@ -11,6 +11,7 @@ import java.lang
 from org.lsst.ccs.scripting import CCS
 from ccs_scripting_tools import CcsSubsystems
 from rebCurrentLimits import RebCurrentLimits
+from ts8_utils import get_REB_info
 
 CCS.setThrowExceptions(True)
 
@@ -56,6 +57,10 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type):
 
     # TODO: Read and record the firmware version ID, then verify it is
     # the correct version (LCA-10064-A, p.17, step 7)
+
+    # The reb_info namedtuple contains the info for the REB in question.
+    # That information can be used in the step 6 & 7 tests.
+    reb_info = get_REB_info(ccs_sub.ts8, rebid)
 
     # Check that REB P/S currents match the REB currents from ts8
     # within the comparative limits.
