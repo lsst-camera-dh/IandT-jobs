@@ -44,7 +44,7 @@ class OGSweepAcquisition(EOAcquisition):
             min_vog = float(tokens[3])
             max_vog = float(tokens[4])
             step_vog = float(tokens[5])
-            test_type = "OGSWEEP" % wl # Change to desired test name
+            test_type = "OGSWEEP" # Change to desired test name
 
             if target_flux <1e4:
                 flux_level = 'L'
