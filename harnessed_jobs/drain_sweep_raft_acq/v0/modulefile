@@ -1,3 +1,0 @@
-#%Module1.0 #-*-tcl-*-#
-source "$::env(LCATR_MODULES)/lcatr.tcl"
-lcatr_package producer_drain_sweep_raft_acq.py validator_drain_sweep_raft_acq.py
