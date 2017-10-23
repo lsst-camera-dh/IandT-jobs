@@ -28,25 +28,33 @@ class XYStageAcquisition(EOAcquisition):
 
     def _moveTo(self, xpos, ypos):
         # Move along the x-axis to the absolute xpos position.
-        self.xy_stage.enable(TS8Stage.X)
-        self.xy_stage.moveTo(TS8Stage.X, xpos, TS8Stage.X.maxSpeed)
-        self.xy_stage.disable(TS8Stage.X)
+        try:
+            self.xy_stage.enable(TS8Stage.X)
+            self.xy_stage.moveTo(TS8Stage.X, xpos, TS8Stage.X.maxSpeed)
+        finally:
+            self.xy_stage.disable(TS8Stage.X)
 
         # Move along the y-axis to the absolute ypos position.
-        self.xy_stage.enable(TS8Stage.Y)
-        self.xy_stage.moveTo(TS8Stage.Y, ypos, TS8Stage.Y.maxSpeed)
-        self.xy_stage.disable(TS8Stage.Y)
+        try:
+            self.xy_stage.enable(TS8Stage.Y)
+            self.xy_stage.moveTo(TS8Stage.Y, ypos, TS8Stage.Y.maxSpeed)
+        finally:
+            self.xy_stage.disable(TS8Stage.Y)
 
     def _moveBy(self, dx, dy):
         # Move along the x-axis by a relative amount dx.
-        self.xy_stage.enable(TS8Stage.X)
-        self.xy_stage.moveBy(TS8Stage.X, dx, TS8Stage.X.maxSpeed)
-        self.xy_stage.disable(TS8Stage.X)
+        try:
+            self.xy_stage.enable(TS8Stage.X)
+            self.xy_stage.moveBy(TS8Stage.X, dx, TS8Stage.X.maxSpeed)
+        finally:
+            self.xy_stage.disable(TS8Stage.X)
 
         # Move along the y-axis to the absolute ypos position.
-        self.xy_stage.enable(TS8Stage.Y)
-        self.xy_stage.moveBy(TS8Stage.Y, dy, TS8Stage.Y.maxSpeed)
-        self.xy_stage.disable(TS8Stage.Y)
+        try:
+            self.xy_stage.enable(TS8Stage.Y)
+            self.xy_stage.moveBy(TS8Stage.Y, dy, TS8Stage.Y.maxSpeed)
+        finally:
+            self.xy_stage.disable(TS8Stage.Y)
 
     def run(self):
         """
