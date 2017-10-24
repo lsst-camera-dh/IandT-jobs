@@ -47,7 +47,6 @@ class PcteSweepAcquisition(EOAcquisition):
             min_parhi = float(tokens[6])
             max_parhi = float(tokens[7])
             step_parhi = float(tokens[8])
-            test_type = "PCTESWEEP" # Change to desired test name
 
             if target_flux <1e4:
                 flux_level = 'L'
@@ -62,10 +61,7 @@ class PcteSweepAcquisition(EOAcquisition):
             parhi_values = list(np.arange(min_parhi, max_parhi+0.1, step_parhi))
             voltage_pairs = itertools.product(parlo_values, parhi_values)
 
-            for voltage_pair in voltage_pairs:
-
-                parlo = voltage_pair[0]
-                parhi = voltage_pair[1]
+            for parlo, parhi in voltage_pairs:
 
                 ## Sync commands issued to subsystems to change voltages
                 self.sub.reb0rails.synchCommand(10, "change", "pclkLowP", parlo)
@@ -79,13 +75,11 @@ class PcteSweepAcquisition(EOAcquisition):
                 self.sub.ts8.synchCommand(10, "loadDacs true")
                 
                 for iframe in range(nframes):
-                    self.image_clears()
                     self.bias_image(seqno)
                     file_template = '${CCDSerialLSST}_${testType}_${imageType}_%.2f_%.2f_%s%3.3d_${timestamp}.fits' % (parlo, parhi, flux_level, seqno+1)
                     pd_readout.start_accumulation()
                     fits_files = self.take_image(seqno, exptime, openShutter, 
                                                  actuateXed, image_type,
-                                                 test_type=test_type,
                                                  file_template=file_template)
                     pd_readout.get_readings(fits_files, seqno, 1)
                     seqno += 1

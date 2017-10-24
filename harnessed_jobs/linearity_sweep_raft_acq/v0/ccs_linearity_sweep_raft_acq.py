@@ -43,20 +43,16 @@ class LinearitySweepAcquisition(EOAcquisition):
             min_vrd = float(tokens[6])
             max_vrd = float(tokens[7])
             step_vrd = float(tokens[8])
-            test_type = "LINEARITYSWEEP"
-            exptime = int(2048*rowdelay/1000000) # Is this in milliseconds?
+            exptime = int(2048*rowdelay/1000000)
 
-            self.sub.ts8.synchCommand(10, "setParameter", "Slope", 0) # Check CCS commands
-            self.sub.ts8.synchCommand(10, "setParameter", "SlopeDelay", rowdelay) # Check CCS commands
+            self.sub.ts8.synchCommand(10, "setParameter", "Slope", 0)
+            self.sub.ts8.synchCommand(10, "setParameter", "SlopeDelay", rowdelay)
 
             vod_values = list(np.arange(min_vod, max_vod+0.1, step_vod))
             vrd_values = list(np.arange(min_vrd, max_vrd+0.1, step_vrd))
             voltage_pairs = itertools.product(vod_values, vrd_values)
 
-            for voltage_pair in voltage_pairs:
-
-                vod = voltage_pair[0]
-                vrd = voltage_pair[1]
+            for vod, vrd in voltage_pairs:
 
                 ## Sync commands issued to subsystems to change voltages
                 self.sub.reb0bias0.synchCommand(10, "change", "odP", vod)
@@ -83,12 +79,10 @@ class LinearitySweepAcquisition(EOAcquisition):
                 self.sub.ts8.synchCommand(10, "loadBiasDacs true")
                 
                 for iframe in range(nframes):
-                    self.image_clears()
                     self.bias_image(seqno) # Will this work with a the ramp sequencer?
                     file_template = '${CCDSerialLSST}_${testType}_${imageType}_%.2f_%.2f_%3.3d_${timestamp}.fits' % (vod, vrd, seqno+1)
                     fits_files = self.take_image(seqno, exptime, openShutter, 
                                                  actuateXed, image_type,
-                                                 test_type=test_type,
                                                  file_template=file_template)
                     seqno += 1
 

@@ -43,17 +43,13 @@ class GainSweepAcquisition(EOAcquisition):
             min_vrd = float(tokens[6])
             max_vrd = float(tokens[7])
             step_vrd = float(tokens[8])
-            test_type = "GAINSWEEP" # Change to desired test name
 
             ## Construct serial hi/lo voltage pairs
-            vod_values = list(np.arange(min_vod, max_vod+0.1, step_vod)) # Potential danger with inexact floats
-            vrd_values = list(np.arange(min_vrd, max_vrd+0.1, step_vrd)) # Potential danger with inexact floats
+            vod_values = list(np.arange(min_vod, max_vod+0.1, step_vod))
+            vrd_values = list(np.arange(min_vrd, max_vrd+0.1, step_vrd))
             voltage_pairs = itertools.product(vod_values, vrd_values)
 
-            for voltage_pair in voltage_pairs:
-
-                vod = voltage_pair[0]
-                vrd = voltage_pair[1]
+            for vod, vrd in voltage_pairs:
 
                 ## Sync commands issued to subsystems to change voltages
                 self.sub.reb0bias0.synchCommand(10, "change", "odP", vod)
@@ -80,12 +76,10 @@ class GainSweepAcquisition(EOAcquisition):
                 self.sub.ts8.synchCommand(10, "loadBiasDacs true")
                 
                 for iframe in range(nframes):
-                    self.image_clears()
                     self.bias_image(seqno)
                     file_template = '${CCDSerialLSST}_${testType}_${imageType}_%.2f_%.2f_%3.3d_${timestamp}.fits' % (vod, vrd, seqno+1)
                     fits_files = self.take_image(seqno, exptime, openShutter, 
                                                  actuateXed, image_type,
-                                                 test_type=test_type,
                                                  file_template=file_template)
                     seqno += 1
 

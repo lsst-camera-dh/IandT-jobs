@@ -47,7 +47,6 @@ class ScteSweepAcquisition(EOAcquisition):
             min_serhi = float(tokens[6])
             max_serhi = float(tokens[7])
             step_serhi = float(tokens[8])
-            test_type = "SCTESWEEP"
 
             if target_flux <1e4:
                 flux_level = 'L'
@@ -62,10 +61,7 @@ class ScteSweepAcquisition(EOAcquisition):
             serhi_values = list(np.arange(min_serhi, max_serhi+0.1, step_serhi))
             voltage_pairs = itertools.product(serlo_values, serhi_values)
 
-            for voltage_pair in voltage_pairs:
-
-                serlo = voltage_pair[0]
-                serhi = voltage_pair[1]
+            for serlo, serhi in voltage_pairs:
 
                 ## Sync commands issued to subsystems to change voltages
                 self.sub.reb0rails.synchCommand(10, "change", "sclkLowP", serlo)
@@ -79,13 +75,11 @@ class ScteSweepAcquisition(EOAcquisition):
                 self.sub.ts8.synchCommand(10, "loadDacs true")
                 
                 for iframe in range(nframes):
-                    self.image_clears()
                     self.bias_image(seqno)
                     file_template = '${CCDSerialLSST}_${testType}_${imageType}_%.2f_%.2f_%s%3.3d_${timestamp}.fits' % (serlo, serhi, flux_level, seqno+1)
                     pd_readout.start_accumulation()
                     fits_files = self.take_image(seqno, exptime, openShutter, 
                                                  actuateXed, image_type,
-                                                 test_type=test_type,
                                                  file_template=file_template)
                     pd_readout.get_readings(fits_files, seqno, 1)
                     seqno += 1

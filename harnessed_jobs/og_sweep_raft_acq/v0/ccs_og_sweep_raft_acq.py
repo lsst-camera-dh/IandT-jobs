@@ -44,7 +44,6 @@ class OGSweepAcquisition(EOAcquisition):
             min_vog = float(tokens[3])
             max_vog = float(tokens[4])
             step_vog = float(tokens[5])
-            test_type = "OGSWEEP" # Change to desired test name
 
             if target_flux <1e4:
                 flux_level = 'L'
@@ -54,10 +53,9 @@ class OGSweepAcquisition(EOAcquisition):
             exptime = self.compute_exptime(target_flux, meas_flux)
             pd_readout = PhotodiodeReadout(exptime, self)
 
-            ## Construct serial hi/lo voltage pairs
-            vog_values = list(np.arange(min_vog, max_vog+0.1, step_vog)) # Potential danger with inexact floats
+            vog_values = list(np.arange(min_vog, max_vog+0.1, step_vog)) 
 
-            for vog in og_values:
+            for vog in vog_values:
 
                 ## Sync commands issued to subsystems to change voltages
                 self.sub.reb0bias0.synchCommand(10, "change", "ogP", vog)
@@ -74,13 +72,11 @@ class OGSweepAcquisition(EOAcquisition):
                 self.sub.ts8.synchCommand(10, "loadBiasDacs true")
                 
                 for iframe in range(nframes):
-                    self.image_clears()
                     self.bias_image(seqno)
                     file_template = '${CCDSerialLSST}_${testType}_${imageType}_%.2f_%s%3.3d_${timestamp}.fits' % (vog, flux_level, seqno+1)
                     pd_readout.start_accumulation()
                     fits_files = self.take_image(seqno, exptime, openShutter, 
                                                  actuateXed, image_type,
-                                                 test_type=test_type,
                                                  file_template=file_template)
                     pd_readout.get_readings(fits_files, seqno, 1)
                     seqno += 1
