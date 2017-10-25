@@ -84,6 +84,8 @@ class PcteSweepAcquisition(EOAcquisition):
                     pd_readout.get_readings(fits_files, seqno, 1)
                     seqno += 1
 
+            self.set_nominal_voltages()
+
 if __name__ == '__main__':
 
     metadata = AcqMetadata(cwd=tsCWD, raft_id=UNITID, run_number=RUNNUM)

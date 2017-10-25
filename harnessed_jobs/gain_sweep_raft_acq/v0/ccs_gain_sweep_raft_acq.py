@@ -82,6 +82,9 @@ class GainSweepAcquisition(EOAcquisition):
                                                  actuateXed, image_type,
                                                  file_template=file_template)
                     seqno += 1
+    
+            self.set_nominal_voltages()
+        
 
 if __name__ == '__main__':
 
