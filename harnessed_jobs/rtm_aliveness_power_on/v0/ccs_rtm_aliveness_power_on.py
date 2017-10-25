@@ -20,22 +20,15 @@ logging.basicConfig(format="%(message)s",
                     stream=sys.stdout)
 logger = logging.getLogger()
 
-def set_monitoring_interval(ts8, period_ms):
-    "Set the CCS ts8 monitoring interval."
-    command = "change monitor-update taskPeriodMillis %i" % period_ms
-    ts8.synchCommand(10, command)
-    command = "change monitor-publish taskPeriodMillis %i" % period_ms
-    ts8.synchCommand(10, command)
-
 def reb_power_on(ccs_sub, rebid, power_line, ccd_type):
     logger = ccs_sub.rebps.logger
 
     reb_current_limits = RebCurrentLimits(ccs_sub.rebps, ccs_sub.ts8)
 
-    rebname = 'REB%d' % rebid
+    reb_slot = 'REB%d' % rebid
     logger.info("*****************************************************")
     logger.info("Starting power-on procedure for %s (power line %s)",
-                rebname, power_line)
+                reb_slot, power_line)
     logger.info("*****************************************************")
 
     # Power on the REB using the power-up sequence.
@@ -49,18 +42,23 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type):
     time.sleep(15)
     reb_current_limits.check_rebps_limits(rebid)
 
-    # TODO: Verify data link integrity (LCA-10064-A, p.17, step 5)
-
-    # TODO: Read and record REB 1-wire global unique ID (GUID),
-    # then verify it is in the correct slot with power and data
-    # cables correctly configured (LCA-10064-A, p.17, step 6)
-
-    # TODO: Read and record the firmware version ID, then verify it is
-    # the correct version (LCA-10064-A, p.17, step 7)
-
     # The reb_info namedtuple contains the info for the REB in question.
     # That information can be used in the step 6 & 7 tests.
     reb_info = get_REB_info(ccs_sub.ts8, rebid)
+
+    # Compare the REB hardware serial number to the value in the
+    # eTraveler tables for this REB in this raft.
+    if reb_info.serialNumber != reb_eT_info[reb_slot].manufacturer_sn:
+        raise RuntimeError("REB manufacturer serial number mismatch: %s, %s"
+                           % (reb_info.serialNumber,
+                              reb_eT_info[reb_slot].manufacturer_sn))
+
+    # TODO: Read and record the firmware version ID, then verify it is
+    # the correct version (LCA-10064-A, p.17, step 7).  Currently,
+    # there is no reliable way of getting the intended firmware version
+    # from the eTraveler.
+    logger.info("%s firmware version from CCS: %s", reb_slot,
+                reb_info.hwVersion)
 
     # Check that REB P/S currents match the REB currents from ts8
     # within the comparative limits.
@@ -88,12 +86,10 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type):
             output.write(str(ccs_sub.ts8.synchCommand(900, 'powerOn',
                                                       rebid).getResult()))
         os.chmod(outfile, 0664)
-        logger.info("------ %s power-on complete ------\n", rebname)
+        logger.info("------ %s power-on complete ------\n", reb_slot)
     except java.lang.Exception as eobj:
         logger.info(eobj.message)
         raise eobj
-    finally:
-        set_monitoring_interval(ccs_sub.ts8, 10000)
 
 if __name__ == '__main__':
     logger.info("Start time: %f", time.time())
@@ -110,10 +106,6 @@ if __name__ == '__main__':
     logger.info("Will attempt to power on and check currents for")
     for rebid, power_line in power_lines.items():
         logger.info("  power line %d for REB ID %d", power_line, rebid)
-
-    # Set publishing interval to 0.1s for trending plots.
-    set_monitoring_interval(ccs_sub.ts8, 100)
-    time.sleep(3)
 
     for rebid, power_line in power_lines.items():
         reb_power_on(ccs_sub, rebid, power_line, ccd_type)
