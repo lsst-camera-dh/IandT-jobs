@@ -2,6 +2,7 @@
 Class to handle REB current limit comparisons described in LCA-10064.
 """
 from collections import OrderedDict, namedtuple
+import java.lang
 
 ChannelLimits = namedtuple('ChannelLimits',
                            ['reb_ps_name','low_lim', 'high_lim', 'comp_range'])
@@ -64,7 +65,7 @@ class RebCurrentLimits(OrderedDict):
             if ps_current < limits.low_lim or ps_current > limits.high_lim:
                 self.rebps.synchCommand(10, 'sequencePower', rebid, False)
                 message = '%s current out of range. Powering down this REB.' \
-                          % reb_channel_name
+                          % ps_channel_name
                 raise java.lang.Exception(message)
 
     def check_comparative_ranges(self, rebid):
