@@ -56,7 +56,7 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type):
     # TODO: Read and record the firmware version ID, then verify it is
     # the correct version (LCA-10064-A, p.17, step 7).  Currently,
     # there is no reliable way of getting the intended firmware version
-    # from the eTraveler.
+    # from the eTraveler, so we just print it to the screen.
     logger.info("%s firmware version from CCS: %s", reb_slot,
                 reb_info.hwVersion)
 
