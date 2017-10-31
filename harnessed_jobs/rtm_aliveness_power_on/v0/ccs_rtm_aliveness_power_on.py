@@ -1,6 +1,5 @@
 """
-Power-on aliveness tests script, based on Homer's
-harnessed-jobs/T08/rebalive_power/ccseorebalive_power.py script.
+Power-on aliveness tests script.  See LCA-10064 section 10.4.2.2.
 """
 import os
 import sys
@@ -20,8 +19,24 @@ logging.basicConfig(format="%(message)s",
                     stream=sys.stdout)
 logger = logging.getLogger()
 
-def reb_power_on(ccs_sub, rebid, power_line, ccd_type,
-                 raise_exception=True):
+def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
+    """
+    REB power-on script.  This implements steps in LCA-10064
+    section 10.4.2.2.
+
+    Parameters
+    ----------
+    ccs_sub : CcsSubsystems object
+        Container for ts8 and rebps subsystems.
+    rebid : int
+        REB id number. Usually 0, 1, or 2.
+    power_line : int
+        REB power-supply line, 0, 1, or 2.
+    ccd_type : str
+        CCD vendor for loading configurations. Valid values are 'ITL', 'E2V'.
+    raise_exception : bool, optional
+        Flag to raise exceptions.  Default: True
+    """
     logger = ccs_sub.rebps.logger
 
     reb_current_limits = RebCurrentLimits(ccs_sub.rebps, ccs_sub.ts8)
