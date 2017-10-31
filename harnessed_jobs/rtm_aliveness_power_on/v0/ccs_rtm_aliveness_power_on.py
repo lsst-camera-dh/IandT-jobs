@@ -20,7 +20,8 @@ logging.basicConfig(format="%(message)s",
                     stream=sys.stdout)
 logger = logging.getLogger()
 
-def reb_power_on(ccs_sub, rebid, power_line, ccd_type):
+def reb_power_on(ccs_sub, rebid, power_line, ccd_type,
+                 raise_exception=True):
     logger = ccs_sub.rebps.logger
 
     reb_current_limits = RebCurrentLimits(ccs_sub.rebps, ccs_sub.ts8)
@@ -36,11 +37,13 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type):
 
     # Check that the power-supply currents are within the limits
     # for each channel.
-    reb_current_limits.check_rebps_limits(rebid)
+    reb_current_limits.check_rebps_limits(rebid,
+                                          raise_exception=raise_exception)
 
     # Wait 15 seconds for the FPGA to boot, then check currents again.
     time.sleep(15)
-    reb_current_limits.check_rebps_limits(rebid)
+    reb_current_limits.check_rebps_limits(rebid,
+                                          raise_exception=raise_exception)
 
     # The reb_info namedtuple contains the info for the REB in question.
     # That information can be used in the step 6 & 7 tests.
@@ -62,7 +65,8 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type):
 
     # Check that REB P/S currents match the REB currents from ts8
     # within the comparative limits.
-    reb_current_limits.check_comparative_ranges(rebid)
+    reb_current_limits.check_comparative_ranges(rebid,
+                                                raise_exception=raise_exception)
 
     logger.info("Turn on REB clock and rail voltages.")
 

@@ -42,7 +42,7 @@ class RebCurrentLimits(OrderedDict):
         self['ClkLI'] = ChannelLimits('clocklo.IaftLDO', 32., 42., 25.)
         self['ODI'] = ChannelLimits('OD.IaftLDO', 7., 13., 10.)
 
-    def check_rebps_limits(self, rebid):
+    def check_rebps_limits(self, rebid, raise_exception=True):
         """
         Check the REB currents at the power supply are within the
         LCA-10064 limits for the specified REB.
@@ -66,9 +66,12 @@ class RebCurrentLimits(OrderedDict):
                 self.rebps.synchCommand(10, 'sequencePower', rebid, False)
                 message = '%s current out of range. Powering down this REB.' \
                           % ps_channel_name
-                raise java.lang.Exception(message)
+                if raise_exception:
+                    raise java.lang.Exception(message)
+                else:
+                    self.logger.info(message)
 
-    def check_comparative_ranges(self, rebid):
+    def check_comparative_ranges(self, rebid, raise_exception=True):
         """
         Compare the currents at the power supply to the currents
         measured at the REB.  Issue a warning if they are outside the
@@ -91,4 +94,7 @@ class RebCurrentLimits(OrderedDict):
                 message \
                     = "Currents for %s and %s lie outside comparative range." \
                     % (ps_channel_name, reb_channel_name)
-                raise java.lang.Exception(message)
+                if raise_exception:
+                    raise java.lang.Exception(message)
+                else:
+                    self.logger.info(message)
