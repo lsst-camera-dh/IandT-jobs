@@ -41,6 +41,7 @@ class RebCurrentLimits(OrderedDict):
         self['ClkHI'] = ChannelLimits('clockhi.IaftLDO', 80., 92., 25.)
         self['ClkLI'] = ChannelLimits('clocklo.IaftLDO', 32., 42., 25.)
         self['ODI'] = ChannelLimits('OD.IaftLDO', 7., 13., 10.)
+        self['HtrI'] = ChannelLimits('heater.IaftLDO', 0., 2., 0.)
 
     def check_rebps_limits(self, rebid, raise_exception=True):
         """
@@ -84,6 +85,10 @@ class RebCurrentLimits(OrderedDict):
             ID of the REB to test.
         """
         for channel_name, limits in self.items():
+            if channel_name == 'HtrI':
+                # There is no current channel for the heater in
+                # the TS monitoring subsystem, so skip this check
+                continue
             ps_channel_name = 'REB%d.%s' % (rebid, limits.reb_ps_name)
             ps_current = self.rebps.synchCommand(10, 'readChannelValue',
                                                  ps_channel_name).getResult()

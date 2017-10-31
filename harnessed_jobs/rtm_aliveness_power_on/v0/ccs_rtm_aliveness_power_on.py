@@ -67,9 +67,9 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
     # Compare the REB hardware serial number to the value in the
     # eTraveler tables for this REB in this raft.
     if reb_info.serialNumber != reb_eT_info[reb_slot].manufacturer_sn:
-        raise RuntimeError("REB manufacturer serial number mismatch: %s, %s"
-                           % (reb_info.serialNumber,
-                              reb_eT_info[reb_slot].manufacturer_sn))
+        raise java.lang.Exception("REB manufacturer serial number mismatch: %s, %s"
+                                  % (reb_info.serialNumber,
+                                     reb_eT_info[reb_slot].manufacturer_sn))
 
     # TODO: Read and record the firmware version ID, then verify it is
     # the correct version (LCA-10064-A, p.17, step 7).  Currently,
@@ -93,8 +93,8 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
         ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:e2v")
         ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:e2v")
     else:
-        raise RuntimeError("ccs_rtm_aliveness_power_on: Invalid ccd_type, "
-                           + ccd_type)
+        raise java.lang.Exception("ccs_rtm_aliveness_power_on: Invalid ccd_type, "
+                                  + ccd_type)
 
     try:
         outfile = '%s_REB%i_%s_powerOn_aliveness_test_output.txt' \
