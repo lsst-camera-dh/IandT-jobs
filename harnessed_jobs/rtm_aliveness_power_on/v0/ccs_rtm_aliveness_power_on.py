@@ -50,20 +50,21 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
     reb_device \
         = list(ccs_sub.ts8.synchCommand(10, 'getREBDevices').getResult())[rebid]
 
-    # Power on the REB using the power-up sequence.
+    # Power on the REB using the power-up sequence. (10.4.2.2, step 2)
     ccs_sub.rebps.synchCommand(10, 'sequencePower', power_line, True)
 
     # Check that the power-supply currents are within the limits
-    # for each channel.
+    # for each channel. (10.4.2.2, step 3)
     reb_current_limits.check_rebps_limits(rebid,
                                           raise_exception=raise_exception)
 
     # Wait 15 seconds for the FPGA to boot, then check currents again.
+    # (10.4.2.2, step 4)
     time.sleep(15)
     reb_current_limits.check_rebps_limits(rebid,
                                           raise_exception=raise_exception)
 
-    # Verify the data link by reading a register.
+    # Verify the data link by reading a register.  (10.4.2.2, step 5)
     ccs_sub.ts8.synchCommand(10, 'readRegister', reb_device, 1)
 
     # The reb_info namedtuple contains the info for the REB in question.
@@ -71,7 +72,7 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
     reb_info = get_REB_info(ccs_sub.ts8, rebid)
 
     # Compare the REB hardware serial number to the value in the
-    # eTraveler tables for this REB in this raft.
+    # eTraveler tables for this REB in this raft.  (10.4.2.2, step 6)
     if reb_info.serialNumber != reb_eT_info[reb_slot].manufacturer_sn:
         raise java.lang.Exception("REB manufacturer serial number mismatch: %s, %s"
                                   % (reb_info.serialNumber,
@@ -81,11 +82,12 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
     # the correct version (LCA-10064-A, p.17, step 7).  Currently,
     # there is no reliable way of getting the intended firmware version
     # from the eTraveler, so we just print it to the screen.
+    # (10.4.2.2, step 7)
     logger.info("%s firmware version from CCS: %s", reb_slot,
                 reb_info.hwVersion)
 
     # Check that REB P/S currents match the REB currents from ts8
-    # within the comparative limits.
+    # within the comparative limits. (10.4.2.2, step 8)
     reb_current_limits.check_comparative_ranges(rebid,
                                                 raise_exception=raise_exception)
 
@@ -102,6 +104,7 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
         raise java.lang.Exception("ccs_rtm_aliveness_power_on: Invalid ccd_type, "
                                   + ccd_type)
 
+    # Run the powerOn CCS command (10.4.2.2, steps 11-13)
     try:
         outfile = '%s_REB%i_%s_powerOn_aliveness_test_output.txt' \
                   % (UNITID, rebid, RUNNUM)
