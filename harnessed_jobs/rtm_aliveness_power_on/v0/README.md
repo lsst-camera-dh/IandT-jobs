@@ -1,38 +1,54 @@
-This job powers on each of the REBs and checks the that the currents
-are within limits.
+This job loops over the REBs in a raft and executes the power-on sequence
+described in LCA-10064-A (available only in draft form at the time of this
+writing).
 
 ### `ccs_rtm_aliveness_power_on.py`
 
-* Define the channels to be checked for each REB and their limits
-  (in mA).
+For each REB, perform the following steps:
 
-* Attach the CCS subsystems `ts8` and `ccs-rebps`.
+* Execute the REB power-supply subsystem command `sequencePower <line> True`.
+  (section 10.4.2.2, step 2)
 
-* Map each REB to the corresponding power-line by powering on the
-  `digital` and `analog` channel for one line at a time; loop over
-  the unmapped REBs, reading the address 1 register to check the
-  connection.  This is based on [Homer's
-  rebalive_handshake](https://github.com/lsst-camera-dh/harnessed-jobs/blob/master/T08/rebalive_handshake/v0/ccseorebalive_handshake.py)
-  job.
+* Immediately check that all of the REB P/S currents are within the
+  limits in table 9 in section 14.2.  (section 10.4.2.2, step 3)
 
-* Set the ts8 monitoring interval to 0.1s so that the trending plots
-  have the desired resolution.
+* Wait 15 seconds for the FPGA to boot.
 
-* Loop over the REBs:
+* Check again that all of the REB P/S currents are within the
+  limits in table 9 in section 14.2.  (section 10.4.2.2, step 4)
 
-  * Power on each channel in order, checking currents for clockhi,
-    clocklo, and od.
+* Read the register 1 of the REB to verify the data link.
+  (section 10.4.2.2, step 5)
 
-  * If a current is out-of-range, power down that channel and abort.
+* Read the REB info via the CCS commands `getREBHwVersions` and
+  `getREBSerialNumbers`.  Compare the REB serial number with serial
+  number for that REB from the eTraveler tables.  If they disagree,
+  raise an exception.  This will fail the harnessed job.
+  (section 10.4.2.2, step 6)
 
-  * If a current measured by the `ccs-rebps` subsystem differs from
-    the `ts8`-measured current by more than 10%, issue a warning.
+* Print the firmware version, obtained by CCS, to the terminal window.
+  There is no way of getting the intended firmware via software so the
+  operator will need to check this manually.  (section 10.4.2.2, step 7)
 
-* Load sensor-specific configurations
+* Compare the REB P/S currents with the values read for the REBs via
+  the teststand subsystem.  If any values lie outside of the
+  comparative range in table 9 in section 14.2, raise an exception
+  that will fail the job.  (section 10.4.2.2, step 8)
 
-* Turn on all clock and rail voltages for all REBs.
+* NB: all voltages and currents are assumed to be monitored in the CCS
+  trending tables.  Any display of trending quantities area assumed to
+  be available from the CCS console. (section 10.4.2.2, steps 9 and 10).
 
-* Restore the monitoring interval to 10s.
+* Load the sensor-specific configurations via
+  ```
+  loadCategories Rafts:<sensor_type>
+  loadCategories RaftLimits:<sensor_type>
+  ```
+  where `<sensor_type>` is `itl` or `e2v`.
+
+* Execute the `powerOn <REB id>` CCS command, and write the output
+  to a text file that will be persisted by the eTraveler.
+  (section 10.4.2.2, steps 11 through 13)
 
 ### `producer_rtm_aliveness_power_on.py`
 

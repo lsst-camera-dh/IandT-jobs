@@ -47,6 +47,9 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
                 reb_slot, power_line)
     logger.info("*****************************************************")
 
+    reb_device \
+        = list(ccs_sub.ts8.synchCommand(10, 'getREBDevices').getResult())[rebid]
+
     # Power on the REB using the power-up sequence.
     ccs_sub.rebps.synchCommand(10, 'sequencePower', power_line, True)
 
@@ -59,6 +62,9 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
     time.sleep(15)
     reb_current_limits.check_rebps_limits(rebid,
                                           raise_exception=raise_exception)
+
+    # Verify the data link by reading a register.
+    ccs_sub.ts8.synchCommand(10, 'readRegister', reb_device, 1)
 
     # The reb_info namedtuple contains the info for the REB in question.
     # That information can be used in the step 6 & 7 tests.
