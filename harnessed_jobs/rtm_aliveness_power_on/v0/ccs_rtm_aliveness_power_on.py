@@ -136,6 +136,10 @@ if __name__ == '__main__':
         logger.info("  power line %d for REB ID %d", power_line, rebid)
 
     for rebid, power_line in power_lines.items():
-        reb_power_on(ccs_sub, rebid, power_line, ccd_type)
+        try:
+            reb_power_on(ccs_sub, rebid, power_line, ccd_type)
+        except (java.lang.Exception, StandardError) as eobj:
+            ccs_sub.rebps.synchCommand(10, 'sequencePower', rebid, False)
+            raise
 
     logger.info("Stop time: %f", time.time())
