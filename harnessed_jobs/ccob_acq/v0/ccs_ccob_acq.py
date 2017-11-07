@@ -1,21 +1,23 @@
 """
-Jython script for XY staged acquisitions at TS8.
+Jython script for CCOB Wide Beam acquisitions.
 """
 import time
 from eo_acquisition import XYStageAcquisition, AcqMetadata, logger
 import TS8Stage
 
-class XYStageEOAcquisition(XYStageAcquisition):
+class CcobWideBeamAcquisition(XYStageAcquisition):
     """
-    XYStageAcquisition subclass for EO acquisitions at TS8 using the
-    xy-stage.
+    XYStageAcquisition subclass for EO data taking using the CCOB wide beam.
     """
     def __init__(self, seqfile, acq_config_file, metadata, subsystems,
                  ccd_names, logger=logger):
-        super(XYStageEOAcquisition, self).__init__(seqfile, acq_config_file,
-                                                   "XY_STAGE", metadata,
-                                                   subsystems, ccd_names,
-                                                   logger=logger)
+        super(CcobWideBeamAcquisition, self).__init__(seqfile, acq_config_file,
+                                                      "CCOB", metadata,
+                                                      subsystems, ccd_names,
+                                                      logger=logger)
+
+    def take_ccob_image(seqno, exptime, file_template):
+        raise NotImplemented("take_ccob_image not implemented")
 
     def run(self):
         """
@@ -27,28 +29,23 @@ class XYStageEOAcquisition(XYStageAcquisition):
         self._moveTo(self.xoffset, self.yoffset)
 
         # Loop over image sequence.
-        actuateXed = False
         for seqno, tokens in enumerate(self.instructions):
-            filter_pos = int(tokens[1])
+            band = tokens[1]
             xrel = float(tokens[1])
             yrel = float(tokens[2])
-            image_type = tokens[3]
             exptime = float(tokens[4])
-            openShutter = (image_type == 'DARK')
             file_template = '${CCDSerialLSST}_${testType}_${imageType}_%.2f_%.2f_%04i_${RunNumber}_${timestamp}.fits' % (xrel, yrel, seqno)
 
-            # Set filter position, if it is a valid choice.
-            # Otherwise, do nothing.
-            if filter_pos in self._valid_filter_pos:
-                self.sub.mono.synchCommand(10, 'setFilter', filter_pos)
+            # Set band.
+            self.sub.ccob.synchCommand(10, 'setBand', band)
 
             # Move to desired location.
             self._moveBy(xrel, yrel)
 
             # Take exposure(s).
             for i in range(self.imcount):
-                self.take_image(seqno, exptime, openShutter, actuateXed,
-                                image_type, file_template=file_template)
+                self.take_ccob_image(seqno, exptime, file_template)
+
             # Take bias frame(s).
             for i in range(self.bcount):
                 self.bias_image(seqno)
