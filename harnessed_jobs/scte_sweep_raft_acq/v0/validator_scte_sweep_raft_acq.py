@@ -1,4 +1,4 @@
 #!/usr/bin/env python
-from ccsTools import ccsValidator()
+from ccsTools import ccsValidator
 
 ccsValidator()

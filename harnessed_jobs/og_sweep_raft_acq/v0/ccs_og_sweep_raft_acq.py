@@ -3,7 +3,6 @@ Jython script to run output gate voltage sweep acquisitions at TS8.
 """
 
 from eo_acquisition import EOAcquisition, PhotodiodeReadout, AcqMetadata, logger
-import numpy as np
 import itertools
 
 class OGSweepAcquisition(EOAcquisition):
@@ -53,7 +52,8 @@ class OGSweepAcquisition(EOAcquisition):
             exptime = self.compute_exptime(target_flux, meas_flux)
             pd_readout = PhotodiodeReadout(exptime, self)
 
-            vog_values = list(np.arange(min_vog, max_vog+0.1, step_vog)) 
+            vog_values = [v/100. for v in range(int(100*min_vog), int(100*max_vog)+1,
+                                                int(100*step_vog))]
 
             for vog in vog_values:
 

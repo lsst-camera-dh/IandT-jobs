@@ -3,7 +3,6 @@ Jython script to run parallel clock voltage sweep acquisitions at TS8.
 """
 
 from eo_acquisition import EOAcquisition, PhotodiodeReadout, AcqMetadata, logger
-import numpy as np
 import itertools
 
 class PcteSweepAcquisition(EOAcquisition):
@@ -14,7 +13,7 @@ class PcteSweepAcquisition(EOAcquisition):
     def __init__(self, seqfile, acq_config_file, metadata, subsystems,
                  ccd_names, logger=logger):
 
-        super(ParallelSweepAcquisition, self).__init__(seqfile, acq_config_file,
+        super(PcteSweepAcquisition, self).__init__(seqfile, acq_config_file,
                                                        "PCTESWEEP", metadata,
                                                        subsystems, ccd_names,
                                                        logger=logger)
@@ -57,8 +56,10 @@ class PcteSweepAcquisition(EOAcquisition):
             pd_readout = PhotodiodeReadout(exptime, self)
 
             ## Construct serial hi/lo voltage pairs
-            parlo_values = list(np.arange(min_parlo, max_parlo+0.1, step_parlo))
-            parhi_values = list(np.arange(min_parhi, max_parhi+0.1, step_parhi))
+            parlo_values = [v/100. for v in range(int(100*min_parlo), int(100*max_parlo)+1,
+                                                  int(100*step_parlo))]
+            parhi_values = [v/100. for v in range(int(100*min_parhi), int(100*max_parhi)+1,
+                                                  int(100*step_parhi))]
             voltage_pairs = itertools.product(parlo_values, parhi_values)
 
             for parlo, parhi in voltage_pairs:

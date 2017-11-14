@@ -3,7 +3,6 @@ Jython script to run serial clock voltage sweep acquisitions at TS8.
 """
 
 from eo_acquisition import EOAcquisition, PhotodiodeReadout, AcqMetadata, logger
-import numpy as np
 import itertools
 
 class ScteSweepAcquisition(EOAcquisition):
@@ -57,8 +56,10 @@ class ScteSweepAcquisition(EOAcquisition):
             pd_readout = PhotodiodeReadout(exptime, self)
 
             ## Construct serial hi/lo voltage pairs
-            serlo_values = list(np.arange(min_serlo, max_serlo+0.1, step_serlo))
-            serhi_values = list(np.arange(min_serhi, max_serhi+0.1, step_serhi))
+            serlo_values = [v/100. for v in range(int(100*min_serlo), int(100*max_serlo)+1,
+                                                  int(100*step_serlo))]
+            serhi_values = [v/100. for v in range(int(100*min_serhi), int(100*max_serhi)+1,
+                                                  int(100*step_serhi))]
             voltage_pairs = itertools.product(serlo_values, serhi_values)
 
             for serlo, serhi in voltage_pairs:

@@ -3,7 +3,6 @@ Jython script to run output drain and reset drain voltage sweep acquisitions at 
 """
 
 from eo_acquisition import EOAcquisition, PhotodiodeReadout, AcqMetadata, logger
-import numpy as np
 import itertools
 
 class GainSweepAcquisition(EOAcquisition):
@@ -45,8 +44,10 @@ class GainSweepAcquisition(EOAcquisition):
             step_vrd = float(tokens[8])
 
             ## Construct serial hi/lo voltage pairs
-            vod_values = list(np.arange(min_vod, max_vod+0.1, step_vod))
-            vrd_values = list(np.arange(min_vrd, max_vrd+0.1, step_vrd))
+            vod_values = [v/100. for v in range(int(100*min_vod), int(100*max_vod)+1,
+                                                int(100*step_vod))]
+            vrd_values = [v/100. for v in range(int(100*min_vrd), int(100*max_vrd)+1,
+                                                int(100*step_vrd))]
             voltage_pairs = itertools.product(vod_values, vrd_values)
 
             for vod, vrd in voltage_pairs:
@@ -77,7 +78,7 @@ class GainSweepAcquisition(EOAcquisition):
                 
                 for iframe in range(nframes):
                     self.bias_image(seqno)
-                    file_template = '${CCDSerialLSST}_${testType}_${imageType}_%.2f_%.2f_%3.3d_${timestamp}.fits' % (vod, vrd, seqno+1)
+                    file_template = '${CCDSerialLSST}_${testType}_${imageType}_%3.3d_${timestamp}.fits' % (seqno+1)
                     fits_files = self.take_image(seqno, exptime, openShutter, 
                                                  actuateXed, image_type,
                                                  file_template=file_template)
