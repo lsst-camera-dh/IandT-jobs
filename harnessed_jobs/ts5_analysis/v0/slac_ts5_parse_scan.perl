@@ -5,6 +5,7 @@ use POSIX;
 use Statistics::Regression;
 use Getopt::Long;
 use File::Basename;
+use List::AllUtils qw ( bsearch_index );
 use Cwd;
 use Astro::FITS::CFITSIO qw( :constants );
 
@@ -81,8 +82,10 @@ foreach my $fn_ix (0..$#{$filenames}) {
 	    Astro::FITS::CFITSIO::create_file($fits_filename,$status);
     }
     
+#    read_scan_contents($db->[$fn_ix],{"gain"=>{"key_z1"=>cos((24.0/2.0)*atan2(1,1)/45.0),
+#						   "key_z2"=>cos((17.0/2.0)*atan2(1,1)/45.0)}});
     read_scan_contents($db->[$fn_ix],{"gain"=>{"key_z1"=>cos((24.0/2.0)*atan2(1,1)/45.0),
-						   "key_z2"=>cos((17.0/2.0)*atan2(1,1)/45.0)}});
+						   "key_z2"=>1}});
 
     # check for presence of a transform spec and provide "raft" coordinate system columns.
     if (defined($db->[$fn_ix]->{"TF"})) {
@@ -102,8 +105,13 @@ foreach my $fn_ix (0..$#{$filenames}) {
     
     append_sum($db->[$fn_ix],["key_z1","key_z2"],"key_zsum");
     append_column($db->[$fn_ix],"I",[(1)x$db->[$fn_ix]->{"n_entry"}]);
+    # maybe change split_reref_meas to also split data sets into SELFCAL sets?
     split_reref_meas($db->[$fn_ix],["_reref","_meas"],"REREF");
-    populate_reref_regressions($db->[$fn_ix],"_reref",["I","aero_x","aero_y"],"key_zsum","timestamp");
+    # splice out the selfcal datasets.
+    split_selfcal_meas($db->[$fn_ix],["_selfcal","_meas"],"SELFCAL","aero_z");
+    
+    populate_reref_regressions($db->[$fn_ix],"_reref",["I","aero_x","aero_y"],
+			       "key_zsum","timestamp");
     populate_ref_system($db->[$fn_ix],["_reref","_meas"],"key_zsum_ref","timestamp");
     append_diff($db->[$fn_ix],["key_zsum","key_zsum_ref"],"key_zsum_ref_rr");
 
@@ -604,11 +612,30 @@ sub populate_ref_system {
     for (my $ix=0;$ix<$this->{"n_entry"};$ix++) {
 	my $st=$this->{$sort_term}->[$ix];
 	# find the nearest neighbors in the sort_term from the rerefernce choices
-	my $sort_term_ixlist=[sort {pow($reref_times->[$a]-$st,2) <=> 
-					pow($reref_times->[$b]-$st,2)} (0..$#{$reref})];
-	my @st_ix=@{$sort_term_ixlist}[0,1];
-	my ($t0,$t1)=($reref_times->[$st_ix[0]],$reref_times->[$st_ix[1]]);
-	my @weight=(($t1-$st)/($t1-$t0),($st-$t0)/($t1-$t0));
+	# NB - the old way we hadn't been moving aero_z value, now we are (for SELFCAL)
+	# SELFCAL data sets are delimited by REREF, with aero_z changes in between.
+	my @st_ix;
+	my ($t0,$t1);
+	my @weight;
+
+	my $bracket_rix = bsearch_index 
+	{(($st-$reref_times->[$_])*
+	  ($reref_times->[$_+1]-$st)>0)?0:(($st-$reref_times->[$_+1]>0)?-1:+1)} 
+	(0..$#{$reref}-1);
+
+	if ($bracket_rix==-1) {
+	    @st_ix=(sort {pow($reref_times->[$a]-$st,2) <=> pow($reref_times->[$b]-$st,2)} 
+		    (0..$#{$reref}))[0,1];
+	} else {
+	    @st_ix=($bracket_rix,$bracket_rix+1);
+	}
+
+	# @st_ix now contains 2 indices that bracket sort term $st, *or* they are the two
+	# nearest indices if the sort term is not bracketed.
+	
+	($t0,$t1)=($reref_times->[$st_ix[0]],$reref_times->[$st_ix[1]]);
+	@weight=(($t1-$st)/($t1-$t0),($st-$t0)/($t1-$t0));
+
 	my $evaluated_regression=[];
 
 	foreach my $r_ix (0,1) {
@@ -638,15 +665,14 @@ sub populate_ref_system {
 	foreach my $i (0,1) {
 	    $interpolated_regression += $evaluated_regression->[$i]*$weight[$i];
 	}
-
 	if ($verbose && ($this->{"label"}->[$ix] ne "REREF")) {
 	    printf STDERR ("rerefs nearest to sort_term %g are %g[%d]: %g ".
 			   "(weight %g) and %g[%d]: %g (weight %g)\ninterpolated regression=%g\n",
 			   $st,
-			   $reref_times->[$sort_term_ixlist->[0]],
-			   $sort_term_ixlist->[0],$evaluated_regression->[0],$weight[0],
-			   $reref_times->[$sort_term_ixlist->[1]],
-			   $sort_term_ixlist->[1],$evaluated_regression->[1],$weight[1],
+			   $reref_times->[$st_ix[0]],
+			   $st_ix[0],$evaluated_regression->[0],$weight[0],
+			   $reref_times->[$st_ix[1]],
+			   $st_ix[1],$evaluated_regression->[1],$weight[1],
 			   $interpolated_regression);
 	}
 	$ref_system->[$ix]=$interpolated_regression;
@@ -707,6 +733,65 @@ sub populate_reref_regressions {
     close(REG);
 }
 
+sub split_selfcal_meas {
+    my ($this,$split_field_names,$selfcal_label)=@_;
+    # ($db->[$fn_ix],["_selfcal","_meas"],"SELFCAL","aero_z");
+    my ($selfcal,$ms)=@{$split_field_names};
+    if (!defined($this->{$selfcal})) {
+	$this->{$selfcal}=[];
+    }
+    if (!defined($this->{$ms})) {
+	printf STDERR "array $ms expected to be defined.\nexiting..\n";
+	exit(1);
+    }
+    my $meas=$this->{$ms};
+    my @to_remove=();
+    for (my $ix=0;$ix<=$#{$meas};$ix++) {
+	if ($this->{"label"}->[$meas->[$ix]] =~ /SELFCAL/) {
+	    # stage to remove this $ix from array $meas..
+	    push(@to_remove,$ix);
+	}
+    }
+    foreach my $ix (reverse @to_remove) {
+	push(@{$this->{$selfcal}},splice(@{$meas},$ix,1));
+    }
+    # now sift selfcal data sets according to label & aero_z.
+    $this->{"SELFCAL"}={} if (!defined($this->{"SELFCAL"}));
+    foreach my $six (@{$this->{$selfcal}}) {
+	my $lab=$this->{"label"}->[$six];
+	my $surface=$lab;
+	$surface =~ s/SELFCAL_//;
+	$this->{"SELFCAL"}->{$surface}=[] if (!defined($this->{"SELFCAL"}->{$surface}));
+	push(@{$this->{"SELFCAL"}->{$surface}},$six);
+    }
+    my $rgressn={};
+    foreach my $surface (sort keys %{$this->{"SELFCAL"}}) {
+	my $ix_list=$this->{"SELFCAL"}->{$surface};
+	$rgressn->{$surface}=Statistics::Regression->new("_SELFCAL_".$surface,
+							  ["I","aero_y","aero_z"]);
+	foreach my $ix (@{$ix_list}) {
+	    my $datlist=[];
+	    foreach my $ia ("I","aero_y","aero_z") {
+		push(@{$datlist},$this->{$ia}->[$ix]);
+	    }
+	    $rgressn->{$surface}->include($this->{"key_z2"}->[$ix],$datlist);
+	}
+#	$rgressn->{$surface}->print();
+	my $coeffs={};
+	@{$coeffs}{"I","aero_y","aero_z"}=($rgressn->{$surface}->theta());
+	$coeffs->{"aero_z_corr"} = $coeffs->{"aero_z"}-$coeffs->{"aero_y"}*tan(8.5*atan2(1,1)/45.0);
+	
+	printf STDOUT ("for surface $surface (%s):\ncoeff(I)=%g\ncoeff(aero_y)=%g\ncoeff(aero_z)=%g\n",
+		       sqrt($rgressn->{$surface}->sigmasq()),
+		       $coeffs->{"I"},$coeffs->{"aero_y"},$coeffs->{"aero_z"});
+	printf STDOUT ("\tcorrected coeff(aero_z)=%g\n",$coeffs->{"aero_z_corr"});
+	printf STDOUT ("\ttheta = %g vs. %g\n",
+		       45/atan2(1,1)*acos(1/$coeffs->{"aero_z_corr"}),
+		       45/atan2(1,1)*acos(1/$coeffs->{"aero_z"}));
+    }
+    exit;
+}
+
 sub split_reref_meas {
     my ($this,$split_field_names,$reref_label)=@_;
     # generate sub-arrays containing indices
@@ -749,6 +834,7 @@ sub split_reref_meas {
 	printf STDERR "\tfrom %d to %d (\#entries: %d)\n",@{$this_group}[0,$#{$this_group}],$#{$this_group}-$[+1;
     }
     printf STDERR ".. and data field is %d long.\n",$#{$this->{$ms}}-$[+1;
+#    exit;
 }
 
 sub append_sum {
@@ -807,7 +893,7 @@ sub read_scan_contents {
 	}
 
 	next if (/FFF/);
-	next if (/SELFCAL/); # dont include selfcal in data
+#	next if (/SELFCAL/); # dont include selfcal in data
 
 	$this->{"hdr"}=$_ if ($strip_counter==0); # probably won't use it, save it for now
 	if ($strip_counter==1) {

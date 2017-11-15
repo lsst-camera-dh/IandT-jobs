@@ -65,6 +65,12 @@ $cold_temperatures={@cold_opts};
 $temperatures={@warm_opts,@cold_opts};
 my $sets={@set_opts};
 
+# this is done to maintain order in difference calculations (not necessary for "cold_minus_warm")
+my @ordered_set_inputs=();
+for (my $iix=0;$iix<=$#set_opts;$iix+=2) {
+    push(@ordered_set_inputs,$set_opts[$iix]);
+}
+
 my $infiles1=[keys %{$temperatures}];
 my $infiles2=[keys %{$sets}];
 
@@ -184,7 +190,7 @@ foreach my $zax_ix (0..$#{$report_axes}) {
     }
 
     if ($compute_set_differences) {
-	my @s_sets=keys %{$sets};
+	my @s_sets=@ordered_set_inputs;
 	foreach my $s1_ix (0..$#s_sets-1) {
 	    foreach my $s2_ix (1..$#s_sets) {
 		my ($set1,$set2) = @s_sets[$s1_ix,$s2_ix];

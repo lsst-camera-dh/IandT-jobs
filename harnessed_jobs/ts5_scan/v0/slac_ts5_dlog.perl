@@ -62,7 +62,11 @@ my $usage="USAGE:\t$0 [args]\n".
     "\t[--keyence_out1_maskpars=out1_max:out1_min]\n".
     "\t[--keyence_out2_maskpars=out2_max:out2_min]\n".
     "\n".
-    "\t[--pulsescan_ramprate=<ramprate_for_running_start mm/s2>]";
+    "\t[--pulsescan_ramprate=<ramprate_for_running_start mm/s2>]\n".
+    "\t[--temperature_chans=\"<temperature_chan1> .. <temperature_chanN>\"]\n".
+    "\t\t<temperature_chanX> may be drawn from:\n".
+    "\t\t\tCryoPlateTemp, REB[012]_CCDTemp[012]\n";
+
 
 my $verbose=0;
 my $input_file;
@@ -76,6 +80,7 @@ my $keyence_head_mask_setting=[[+1.0,-1.0],[+5.0,-5.0]];
 my $output_filename_root;
 my $fixed_output_filename;
 my $incomplete_output;
+my $temperature_chans;
 my $help=0;
 
 my $opts=$ENV{join("_","LCATR","TS5_OPTS")};
@@ -91,6 +96,7 @@ if (! defined($opts)) {
 	       "output_filename_root=s"   => \$output_filename_root,
 	       "fixed_output_filename=s"  => \$fixed_output_filename,
 	       "incomplete=s"             => \$incomplete_output,
+	       "temperature_chans=s"      => \$temperature_chans,
 	       "help"                     => \$help) || 
 	die("error in command line arguments! exiting..\n",$usage);
 } else {
@@ -111,16 +117,22 @@ if (! defined($opts)) {
 	"TS5_DLOG_KEYENCE_OUT1_MASKPARS"        => \$keyence_out1_maskpars,
 	"TS5_DLOG_KEYENCE_OUT2_MASKPARS"        => \$keyence_out2_maskpars,
 	"TS5_DLOG_PULSESCAN_RAMPRATE"           => \$pulsescan_ramprate,
+	"TS5_DLOG_RECORD_TEMPERATURES"          => \$temperature_chans,
 	"TS5_DLOG_VERBOSE"                      => \$verbose,
 	"TS5_DLOG_OUTPUT_FILENAME_ROOT"         => \$output_filename_root,
 	"TS5_DLOG_FIXED_OUTPUT_FILENAME"        => \$fixed_output_filename);
     
     foreach my $key (keys %{$pars}) {
 	if (defined($par_hash{$key})) {
+	    $pars->{$key}=$ENV{"LCATR_UNIT_ID"}
+	    if (($key eq "TS5_DLOG_OUTPUT_FILENAME_ROOT") &&
+		($pars->{$key} eq "DEFAULT") &&
+		defined($ENV{"LCATR_UNIT_ID"}));
 	    ${$par_hash{$key}} = $pars->{$key};
 	    printf STDERR "setting %s to %s.\n",$key,$pars->{$key};
 	} else {
-	    # no corresponding $par_hash{$key}. probably for another TS5 program. skipping..
+	    # no corresponding $par_hash{$key}. 
+	    # probably for another TS5 program. skipping..
 	}
     }
     $verbose = uc $verbose;
@@ -213,6 +225,7 @@ if ($verbose || $help){
     $str .= sprintf("\n\tCurrent pulsescan ramprate settings will force \"running start\" distances to be:\n");
     $str .= sprintf("\t\t%.2f mm (for 1mm sampling and 0.95 duty cycle)\n",pow((1*0.95)/$dwelltime,2)/(2*$pulsescan_ramprate));
     $str .= sprintf("\t\t%.2f mm (for 4mm sampling and 0.95 duty cycle)\n",pow((4*0.95)/$dwelltime,2)/(2*$pulsescan_ramprate));
+    $str .= sprintf("\n\tTemperature channels to read: %s\n",$temperature_chans);
     if ($help) {
 	$str .= sprintf("\n\tIf these running start distances seem excessive, consider adjusting\n\t\t--keyence_sampletime_par to correspond to a longer duration,\n\t\t--keyence_filter_nsample to correspond to a larger number of\n\t\t  samples per calculation, or adjust\n\t\t--pulsescan_ramprate to correspond to a larger acceleration.\n");
 	$str .= sprintf("\n\tIf none of these options are suitable, consider preparing\n\ta higher density scan input (plan) file before continuing.\n");
@@ -241,25 +254,42 @@ $instr->{"posn"}={"target"  => "metrology/Positioner",
 		  "dlog"    => \&achatter,
 		  "startup" => 1};
 
-$instr->{"REB0_CCDTemp0"}={"target"  => "ts8-raft/R00.Reb0.CCDTemp0",
-			   "channel" => "getValue",
-			   "dlog"    => \&rebchatter,
-			   "startup" => 1};
-
-$instr->{"REB1_CCDTemp1"}={"target"  => "ts8-raft/R00.Reb1.CCDTemp1",
-			   "channel" => "getValue",
-			   "dlog"    => \&rebchatter,
-			   "startup" => 1};
-
-$instr->{"REB2_CCDTemp2"}={"target"  => "ts8-raft/R00.Reb2.CCDTemp2",
-			   "channel" => "getValue",
-			   "dlog"    => \&rebchatter,
-			   "startup" => 1};
+foreach my $rebid (0..2) {
+    foreach my $cid (0..2) {
+	$instr->{"REB".$rebid."_CCDTemp".$cid}=
+	{"target"  => "ts8-raft/R00.Reb".$rebid.".CCDTemp".$cid,
+	 "channel" => "getValue",
+	 "dlog"    => \&rebchatter,
+	 "startup" => 0};
+    }
+}
 
 $instr->{"CryoPlateTemp"}={"target"  => "ts7-1/CryoPlate",
 			   "channel" => "getValue",
 			   "dlog"    => \&ts7chatter,
-			   "startup" => 1};
+			   "startup" => 0};
+
+if (defined($temperature_chans)) {
+    $temperature_chans = uc $temperature_chans;
+    
+    $instr->{"CryoPlateTemp"}->{"startup"}=1 
+	if ($temperature_chans =~ /CRYOPLATETEMP/);
+    for my $rebid (0..2) {
+	for my $cid (0..2) {
+	    my $key="REB".$rebid."_CCDTemp".$cid;
+	    my $match = uc $key;
+	    $instr->{$key}->{"startup"}=1 
+		if ($temperature_chans =~ /$match/);
+	}
+    }
+} else {
+    for my $rebid (0..2) {
+	for my $cid (0..2) {
+	    my $key="REB".$rebid."_CCDTemp".$cid;
+	    $instr->{$key}->{"startup"}=0;
+	}
+    }    
+}
 
 # more setup
 foreach my $ky (keys %{$instr}) {
@@ -281,6 +311,7 @@ do {
     printf STDERR "connection established!\nexiting..\n";
 #    exit;
 }
+
 my $ap=aero_pos($sel,$fh,$instr->{"posn"},["X","Y","Z"]);
 printf STDERR "return values: %s\n",join(':',@{$ap}) 
     if ($verbose);
@@ -454,7 +485,25 @@ my @temperature_cols;
 # to figure out what's going on. Reason is that CCDTemp targets return values even if
 # REBs are turned off. If CryoPlateTemp reports a cold value but the REB returned values
 # are room temperature, it should be safe to discredit these data.
-@temperature_cols=("CryoPlateTemp","REB0_CCDTemp0","REB1_CCDTemp1","REB2_CCDTemp2");
+
+
+@temperature_cols=();
+
+if (defined($temperature_chans)) {
+    my @tcols=("CryoPlateTemp");
+    foreach my $rebid (0..2) {
+	foreach my $cid (0..2) {
+	    push(@tcols,"REB".$rebid."_CCDTemp".$cid);
+	}
+    }
+    foreach my $tcol (@tcols) {
+	my $ttcc=uc $tcol;
+	push(@temperature_cols,$tcol) 
+	    if ($temperature_chans =~ /$ttcc/);
+    }
+} else {
+}
+
 my @output_cols=(@aero_cols,@keyence_cols,@temperature_cols,@bookkeeping_cols);
 
 printf GG "dat\n%s\n",join("\t",@output_cols);
@@ -646,8 +695,8 @@ sub shell_command_console {
     # if metrology channels aren't monopolized, it seems to keep
     # sockets alive, which will preclude restarting the subsystem.
     # DONT monopolize for now, it seemed to work better in the past.
-    monopolize_channels($sel,$fh) if (0);
-    
+    monopolize_channels($sel,$fh) if (1);
+
     foreach my $ky ( keys %{$instr} ) {
 	next if (!$instr->{$ky}->{"startup"});
 	printf STDERR "testing for $ky.\n"
@@ -740,7 +789,17 @@ sub kchatter {
     # arbitrary I know, but there's not a great way to check for return strings
     # coming from keyence controller. let the last return be interpreted
     # as return value from Keyence controller.
-    my ($echoed_command,$ret_val)=@rets[0,$#rets];
+
+    my ($echoed_command,$ret_val);
+    ($echoed_command,$ret_val)=@rets[0,$#rets];
+
+    if ($ret_val =~ "Error") {
+	# wait 200 seconds and try again?
+	my $waittime=200;
+	printf KEY "waiting %g ---\n",$waittime;
+	select(undef,undef,undef,$waittime);
+	return(kchatter($sel,$fh,$prepend,$cmd)); 
+    }
     
     if (($ret_val =~ /^ER/) &&
 	($echoed_command !~ "Q0") &&
@@ -1209,7 +1268,7 @@ sub ts5_pulsescan {
 	# the following will reduce the number of ACTION commands
 	# being sent to the CCS system..
 	my $waittime=0.2;
-	if (0) { 
+	if (1) { 
 	    # adjusting the wait time may have caused the program 
 	    # to crash more often because errors would occur not 
 	    # inside this loop but elsewhere!! 
