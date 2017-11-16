@@ -789,7 +789,6 @@ sub split_selfcal_meas {
 		       45/atan2(1,1)*acos(1/$coeffs->{"aero_z_corr"}),
 		       45/atan2(1,1)*acos(1/$coeffs->{"aero_z"}));
     }
-    exit;
 }
 
 sub split_reref_meas {

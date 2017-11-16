@@ -134,6 +134,7 @@ foreach my $zax_ix (0..$#{$report_axes}) {
 	    $tnt->{$infile}->{"hist"}=make_histogram(
 		{("data" => $tnt->{$infile},
 		  "axis" => $zax,
+		  "max_binwidth" => 0.00015,
 		  "nbin" => 200,
 		  "title" => sprintf("%s distribution %s",
 				     $titles->[$zax_ix],
@@ -150,8 +151,8 @@ foreach my $zax_ix (0..$#{$report_axes}) {
 	    }
 
 	    my $qlvls=$tnt->{$infile}->{"hist"}->{"qlvls"};
-	    my $lmts=[$tnt->{$infile}->{"hist"}->{"quant"}->{$qlvls->[1]},
-		      $tnt->{$infile}->{"hist"}->{"quant"}->{$qlvls->[7]}];
+	    my $lmts=[$tnt->{$infile}->{"hist"}->{"quant"}->{$qlvls->[2]},
+		      $tnt->{$infile}->{"hist"}->{"quant"}->{$qlvls->[6]}];
 
 	    draw_falsecolor_map({("data" => $tnt->{$infile},
 				  "xax" => $xax,"yax" => $yax,"zax" => $zax,
@@ -289,6 +290,7 @@ foreach my $zax_ix (0..$#{$report_axes}) {
 	$tnt->{$key}->{"hist"}=
 	    make_histogram({("data"  => $tnt->{$key},
 			     "axis"  => $zax."_diff",
+			     "max_binwidth" => 0.0002,
 			     "nbin"  => 200,
 			     "title" => $differences->[$diff_ix]->{"hist_comment"})});
 	draw_histogram($tnt->{$key}->{"hist"});
@@ -634,7 +636,7 @@ sub draw_falsecolor_map {
 		    }
 		}
 		# determine max & min
-		my ($xlist,$ylist,$zlist)=([],[]);
+		my ($xlist,$ylist,$zlist)=([],[],[]);
 		for (my $i=0;$i<$tnt->{"ndat"};$i++) {
 		    next if ((($xa->[$i]-$xl)*($xu-$xa->[$i])<0) ||
 			     (($ya->[$i]-$yl)*($yu-$ya->[$i])<0));
@@ -645,7 +647,7 @@ sub draw_falsecolor_map {
 		my @arr;
 		@arr=sort {$a<=>$b} @{$xlist};		($xl,$xu)=@arr[0,$#arr];
 		@arr=sort {$a<=>$b} @{$ylist};		($yl,$yu)=@arr[0,$#arr];
-		
+
 		($xof,$yof)=($xl,$yl);
 		($xbw,$ybw)=(($xu-$xl)/(1.0*$tnx),($yu-$yl)/(1.0*$tny));
 		
@@ -712,8 +714,8 @@ sub draw_falsecolor_map {
 
 sub make_histogram {
     my ($specs)=@_;
-    my ($tnt,$axis,$nbin,$title)=($specs->{"data"},$specs->{"axis"},$specs->{"nbin"},
-				  $specs->{"title"});
+    my ($tnt,$axis,$nbin,$maxbinwid,$title)=($specs->{"data"},$specs->{"axis"},$specs->{"nbin"},
+					     $specs->{"max_binwidth"},$specs->{"title"});
 
     my @zv=@{$tnt->{$axis}};
     @zv = sort {$a<=>$b} @zv;
@@ -739,8 +741,19 @@ sub make_histogram {
     foreach my $sp (@spans) {
 	$spns->{$sp->[0]-$sp->[1]}=$quant->{$sp->[0]}-$quant->{$sp->[1]};
     }
-    ($zv[0],$zv[$#zv])=($zv[0]-0.05*($zv[$#zv]-$zv[0]),$zv[$#zv]+0.05*($zv[$#zv]-$zv[0]));
+
+#    ($zv[0],$zv[$#zv])=($zv[0]-0.05*($zv[$#zv]-$zv[0]),$zv[$#zv]+0.05*($zv[$#zv]-$zv[0]));
+
+    {
+	my ($llim,$ulim)=@{$quant}{@quantiles[2,6]};
+	($zv[0],$zv[$#zv])=($llim-3*($ulim-$llim),$ulim+1*($ulim-$llim));
+    }
+    
+    # adjust # bins if necessary for better plots
+    $nbin=ceil(($zv[$#zv]-$zv[0])/$maxbinwid) if ($nbin<($zv[$#zv]-$zv[0])/$maxbinwid);
+
     # here construct the bin array
+    printf STDERR "going to try to make histogram spanning %g units with %d bins.\n",($zv[$#zv]-$zv[0]),$nbin;
     my $hist={("bincen"   => [],
 	       "data"     => [],
 	       "nbin"     => $nbin,
@@ -757,6 +770,7 @@ sub make_histogram {
     # populate bins
     for (my $i=0;$i<$tnt->{"ndat"};$i++) {
 	my $bin=floor(($tnt->{$axis}->[$i]-$zv[0])/$hist->{"stepsize"});
+	next if ($bin*($hist->{"nbin"}-1-$bin)<0);
 	$hist->{"data"}->[$bin]++;
     }
     # get maximum bin value
