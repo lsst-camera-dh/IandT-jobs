@@ -97,12 +97,13 @@ $device="/cps";
 
 pgbegin(0,$device,1,1);
 
-foreach my $infile (@{$infiles1},@{$infiles2}) {
-    $tnt->{$infile}=read_tnt($infile);
-}
-
 my $xax="raft_x";
 my $yax="raft_y";
+
+foreach my $infile (@{$infiles1},@{$infiles2}) {
+    $tnt->{$infile}=read_tnt($infile);
+    append_edge_distances($tnt->{$infile},[$xax,$yax],"edgedist"); # specific to raft style datasets
+}
 
 my $status=0;
 my $fitsfile_out;
@@ -117,6 +118,7 @@ my $fptr=Astro::FITS::CFITSIO::create_file("!".$fitsfile_out,$status);
 printf "status=$status\n" if ($status);
 $fptr->create_img(DOUBLE_IMG,2,[0,0],$status);
 printf "status=$status\n" if ($status);
+my $edge_threshold;
 
 foreach my $zax_ix (0..$#{$report_axes}) {
     my $zax=$report_axes->[$zax_ix];
@@ -131,40 +133,45 @@ foreach my $zax_ix (0..$#{$report_axes}) {
 		$cond=sprintf("(%s)",$sets->{$infile});
 	    }
 
-	    $tnt->{$infile}->{"hist"}=make_histogram(
-		{("data" => $tnt->{$infile},
-		  "axis" => $zax,
-		  "max_binwidth" => 0.00015,
-		  "nbin" => 200,
-		  "title" => sprintf("%s distribution %s",
-				     $titles->[$zax_ix],
-				     $cond)    )});
-	    
-	    draw_histogram($tnt->{$infile}->{"hist"});
-	    record_filename([$infile]);
-	    {
-		my $title=$titles->[$zax_ix];
-		$title =~ tr/\ /-/;
-		my $output_root=join('_',$infile,$title,"histogram");
-		push(@{$output_graphics_file_list},$output_root);
-		output_histogram_results($output_root,$tnt->{$infile}->{"hist"}->{"results"});
-	    }
+	    foreach $edge_threshold (0,1) {
 
-	    my $qlvls=$tnt->{$infile}->{"hist"}->{"qlvls"};
-	    my $lmts=[$tnt->{$infile}->{"hist"}->{"quant"}->{$qlvls->[2]},
-		      $tnt->{$infile}->{"hist"}->{"quant"}->{$qlvls->[6]}];
-
-	    draw_falsecolor_map({("data" => $tnt->{$infile},
-				  "xax" => $xax,"yax" => $yax,"zax" => $zax,
-				  "title" => sprintf("%s map %s",$titles->[$zax_ix],$cond),
-				  "limits" => $lmts,
-				  "fitsfile" => $fptr)});
-	    record_filename([$infile]);
-	    {
-		my $title=$titles->[$zax_ix];
-		$title =~ tr/\ /-/;
-		push(@{$output_graphics_file_list},
-		     join('_',$infile,$title,"map"));
+		$tnt->{$infile}->{"hist"}=make_histogram(
+		    {("data"         => $tnt->{$infile},
+		      "axis"         => $zax,
+		      "max_binwidth" => 0.00015,
+		      "edgethresh"   => $edge_threshold,
+		      "nbin"         => 200,
+		      "title"        => sprintf("%s distribution %s",
+						$titles->[$zax_ix],
+						$cond)    )});
+		
+		draw_histogram($tnt->{$infile}->{"hist"});
+		record_filename([$infile." edgethresh=".$edge_threshold]);
+		{
+		    my $title=$titles->[$zax_ix];
+		    $title =~ tr/\ /-/;
+		    my $output_root=join('_',$infile,"et".$edge_threshold,$title,"histogram");
+		    push(@{$output_graphics_file_list},$output_root);
+		    output_histogram_results($output_root,$tnt->{$infile}->{"hist"}->{"results"});
+		}
+		
+		my $qlvls=$tnt->{$infile}->{"hist"}->{"qlvls"};
+		my $lmts=[$tnt->{$infile}->{"hist"}->{"quant"}->{$qlvls->[2]},
+			  $tnt->{$infile}->{"hist"}->{"quant"}->{$qlvls->[6]}];
+		
+		draw_falsecolor_map({("data" => $tnt->{$infile},
+				      "xax" => $xax,"yax" => $yax,"zax" => $zax,
+				      "title" => sprintf("%s map %s",$titles->[$zax_ix],$cond),
+				      "edgethresh" => $edge_threshold,
+				      "limits" => $lmts,
+				      "fitsfile" => $fptr)});
+		record_filename([$infile."_edgethresh=".$edge_threshold]);
+		{
+		    my $title=$titles->[$zax_ix];
+		    $title =~ tr/\ /-/;
+		    push(@{$output_graphics_file_list},
+			 join('_',$infile,"et".$edge_threshold,$title,"map"));
+		}
 	    }
 	}
     }
@@ -291,6 +298,7 @@ foreach my $zax_ix (0..$#{$report_axes}) {
 	    make_histogram({("data"  => $tnt->{$key},
 			     "axis"  => $zax."_diff",
 			     "max_binwidth" => 0.0002,
+			     "edgethresh" => 0,
 			     "nbin"  => 200,
 			     "title" => $differences->[$diff_ix]->{"hist_comment"})});
 	draw_histogram($tnt->{$key}->{"hist"});
@@ -313,45 +321,6 @@ foreach my $zax_ix (0..$#{$report_axes}) {
 	    push(@{$zlvals},$diff_maps->[$k]->{"zsc"}->[0]);
 	    push(@{$zuvals},$diff_maps->[$k]->{"zsc"}->[1]);
 	}
-	#printf "lower limits in diff: %s\n",join(' ',sort {$a<=>$b} @{$zlvals});
-	#printf "upper limits in diff: %s\n",join(' ',sort {$a<=>$b} @{$zuvals});
-
-	# if (defined(undef)) {
-	#     my $status=0;
-	#     $fptr->create_img(DOUBLE_IMG,2,[$ny,$nx],$status);
-	#     printf "status=$status\n" if ($status);
-
-	#     $fptr->write_key(TSTRING,"EXTNAME",$title,"",$status);
-	#     $fptr->write_key(TSTRING,"PIXVAL",$zax,$title,$status);
-	#     $fptr->write_key_unit("PIXVAL","mm",$status);
-
-	#     $fptr->write_key(TDOUBLE,"LTM1_1",-1,"",$status);
-	#     $fptr->write_key(TDOUBLE,"LTM1_2", 0,"",$status);
-	#     $fptr->write_key(TDOUBLE,"LTM2_1", 0,"",$status);
-	#     $fptr->write_key(TDOUBLE,"LTM2_2",+1,"",$status);
-
-	#     $fptr->write_key(TDOUBLE,"LTV1",(1+$nx)/2.0,"",$status);
-	#     $fptr->write_key_unit("LTV1","bin at raft center",$status);
-	#     $fptr->write_key(TDOUBLE,"LTV2",(1+$ny)/2.0,"",$status);
-	#     $fptr->write_key_unit("LTV2","bin at raft center",$status);
-
-	#     $fptr->write_key(TDOUBLE,"DTM1_1",$xbw,"",$status);
-	#     $fptr->write_key(TDOUBLE,"DTM1_2",0,"",$status);
-	#     $fptr->write_key(TDOUBLE,"DTM2_1",0,"",$status);
-	#     $fptr->write_key(TDOUBLE,"DTM2_2",$ybw,"",$status);
-
-	#     $fptr->write_key(TDOUBLE,"DTV1",0,"",$status);
-	#     $fptr->write_key_unit("DTV1","mm from raft center, CCS_x",$status);
-	#     $fptr->write_key(TDOUBLE,"DTV2",0,"",$status);
-	#     $fptr->write_key_unit("DTV2","mm from raft center, CCS_y",$status);
-	    
-	#     printf "status=$status\n" if ($status);
-	#     my $null=-99;
-	#     for (my $row=0;$row<$ny;$row++) {
-	# 	$fptr->write_pixnull(TDOUBLE,[1,$row+1],$nx,$fh->[$row],$null,$status);
-	# 	printf "status=$status\n" if ($status);
-	#     }
-	# }
 
 	# the false color plot
 	my $llim=$tnt->{$set1}->{"llim"};
@@ -471,16 +440,90 @@ sub read_tnt {
     $dat;
 }
 
+sub append_edge_distances {
+    my ($tnt,$cn,$edgedist)=@_;
+    # determine nominal centroid & limits for each sensor on the raft
+    my ($xn,$yn)=@{$cn};
+    my $llim={($xn => $tnt->{"llim"}->[$tnt->{"ixs"}->{$xn}],
+	       $yn => $tnt->{"llim"}->[$tnt->{"ixs"}->{$yn}])};
+    my $ulim={($xn => $tnt->{"ulim"}->[$tnt->{"ixs"}->{$xn}],
+	       $yn => $tnt->{"ulim"}->[$tnt->{"ixs"}->{$yn}])};
+    my $wid={($xn => ($ulim->{$xn} - $llim->{$xn})/3.0,
+	      $yn => ($ulim->{$yn} - $llim->{$yn})/3.0)};
+    my $rcen={($xn => ($ulim->{$xn} + $llim->{$xn})/2.0,
+	       $yn => ($ulim->{$yn} + $llim->{$yn})/2.0)};
+    my $cen={};
+    for (my $h=0;$h<3;$h++) {
+	for (my $v=0;$v<3;$v++) {
+	    $cen->{$h,$v}={($xn => $rcen->{$xn}+($h-1)*$wid->{$xn},
+			    $yn => $rcen->{$yn}+($v-1)*$wid->{$yn})};
+	}
+    }
+    # adjust boundaries (skip over gaps)
+
+    # make up a new array handle and column name that indicates the distance to 
+    # nearest edge. this will be used for filtering.
+    my ($xlst,$ylst)=({},{});
+    my $ownership=[];
+    for (my $i=0;$i<$tnt->{"ndat"};$i++) {
+	my ($x,$y)=($tnt->{$xn}->[$i],$tnt->{$yn}->[$i]);
+	# which sensor does this belong to?
+	my ($h,$v)=(floor(($x-$rcen->{$xn})/$wid->{$xn}+1.5),
+		    floor(($y-$rcen->{$yn})/$wid->{$yn}+1.5));
+	$xlst->{$h,$v}=[] if (!defined($xlst->{$h,$v}));
+	$ylst->{$h,$v}=[] if (!defined($ylst->{$h,$v}));
+	push(@{$xlst->{$h,$v}},$x);
+	push(@{$ylst->{$h,$v}},$y);
+	$ownership->[$i]=join($;,$h,$v);
+    }
+    # and find limits:
+    my ($xll,$xul,$yll,$yul)=({},{},{},{});
+    for (my $h=0;$h<3;$h++) {
+	for (my $v=0;$v<3;$v++) {
+	    my @list;
+	    @list=@{$xlst->{$h,$v}};
+	    @list = sort {$a<=>$b} @list;
+	    ($xll->{$h,$v},$xul->{$h,$v})=@list[0,$#list];
+	    @list=@{$ylst->{$h,$v}};
+	    @list = sort {$a<=>$b} @list;
+	    ($yll->{$h,$v},$yul->{$h,$v})=@list[0,$#list];
+	}
+    }
+
+    # now assign nearest distance to border for each sensor.
+    my $edge_distance=[];
+    my $edge_distance_name=$edgedist;
+
+    my ($xa,$ya)=($tnt->{$xn},$tnt->{$yn});
+
+    for (my $i=0;$i<$tnt->{"ndat"};$i++) {
+	my ($x,$y)=($xa->[$i],$ya->[$i]);
+	my $o=$ownership->[$i];
+	if (!defined($xll->{$o}) || !defined($xul->{$o}) ||
+	    !defined($yll->{$o}) || !defined($yul->{$o})) {
+	    $edge_distance->[$i]=0;
+	} else {
+	    $edge_distance->[$i]=(sort {$a<=>$b} (sqrt(pow($xll->{$o}-$x,2)),
+						  sqrt(pow($xul->{$o}-$x,2)),
+						  sqrt(pow($yll->{$o}-$y,2)),
+						  sqrt(pow($yul->{$o}-$y,2))))[0];
+	}
+    }
+    # append to $tnt
+    push(@{$tnt->{"headings"}},$edge_distance_name);
+    $tnt->{$edge_distance_name}=$edge_distance;
+}
+
 sub draw_falsecolor_map {
     my ($specs)=@_;
-    my ($tnt,$xax,$yax,$zax,$title,$limits,$fitsfile)=
+    my ($tnt,$xax,$yax,$zax,$title,$limits,$edgethresh,$fitsfile)=
 	($specs->{"data"},$specs->{"xax"},
 	 $specs->{"yax"},$specs->{"zax"},
 	 $specs->{"title"},
 	 $specs->{"limits"},
+	 $specs->{"edgethresh"},
 	 $specs->{"fitsfile"});
 
-    
     my ($xix,$yix,$zix)=($tnt->{"ixs"}->{$xax},
 			 $tnt->{"ixs"}->{$yax},
 			 $tnt->{"ixs"}->{$zax});
@@ -510,6 +553,7 @@ sub draw_falsecolor_map {
     }
 
     for (my $i=0;$i<$tnt->{"ndat"};$i++) {
+	next if ($tnt->{"edgedist"}->[$i] < $edgethresh);
 	$xbin=floor(($xa->[$i]-$xof)/$xbw);
 	$ybin=floor(($ya->[$i]-$yof)/$ybw);
 	$ns->[$ybin]->[$xbin] += 1;
@@ -583,8 +627,6 @@ sub draw_falsecolor_map {
 	    $tnt->{"headings"}->[$yix]." [mm]",
 	    $title);
 
-#    printf "ndat=%d\n",$tnt->{"ndat"};
-
     my ($zl,$zu)=@zv[0,$#zv];
     #    ($zl,$zu)=(-10e-3,10e-3);
     #	    ($zl,$zu)=($zl+0.45*($zu-$zl),$zu-0.3*($zu-$zl));
@@ -608,6 +650,7 @@ sub draw_falsecolor_map {
     } elsif ($which == 1) {
 	# point by point..
 	for (my $j=0;$j<$tnt->{"ndat"};$j++) {
+	    next if ($tnt->{"edgedist"}->[$j] < $edgethresh);
 	    pgimag([[$za->[$j]]],1,1,1,1,1,1,$zu,$zl,
 		   [$xa->[$j]-0.5*$xbw,$xbw,0,$ya->[$j]-0.5*$ybw,0,$ybw]);
 	}
@@ -640,6 +683,7 @@ sub draw_falsecolor_map {
 		for (my $i=0;$i<$tnt->{"ndat"};$i++) {
 		    next if ((($xa->[$i]-$xl)*($xu-$xa->[$i])<0) ||
 			     (($ya->[$i]-$yl)*($yu-$ya->[$i])<0));
+		    next if ($tnt->{"edgedist"}->[$i] < $edgethresh);
 		    push(@{$xlist},$xa->[$i]);
 		    push(@{$ylist},$ya->[$i]);
 		    push(@{$zlist},$za->[$i]);
@@ -714,10 +758,22 @@ sub draw_falsecolor_map {
 
 sub make_histogram {
     my ($specs)=@_;
-    my ($tnt,$axis,$nbin,$maxbinwid,$title)=($specs->{"data"},$specs->{"axis"},$specs->{"nbin"},
-					     $specs->{"max_binwidth"},$specs->{"title"});
+    my ($tnt,$axis,$nbin,$maxbinwid,$edgethresh,$title)=($specs->{"data"},$specs->{"axis"},$specs->{"nbin"},
+							 $specs->{"max_binwidth"},$specs->{"edgethresh"},$specs->{"title"});
 
     my @zv=@{$tnt->{$axis}};
+    
+    my $use_ndat;
+    { # do some spatial filtering based on edges
+	my @tmpzv=();
+	for (my $i=0;$i<$tnt->{"ndat"};$i++) {
+	    next if ($tnt->{"edgedist"}->[$i]<$edgethresh); # or whatever threshold
+	    push(@tmpzv,$tnt->{$axis}->[$i]);
+	}
+	@zv=@tmpzv;
+	$use_ndat=$#zv-$[+1;
+    }
+
     @zv = sort {$a<=>$b} @zv;
     # extract the quantiles here before @zv is modified below
     my @quantiles=("0","0.005","0.025","0.25","0.5","0.75","0.975","0.995","1");
@@ -729,9 +785,9 @@ sub make_histogram {
     my $quant={};
     foreach my $i (0..$#quantiles) {
 	my $q=$quantiles[$i];
-	my $lvl=$q*$tnt->{"ndat"};
+	my $lvl=$q*$use_ndat;
 	my @bracket_ix=(floor($lvl),ceil($lvl));
-	if ($bracket_ix[1]>$tnt->{"ndat"}-1) {
+	if ($bracket_ix[1]>$use_ndat-1) {
 	    $bracket_ix[0]--;	    $bracket_ix[1]--;
 	}
 	my $u=$lvl-$bracket_ix[0];
@@ -753,7 +809,6 @@ sub make_histogram {
     $nbin=ceil(($zv[$#zv]-$zv[0])/$maxbinwid) if ($nbin<($zv[$#zv]-$zv[0])/$maxbinwid);
 
     # here construct the bin array
-    printf STDERR "going to try to make histogram spanning %g units with %d bins.\n",($zv[$#zv]-$zv[0]),$nbin;
     my $hist={("bincen"   => [],
 	       "data"     => [],
 	       "nbin"     => $nbin,
