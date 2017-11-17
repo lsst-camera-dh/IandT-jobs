@@ -78,7 +78,7 @@ class GainSweepAcquisition(EOAcquisition):
                 
                 for iframe in range(nframes):
                     self.bias_image(seqno)
-                    file_template = '${CCDSerialLSST}_${testType}_${imageType}_%3.3d_${timestamp}.fits' % (seqno+1)
+                    file_template = '${CCDSerialLSST}_${testType}_%.2f_%.2f_${imageType}_%3.3d_${timestamp}.fits' % (seqno+1, vod, vrd)
                     fits_files = self.take_image(seqno, exptime, openShutter, 
                                                  actuateXed, image_type,
                                                  file_template=file_template)
