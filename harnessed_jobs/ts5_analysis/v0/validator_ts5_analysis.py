@@ -68,7 +68,7 @@ temp_reb2_end = temp_reb2[-1]
 temp_reb2_avg = np.mean(temp_reb2)
 
 # Read analysis results to register in the eTraveler database
-datfile = glob.glob('*sensor-flatness_histogram_results*')[0]
+datfile = glob.glob('*et1_sensor-flatness_histogram_results*')[0]
 sensorflatness_quantile = []
 sensorflatness_z = []
 for line in open(datfile):
@@ -88,7 +88,7 @@ sensorflatness_dict = dict(zip(sensorflatness_quantile, sensorflatness_z))
 sensorflatness_025 = sensorflatness_dict['0.0250']
 sensorflatness_975 = sensorflatness_dict['0.9750']
 
-datfile = glob.glob('*raft-flatness_histogram_results*')[0]
+datfile = glob.glob('*et1_raft-flatness_histogram_results*')[0]
 flatness_quantile = []
 flatness_z = []
 for line in open(datfile):
@@ -108,7 +108,7 @@ flatness_dict = dict(zip(flatness_quantile, flatness_z))
 flatness_025 = flatness_dict['0.0250']
 flatness_975 = flatness_dict['0.9750']
 
-datfile = glob.glob('*raft-imageheight_histogram_results*')[0]
+datfile = glob.glob('*et1_raft-imageheight_histogram_results*')[0]
 absheight_quantile = []
 absheight_z = []
 for line in open(datfile):

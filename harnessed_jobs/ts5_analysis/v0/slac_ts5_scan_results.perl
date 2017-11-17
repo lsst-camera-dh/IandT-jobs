@@ -369,8 +369,8 @@ if ($device eq "/cps") {
     `ps2pdf pgplot.ps`;
     foreach my $ix (0..$#{$output_graphics_file_list}) {
 	my $cmd;
-	foreach my $suffix ("pdf","png") {
-#	foreach my $suffix ("png") {
+#	foreach my $suffix ("pdf","png") {
+	foreach my $suffix ("png") {
 	    $cmd=sprintf("convert -density 150 pgplot.pdf['%d'] %s.%s",
 			 $ix,$output_graphics_file_list->[$ix],$suffix);
 	    printf "converting pgplot.pdf[%d] as %s.%s\n",$ix,$output_graphics_file_list->[$ix],$suffix;
