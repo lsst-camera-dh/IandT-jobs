@@ -13,7 +13,8 @@ my $kframe_db=dirname($0);
 my $kframe_datafile={
     ("1" => $kframe_db."/KFrame_data/KFrame1_170228/byregion.tnt",
      "2" => $kframe_db."/KFrame_data/KFrame2_170503/byregion.tnt",
-     "3" => $kframe_db."/KFrame_data/KFrame3_170914/byregion.tnt")};
+     "3" => $kframe_db."/KFrame_data/KFrame3_170914/byregion.tnt",
+     "4" => $kframe_db."/KFrame_data/KFrame3_171122/byregion.tnt")};
 
 # allocate the db array object
 
