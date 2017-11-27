@@ -55,12 +55,12 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
 
     # Check that the power-supply currents are within the limits
     # for each channel. (10.4.2.2, step 3)
-    reb_current_limits.check_rebps_limits(rebid,
+    reb_current_limits.check_rebps_limits(rebid, enforce_lower_limits=False,
                                           raise_exception=raise_exception)
 
-    # Wait 15 seconds for the FPGA to boot, then check currents again.
+    # Wait 30 seconds for the FPGA to boot, then check currents again.
     # (10.4.2.2, step 4)
-    time.sleep(15)
+    time.sleep(30)
     reb_current_limits.check_rebps_limits(rebid,
                                           raise_exception=raise_exception)
 

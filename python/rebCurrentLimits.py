@@ -41,9 +41,10 @@ class RebCurrentLimits(OrderedDict):
         self['ClkHI'] = ChannelLimits('clockhi.IaftLDO', 80., 92., 25.)
         self['ClkLI'] = ChannelLimits('clocklo.IaftLDO', 32., 42., 25.)
         self['ODI'] = ChannelLimits('OD.IaftLDO', 7., 13., 10.)
-        self['HtrI'] = ChannelLimits('heater.IaftLDO', 0., 2., 0.)
+        self['HtrI'] = ChannelLimits('heater.IaftLDO', 0., 15., 0.)
 
-    def check_rebps_limits(self, rebid, raise_exception=True):
+    def check_rebps_limits(self, rebid, enforce_lower_limits=True,
+                           raise_exception=True):
         """
         Check the REB currents at the power supply are within the
         LCA-10064 limits for the specified REB.
@@ -53,6 +54,12 @@ class RebCurrentLimits(OrderedDict):
 
         rebid : int
             ID of the REB to test.
+        enforce_lower_limits : bool [True]
+            Flag to enforce lower limits for each channel.  If False,
+            then the lower limit tests will not be applied.
+        raise_exception: bool [True]
+            Flag to enable exception raising if tested limits are
+            violated.  Disable for testing only.
 
         Raises
         ------
@@ -63,7 +70,8 @@ class RebCurrentLimits(OrderedDict):
             ps_current = self.rebps.synchCommand(10, 'readChannelValue',
                                                  ps_channel_name).getResult()
             self.logger.info("%s: %s mA", ps_channel_name, ps_current)
-            if ps_current < limits.low_lim or ps_current > limits.high_lim:
+            if ((enforce_lower_limits and ps_current < limits.low_lim)
+                or ps_current > limits.high_lim):
                 self.rebps.synchCommand(10, 'sequencePower', rebid, False)
                 message = '%s current out of range. Powering down this REB.' \
                           % ps_channel_name
