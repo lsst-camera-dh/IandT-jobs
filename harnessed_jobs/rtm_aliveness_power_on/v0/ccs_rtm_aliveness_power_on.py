@@ -83,8 +83,8 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
     # there is no reliable way of getting the intended firmware version
     # from the eTraveler, so we just print it to the screen.
     # (10.4.2.2, step 7)
-    logger.info("%s firmware version from CCS: %s", reb_slot,
-                reb_info.hwVersion)
+    logger.info("%s firmware version from CCS: %s (0x%x)", reb_slot,
+                reb_info.hwVersion, reb_info.hwVersion)
 
     # Check that REB P/S currents match the REB currents from ts8
     # within the comparative limits. (10.4.2.2, step 8)
