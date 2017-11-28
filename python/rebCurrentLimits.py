@@ -36,10 +36,10 @@ class RebCurrentLimits(OrderedDict):
         self.rebps = rebps
         self.ts8 = ts8
         self.logger = rebps.logger
-        self['DigI'] = ChannelLimits('digital.IaftLDO', 500., 650., 100.)
+        self['DigI'] = ChannelLimits('digital.IaftLDO', 430., 650., 100.)
         self['AnaI'] = ChannelLimits('analog.IaftLDO', 530., 615., 50.)
         self['ClkHI'] = ChannelLimits('clockhi.IaftLDO', 80., 92., 25.)
-        self['ClkLI'] = ChannelLimits('clocklo.IaftLDO', 32., 42., 25.)
+        self['ClkLI'] = ChannelLimits('clocklo.IaftLDO', 32., 47., 25.)
         self['ODI'] = ChannelLimits('OD.IaftLDO', 7., 13., 10.)
         self['HtrI'] = ChannelLimits('heater.IaftLDO', 0., 15., 0.)
 

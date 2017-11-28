@@ -69,7 +69,7 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
 
     # The reb_info namedtuple contains the info for the REB in question.
     # That information can be used in the step 6 & 7 tests.
-    reb_info = get_REB_info(ccs_sub.ts8, rebid)
+    reb_info = get_REB_info(ccs_sub.ts8, 220 + rebid)
 
     # Compare the REB hardware serial number to the value in the
     # eTraveler tables for this REB in this raft.  (10.4.2.2, step 6)
@@ -97,7 +97,7 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
     if ccd_type == 'ITL':
         ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:itl")
         ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:itl")
-    elif ccd_type == 'E2V':
+    elif ccd_type.upper() == 'E2V':
         ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:e2v")
         ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:e2v")
     else:
