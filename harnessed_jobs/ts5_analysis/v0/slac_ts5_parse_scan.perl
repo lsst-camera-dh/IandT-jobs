@@ -83,10 +83,10 @@ foreach my $fn_ix (0..$#{$filenames}) {
 	    Astro::FITS::CFITSIO::create_file($fits_filename,$status);
     }
     
-#    read_scan_contents($db->[$fn_ix],{"gain"=>{"key_z1"=>cos((24.0/2.0)*atan2(1,1)/45.0),
-#						   "key_z2"=>cos((17.0/2.0)*atan2(1,1)/45.0)}});
     read_scan_contents($db->[$fn_ix],{"gain"=>{"key_z1"=>cos((24.0/2.0)*atan2(1,1)/45.0),
-						   "key_z2"=>1}});
+					       "key_z2"=>cos((17.0/2.0)*atan2(1,1)/45.0)}});
+#    read_scan_contents($db->[$fn_ix],{"gain"=>{"key_z1"=>cos((24.0/2.0)*atan2(1,1)/45.0),
+#						   "key_z2"=>1}});
 
     # check for presence of a transform spec and provide "raft" coordinate system columns.
     if (defined($db->[$fn_ix]->{"TF"})) {
