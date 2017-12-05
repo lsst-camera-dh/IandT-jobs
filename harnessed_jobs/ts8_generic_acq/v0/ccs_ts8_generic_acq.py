@@ -20,21 +20,21 @@ class GenericAcquisition(EOAcquisition):
         """
         Take N sets of a sequence of frames at the configured wavelengths,
         desired signal level, and requested number of exposures of dark, flat, fe55,
-	and bias.
+        and bias.
 
         Example rtmacqcfgfile content:
 
 GENERIC_NCYCLES         10  # Number of cycles
 GENERIC_WLS            500,600,700   # Wavelength in nm
-GENERIC_NBIAS		1   # Number of bias among a cycle
-GENERIC_NDARK		1   # Number of dark among a cycle
+GENERIC_NBIAS           1   # Number of bias among a cycle
+GENERIC_NDARK           1   # Number of dark among a cycle
 GENERIC_NFLAT           1   # Number of flat among a cycle
-GENERIC_NFE55		1   # Number of fe55 among a cycle
+GENERIC_NFE55           1   # Number of fe55 among a cycle
 GENERIC_SIGNAL      20000   # Target signal in e-
 # Exposure time in seconds, if present, it will override the target signal.
-#GENERIC_TDARK		10   # exposure tiem of dark image
+#GENERIC_TDARK          10   # exposure tiem of dark image
 #GENERIC_TFLAT          100  # exposure time of flat image
-#GENERIC_TFE55		100  # exposure time of fe55 image
+#GENERIC_TFE55          100  # exposure time of fe55 image
         """
         ncycles = int(self.eo_config.get('%s_NCYCLES' % self.acqname,
                         default='1'))
@@ -53,7 +53,7 @@ GENERIC_SIGNAL      20000   # Target signal in e-
                        ( "DARK", True,  False, "RaD_FLAT" ),
                        ( "FE55", True,  True , "RaD_FE55" ),
         
-        			]:
+                                ]:
                     key, openShutter, actuateXed, image_type = params
         
                     ntake = int(self.eo_config.get( "%s_N%s" ( self.acqname, key ) ,default='0'))
