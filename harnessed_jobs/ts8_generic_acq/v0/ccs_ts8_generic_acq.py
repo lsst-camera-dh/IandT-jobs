@@ -18,33 +18,62 @@ class GenericAcquisition(EOAcquisition):
 
     def run(self):
         """
-        Take a sequence of frames at the configured wavelength,
-        desired signal level, and requested number of exposures.
+        Take N sets of a sequence of frames at the configured wavelengths,
+        desired signal level, and requested number of exposures of dark, flat, fe55,
+	and bias.
 
         Example rtmacqcfgfile content:
 
-GENERIC_IMCOUNT         1   # Number of images
-GENERIC_WL            500   # Wavelength in nm
+GENERIC_NCYCLES         10  # Number of cycles
+GENERIC_WLS            500,600,700   # Wavelength in nm
+GENERIC_NBIAS		1   # Number of bias among a cycle
+GENERIC_NDARK		1   # Number of dark among a cycle
+GENERIC_NFLAT           1   # Number of flat among a cycle
+GENERIC_NFE55		1   # Number of fe55 among a cycle
 GENERIC_SIGNAL      20000   # Target signal in e-
 # Exposure time in seconds, if present, it will override the target signal.
-#GENERIC_EXPTIME         2
+#GENERIC_TDARK		10   # exposure tiem of dark image
+#GENERIC_TFLAT          100  # exposure time of flat image
+#GENERIC_TFE55		100  # exposure time of fe55 image
         """
+        ncycles = int(self.eo_config.get('%s_NCYCLES' % self.acqname,
+                        default='1'))
 
-        openShutter = True
-        actuateXed = False
-        image_type = "RandD"
+        wls     = map(lambda x: float(x),
+                        (self.eo_config.get('%s_WLS' % self.acqname,
+                        default='550')).split(",") )
+        seqno = 0
+        for wl in wls:
+            for ncylce in ncycles:
+                self.wl = wl
+                self.set_wavelength( wl )
+                for params  in [
+                       ( "BIAS", False, False, "RaD_BIAS" ),
+                       ( "FLAT", False, False, "RaD_DARK" ),
+                       ( "DARK", True,  False, "RaD_FLAT" ),
+                       ( "FE55", True,  True , "RaD_FE55" ),
+        
+        			]:
+                    key, openShutter, actuateXed, image_type = params
+        
+                    ntake = int(self.eo_config.get( "%s_N%s" ( self.acqname, key ) ,default='0'))
+        
+                    try:
+                        exptime= float(self.eo_config["%s_T%s" ( self.acqname, key )])
+                    except KeyError:
+                        # Set wavelength, do the flux calibration, and compute the
+                        # exposure time to obtain the desired signal per frame.
+                        if key == "BIAS":
+                            exptime = 0.0
+                        else:
+                            meas_flux = self.measured_flux(self.wl)
+                            target_counts = float(self.eo_config['%s_SIGNAL' % self.acqname])
+                            exptime = self.compute_exptime(target_counts, meas_flux)
+        
+                    for i in range(ntake):
+                        self.take_image(seqno, exptime, openShutter, actuateXed, image_type)
+                        seqno = seqno + 1
 
-        try:
-            exptime = float(self.eo_config['%s_EXPTIME' % self.acqname])
-        except KeyError:
-            # Set wavelength, do the flux calibration, and compute the
-            # exposure time to obtain the desired signal per frame.
-            meas_flux = self.measured_flux(self.wl)
-            target_counts = float(self.eo_config['%s_SIGNAL' % self.acqname])
-            exptime = self.compute_exptime(target_counts, meas_flux)
-
-        for seqno in range(self.imcount):
-            self.take_image(seqno, exptime, openShutter, actuateXed, image_type)
 
 if __name__ == '__main__':
     metadata = AcqMetadata(cwd=tsCWD, raft_id=UNITID, run_number=RUNNUM)
