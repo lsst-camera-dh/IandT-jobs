@@ -2,7 +2,8 @@
 Jython script for XY staged acquisitions at TS8.
 """
 import time
-from eo_acquisition import XYStageAcquisition, AcqMetadata, logger
+from eo_acquisition import AcqMetadata, logger
+from xy_stage_acquisition import XYStageAcquisition, XYStageAcquisitionError
 import TS8Stage
 
 class XYStageEOAcquisition(XYStageAcquisition):
@@ -30,11 +31,11 @@ class XYStageEOAcquisition(XYStageAcquisition):
         actuateXed = False
         for seqno, tokens in enumerate(self.instructions):
             filter_pos = int(tokens[1])
-            xrel = float(tokens[1])
-            yrel = float(tokens[2])
-            image_type = tokens[3]
-            exptime = float(tokens[4])
-            openShutter = (image_type == 'DARK')
+            xrel = float(tokens[2])
+            yrel = float(tokens[3])
+            image_type = tokens[4]
+            exptime = float(tokens[5])
+            openShutter = (image_type != 'DARK')
             file_template = '${CCDSerialLSST}_${testType}_${imageType}_%.2f_%.2f_%04i_${RunNumber}_${timestamp}.fits' % (xrel, yrel, seqno)
 
             # Set filter position, if it is a valid choice.
@@ -43,7 +44,7 @@ class XYStageEOAcquisition(XYStageAcquisition):
                 self.sub.mono.synchCommand(10, 'setFilter', filter_pos)
 
             # Move to desired location.
-            self._moveBy(xrel, yrel)
+            self._move_to_rel_pos(xrel, yrel)
 
             # Take exposure(s).
             for i in range(self.imcount):
@@ -54,7 +55,7 @@ class XYStageEOAcquisition(XYStageAcquisition):
                 self.bias_image(seqno)
 
         # Return the XY stage to its home position.
-        self.xy_stage.home((TS8Stage.X, TS8Stage.Y))
+        #self.xy_stage.home((TS8Stage.X, TS8Stage.Y))
 
 
 if __name__ == '__main__':
