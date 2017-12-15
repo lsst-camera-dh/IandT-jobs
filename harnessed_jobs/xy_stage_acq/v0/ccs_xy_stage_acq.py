@@ -36,7 +36,7 @@ class XYStageEOAcquisition(XYStageAcquisition):
             image_type = tokens[4]
             exptime = float(tokens[5])
             openShutter = (image_type != 'DARK')
-            file_template = '${CCDSerialLSST}_${testType}_${imageType}_%.2f_%.2f_%04i_${RunNumber}_${timestamp}.fits' % (xrel, yrel, seqno)
+            file_template = '${CCDSerialLSST}_${testType}_${imageType}_%.2f_%.2f_%03i_${RunNumber}.fits' % (xrel, yrel, seqno)
 
             # Set filter position, if it is a valid choice.
             # Otherwise, do nothing.

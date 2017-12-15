@@ -20,6 +20,10 @@ class XYStageAcquisition(EOAcquisition):
         # Valid filter positions for TS8: 1 through 6
         self._valid_filter_pos = range(1, 7)
 
+        self.bcount = int(self.eo_config.get('%s_BCOUNT' % acqname.upper(),
+                                             default=1))
+        self.imcount = int(self.eo_config.get('%s_IMCOUNT' % acqname.upper(),
+                                              default=1))
         self.xoffset = float(self.eo_config.get('%s_XOFFSET' % acqname.upper(),
                                                 default=0.))
         self.yoffset = float(self.eo_config.get('%s_YOFFSET' % acqname.upper(),
