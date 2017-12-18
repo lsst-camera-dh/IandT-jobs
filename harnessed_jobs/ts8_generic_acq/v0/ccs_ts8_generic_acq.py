@@ -55,9 +55,13 @@ GENERIC_SIGNAL      20000   # Target signal in e-
         
                                 ]:
                     key, openShutter, actuateXed, image_type = params
+                    print "## %s ###################################" % key
         
                     ntake = int(self.eo_config.get( "%s_N%s" % ( self.acqname, key ) ,default='0'))
         
+                    if ntake == 0:
+                        continue
+
                     try:
                         exptime= float(self.eo_config["%s_T%s" % ( self.acqname, key )])
                     except KeyError:
@@ -71,6 +75,9 @@ GENERIC_SIGNAL      20000   # Target signal in e-
                             exptime = self.compute_exptime(target_counts, meas_flux)
         
                     for i in range(ntake):
+                        print "##########"
+                        print "### %d ###" % seqno
+                        print "##########"
                         self.take_image(seqno, exptime, openShutter, actuateXed, image_type)
                         seqno = seqno + 1
 
