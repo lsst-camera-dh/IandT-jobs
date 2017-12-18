@@ -43,8 +43,8 @@ GENERIC_SIGNAL      20000   # Target signal in e-
                         (self.eo_config.get('%s_WLS' % self.acqname,
                         default='550')).split(",") )
         seqno = 0
-        for wl in range(wls):
-            for ncylce in ncycles:
+        for wl in wls:
+            for ncylce in range(ncycles):
                 self.wl = wl
                 self.set_wavelength( wl )
                 for params  in [
