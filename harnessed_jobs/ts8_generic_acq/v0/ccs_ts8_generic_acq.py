@@ -43,7 +43,7 @@ GENERIC_SIGNAL      20000   # Target signal in e-
                         (self.eo_config.get('%s_WLS' % self.acqname,
                         default='550')).split(",") )
         seqno = 0
-        for wl in wls:
+        for wl in range(wls):
             for ncylce in ncycles:
                 self.wl = wl
                 self.set_wavelength( wl )
@@ -56,10 +56,10 @@ GENERIC_SIGNAL      20000   # Target signal in e-
                                 ]:
                     key, openShutter, actuateXed, image_type = params
         
-                    ntake = int(self.eo_config.get( "%s_N%s" ( self.acqname, key ) ,default='0'))
+                    ntake = int(self.eo_config.get( "%s_N%s" % ( self.acqname, key ) ,default='0'))
         
                     try:
-                        exptime= float(self.eo_config["%s_T%s" ( self.acqname, key )])
+                        exptime= float(self.eo_config["%s_T%s" % ( self.acqname, key )])
                     except KeyError:
                         # Set wavelength, do the flux calibration, and compute the
                         # exposure time to obtain the desired signal per frame.
