@@ -1,7 +1,7 @@
 """
 Jython script for generic, R&D-oriented acquisitions at TS8.
 """
-from eo_acquisition import EOAcquisition, AcqMetadata, logger
+from eo_acquisition import EOAcquisition, PhotodiodeReadout, AcqMetadata, logger
 
 class GenericAcquisition(EOAcquisition):
     """
@@ -73,12 +73,19 @@ GENERIC_SIGNAL      20000   # Target signal in e-
                             meas_flux = self.measured_flux(self.wl)
                             target_counts = float(self.eo_config['%s_SIGNAL' % self.acqname])
                             exptime = self.compute_exptime(target_counts, meas_flux)
+                    # Create photodiode readout handler.
+                    pd_readout = PhotodiodeReadout(exptime, self)
         
                     for i in range(ntake):
                         print "##########"
                         print "### %d ###" % seqno
                         print "##########"
-                        self.take_image(seqno, exptime, openShutter, actuateXed, image_type)
+			    
+                        pd_readout.start_accumulation()
+                        fits_files = self.take_image(seqno, exptime, openShutter, actuateXed, image_type)
+                    	pd_readout.get_readings(fits_files, seqno, i)
+			    
+
                 seqno = seqno + 1
 
 
