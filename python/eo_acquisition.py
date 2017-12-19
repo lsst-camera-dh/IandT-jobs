@@ -10,8 +10,8 @@ import logging
 from ccs_scripting_tools import CcsSubsystems, CCS
 from ts8_utils import set_ccd_info, write_REB_info
 
-__all__ = ["hit_target_pressure", "EOAcquisition", "PhotodiodeReadout",
-           "EOAcqConfig", "AcqMetadata", "logger"]
+__all__ = ["hit_target_pressure", "EOAcquisition",
+           "PhotodiodeReadout", "EOAcqConfig", "AcqMetadata", "logger"]
 
 CCS.setThrowExceptions(True)
 
@@ -316,7 +316,7 @@ class EOAcquisition(object):
         """
         Take bias images.
         """
-        exptime = 0.1
+        exptime = 0
         openShutter = False
         actuateXed = False
         self.take_image(seqno, exptime, openShutter, actuateXed, "BIAS",
@@ -385,6 +385,7 @@ class EOAcquisition(object):
         exptime = target_counts/meas_flux
         exptime = min(max(exptime, self.exptime_min), self.exptime_max)
         return exptime
+
 
 class PhotodiodeReadout(object):
     """
