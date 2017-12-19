@@ -79,7 +79,7 @@ GENERIC_SIGNAL      20000   # Target signal in e-
                         print "### %d ###" % seqno
                         print "##########"
                         self.take_image(seqno, exptime, openShutter, actuateXed, image_type)
-                        seqno = seqno + 1
+                seqno = seqno + 1
 
 
 if __name__ == '__main__':
