@@ -49,8 +49,8 @@ GENERIC_SIGNAL      20000   # Target signal in e-
                 self.set_wavelength( wl )
                 for params  in [
                        ( "BIAS", False, False, "RaD_BIAS" ),
-                       ( "FLAT", False, False, "RaD_DARK" ),
-                       ( "DARK", True,  False, "RaD_FLAT" ),
+                       ( "DARK", False, False, "RaD_DARK" ),
+                       ( "FLAT", True,  False, "RaD_FLAT" ),
                        ( "FE55", True,  True , "RaD_FE55" ),
         
                                 ]:
