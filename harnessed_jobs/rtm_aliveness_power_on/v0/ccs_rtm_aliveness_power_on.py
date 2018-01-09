@@ -53,6 +53,7 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
     # Power on the REB using the power-up sequence. (10.4.2.2, step 2)
     ccs_sub.rebps.synchCommand(10, 'sequencePower', power_line, True)
 
+    time.sleep(1)
     # Check that the power-supply currents are within the limits
     # for each channel. (10.4.2.2, step 3)
     reb_current_limits.check_rebps_limits(rebid, enforce_lower_limits=False,
