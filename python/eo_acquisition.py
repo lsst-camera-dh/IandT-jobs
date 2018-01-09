@@ -295,7 +295,7 @@ class EOAcquisition(object):
         raise RuntimeError("Failed to take an image after %i tries."
                            % max_tries)
 
-    def image_clears(self, nclears=2, exptime=5):
+    def image_clears(self, nclears=0, exptime=5):
         """
         Take some bias frames to clear the CCDs.
 
