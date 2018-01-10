@@ -53,14 +53,15 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
     # Power on the REB using the power-up sequence. (10.4.2.2, step 2)
     ccs_sub.rebps.synchCommand(10, 'sequencePower', power_line, True)
 
+    time.sleep(1)
     # Check that the power-supply currents are within the limits
     # for each channel. (10.4.2.2, step 3)
-    reb_current_limits.check_rebps_limits(rebid,
+    reb_current_limits.check_rebps_limits(rebid, enforce_lower_limits=False,
                                           raise_exception=raise_exception)
 
-    # Wait 15 seconds for the FPGA to boot, then check currents again.
+    # Wait 30 seconds for the FPGA to boot, then check currents again.
     # (10.4.2.2, step 4)
-    time.sleep(15)
+    time.sleep(30)
     reb_current_limits.check_rebps_limits(rebid,
                                           raise_exception=raise_exception)
 
@@ -69,7 +70,7 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
 
     # The reb_info namedtuple contains the info for the REB in question.
     # That information can be used in the step 6 & 7 tests.
-    reb_info = get_REB_info(ccs_sub.ts8, rebid)
+    reb_info = get_REB_info(ccs_sub.ts8, 220 + rebid)
 
     # Compare the REB hardware serial number to the value in the
     # eTraveler tables for this REB in this raft.  (10.4.2.2, step 6)
@@ -83,8 +84,8 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
     # there is no reliable way of getting the intended firmware version
     # from the eTraveler, so we just print it to the screen.
     # (10.4.2.2, step 7)
-    logger.info("%s firmware version from CCS: %s", reb_slot,
-                reb_info.hwVersion)
+    logger.info("%s firmware version from CCS: %s (0x%x)", reb_slot,
+                reb_info.hwVersion, reb_info.hwVersion)
 
     # Check that REB P/S currents match the REB currents from ts8
     # within the comparative limits. (10.4.2.2, step 8)
@@ -97,7 +98,7 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
     if ccd_type == 'ITL':
         ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:itl")
         ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:itl")
-    elif ccd_type == 'E2V':
+    elif ccd_type.upper() == 'E2V':
         ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:e2v")
         ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:e2v")
     else:
