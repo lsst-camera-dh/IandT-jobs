@@ -95,8 +95,7 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
     logger.info("Turn on REB clock and rail voltages.")
 
     # Load configurations
-    ccs_sub.ts8.synchCommand(10, "loadCategories Rafts")
-    ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits")
+    ccs_sub.ts8.synchCommand(10, "loadCategories Rafts RaftsLimits")
 
     # Run the powerOn CCS command (10.4.2.2, steps 11-13)
     try:
