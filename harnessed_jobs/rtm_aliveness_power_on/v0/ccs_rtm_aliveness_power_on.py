@@ -94,16 +94,8 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
 
     logger.info("Turn on REB clock and rail voltages.")
 
-    # Load sensor-specific configurations.
-    if ccd_type == 'ITL':
-        ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:itl")
-        ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:itl")
-    elif ccd_type.upper() == 'E2V':
-        ccs_sub.ts8.synchCommand(10, "loadCategories Rafts:e2v")
-        ccs_sub.ts8.synchCommand(10, "loadCategories RaftsLimits:e2v")
-    else:
-        raise java.lang.Exception("ccs_rtm_aliveness_power_on: Invalid ccd_type, "
-                                  + ccd_type)
+    # Load configurations
+    ccs_sub.ts8.synchCommand(10, "loadCategories Rafts RaftsLimits")
 
     # Run the powerOn CCS command (10.4.2.2, steps 11-13)
     try:
