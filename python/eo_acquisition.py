@@ -7,6 +7,7 @@ import glob
 import time
 from collections import namedtuple
 import logging
+import java.lang
 from ccs_scripting_tools import CcsSubsystems, CCS
 from ts8_utils import set_ccd_info, write_REB_info
 
@@ -287,7 +288,7 @@ class EOAcquisition(object):
             try:
                 result = self.sub.ts8.synchCommand(timeout, command).getResult()
                 return result
-            except StandardError as eobj:
+            except (StandardError, java.lang.Exception) as eobj:
                 self.logger.info("EOAcquisition.take_image: try %i failed",
                                  itry)
                 self.logger.info(str(eobj))
