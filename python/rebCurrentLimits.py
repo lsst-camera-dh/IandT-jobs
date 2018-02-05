@@ -42,6 +42,14 @@ class RebCurrentLimits(OrderedDict):
         self['ClkLI'] = ChannelLimits('clocklo.IaftLDO', 32., 50., 25.)
         self['ODI'] = ChannelLimits('OD.IaftLDO', 7., 13., 10.)
         self['HtrI'] = ChannelLimits('heater.IaftLDO', 0., 15., 0.)
+#        #- new values and change to IbefLDO
+#        self['DigI'] = ChannelLimits('digital.IbefLDO', 450., 560., 100.)
+#        self['AnaI'] = ChannelLimits('analog.IbefLDO', 500., 660., 50.)
+#        #- setting ClkHI anomolously high for REB4 board on aliveness bench
+#        self['ClkHI'] = ChannelLimits('clockhi.IbefLDO', 90., 180., 25.)
+#        self['ClkLI'] = ChannelLimits('clocklo.IbefLDO', 35., 55., 25.)
+#        self['ODI'] = ChannelLimits('OD.IbefLDO', 7., 15.5, 10.)
+#        self['HtrI'] = ChannelLimits('heater.IbefLDO', 0., 15., 0.)
 
     def check_rebps_limits(self, rebid, enforce_lower_limits=True,
                            raise_exception=True):
