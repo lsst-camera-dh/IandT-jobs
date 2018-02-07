@@ -37,6 +37,8 @@ class FlatAcquisition(EOAcquisition):
             target_counts = float(tokens[1])  # e-/pixel
             exptime = self.compute_exptime(target_counts, meas_flux)
 
+            self._set_slitwidth(tokens, 2)
+
             # Create photodiode readout handler.
             pd_readout = PhotodiodeReadout(exptime, self)
 
