@@ -1,5 +1,5 @@
 # site.cfg
-# 
+#
 # Configuration file for TS3 acquisition scripts
 #
 # Contains parameters and 'commands' for acquiring data for LSST CCD 
@@ -10,8 +10,9 @@
 
 ###############################################################################
 # Some potentially useful constants
-# 
+#
 C  299792458               # in meters per second, in case you need it
+DEFAULT_SLITWIDTH  240  # units are microns for output slit
 
 ###############################################################################
 # Fe55
