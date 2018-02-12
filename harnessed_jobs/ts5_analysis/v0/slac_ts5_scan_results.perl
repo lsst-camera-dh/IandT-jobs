@@ -480,6 +480,7 @@ sub append_edge_distances {
     my ($xll,$xul,$yll,$yul)=({},{},{},{});
     for (my $h=0;$h<3;$h++) {
 	for (my $v=0;$v<3;$v++) {
+	    next if (!defined($xlst->{$h,$v}));
 	    my @list;
 	    @list=@{$xlst->{$h,$v}};
 	    @list = sort {$a<=>$b} @list;
