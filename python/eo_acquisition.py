@@ -204,7 +204,7 @@ class EOAcquisition(object):
         except IndexError:
             width = self.eo_config.get('DEFAULT_SLITWIDTH', default=240)
         if width != self.current_slitwidth:
-            self.set_slitwidth(width=width, self.slit_id)
+            self.set_slitwidth(width, self.slit_id)
             self.current_slitwidth = width
 
     def set_slitwidth(self, width, slit_id):
