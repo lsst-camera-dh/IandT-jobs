@@ -133,7 +133,7 @@ foreach my $zax_ix (0..$#{$report_axes}) {
 		$cond=sprintf("(%s)",$sets->{$infile});
 	    }
 
-	    foreach $edge_threshold (0,1) {
+	    foreach $edge_threshold (0.5) {
 
 		$tnt->{$infile}->{"hist"}=make_histogram(
 		    {("data"         => $tnt->{$infile},

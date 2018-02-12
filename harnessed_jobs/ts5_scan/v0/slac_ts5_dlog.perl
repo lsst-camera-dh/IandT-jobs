@@ -257,7 +257,7 @@ $instr->{"posn"}={"target"  => "metrology/Positioner",
 foreach my $rebid (0..2) {
     foreach my $cid (0..2) {
 	$instr->{"REB".$rebid."_CCDTemp".$cid}=
-	{"target"  => "ts5-raft/R00.Reb".$rebid.".CCDTemp".$cid,
+	{"target"  => "ts8-raft/R00.Reb".$rebid.".CCDTemp".$cid,
 	 "channel" => "getValue",
 	 "dlog"    => \&rebchatter,
 	 "startup" => 0};
