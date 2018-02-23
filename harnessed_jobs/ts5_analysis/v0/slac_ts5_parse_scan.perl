@@ -73,7 +73,7 @@ foreach my $fn_ix (0..$#{$filenames}) {
 	$cleanup=1;
     }
 
-    {
+    if (0) {
 	my $status=0;
 	my $fits_filename=$filenames->[$fn_ix];
 	$fits_filename =~ s/.txt$//;
@@ -108,6 +108,7 @@ foreach my $fn_ix (0..$#{$filenames}) {
     append_column($db->[$fn_ix],"I",[(1)x$db->[$fn_ix]->{"n_entry"}]);
     # maybe change split_reref_meas to also split data sets into SELFCAL sets?
     split_reref_meas($db->[$fn_ix],["_reref","_meas"],"REREF");
+
     # splice out the selfcal datasets.
     split_selfcal_meas($db->[$fn_ix],["_selfcal","_meas"],"SELFCAL","aero_z");
     
@@ -127,6 +128,7 @@ foreach my $fn_ix (0..$#{$filenames}) {
 	}
     }
 
+    
     # as a sanity check, output a visualization of the structure that is removed by the rereferencing step
 
     regr_windowed_surface($db->[$fn_ix],"_refsys_regr",
@@ -154,7 +156,8 @@ foreach my $fn_ix (0..$#{$filenames}) {
 				 "MCS_offset" => [113.5/2.0-5.5,0]},
 			    ["aero_x","aero_y"]);
     }
-    if (1) {
+
+    if (0) {
 	# and add in a radial coordinate for the {"KF_x","KF_y"} system..
 	my $KF_r=[];
 	for (my $i=0;$i<$db->[$fn_ix]->{"n_entry"};$i++) {
@@ -163,6 +166,15 @@ foreach my $fn_ix (0..$#{$filenames}) {
 	}
 	append_column($db->[$fn_ix],"KF_r",$KF_r);
     }
+
+    # take out any key_z1 outlier points from the set on a "label" basis because of
+    # incidence of bad data on fid0
+    foreach my $raw_msmt ( "key_z1","key_z2" ) {
+	my $outlier_hash=regr_by_labels($db->[$fn_ix],"_".$raw_msmt."_rgr_bylabel",["I","KF_x","KF_y"],
+					$raw_msmt,$db->[$fn_ix]->{"_meas"},1.5);
+	pare_array($db->[$fn_ix]->{"_meas"},$outlier_hash,["fid0","fid1"],4);
+    }
+    
     # sample the CMM measured KMSF about 3 positions that we'll use to define a new plane
     # on the way to transfering TS5 measurements into absolute image height.
     my $cmm_BPref_file=$kframe_datafile->{$kframe_id};
@@ -171,86 +183,201 @@ foreach my $fn_ix (0..$#{$filenames}) {
     read_scan_contents($tmpdb);
     append_column($tmpdb,"I",[(1)x$tmpdb->{"n_entry"}]);
 
-    my $cmm_BPref_lc=["xreq","yreq"];
-    my $cmm_BPref_zc="zsum_ballplane_rr";
-    my $radial_tol=6; # tolerance for filtering fiducials' sampling
+    my $delete_columns_later={$tmpdb => [],$db->[$fn_ix] => []};
+    
+    {   # append a twist term for fitting
+	my $twist=[];
+	foreach my $i (0..$#{$tmpdb->{"xreq"}}) {
+	    $twist->[$i] = $tmpdb->{"xreq"}->[$i]*$tmpdb->{"yreq"}->[$i];
+	}
+	append_column($tmpdb,"xreq_by_yreq",$twist);
+	push(@{$delete_columns_later->{$tmpdb}},"xreq_by_yreq");
+	$twist=[];
+	foreach my $i (0..$#{$db->[$fn_ix]->{"KF_x"}}) {
+	    $twist->[$i] = $db->[$fn_ix]->{"KF_x"}->[$i]*$db->[$fn_ix]->{"KF_y"}->[$i];
+	}
+	append_column($db->[$fn_ix],"KF_x_by_KF_y",$twist);
+	push(@{$delete_columns_later->{$db->[$fn_ix]}},"KF_x_by_KF_y");
+    }
+    
+    my $modeling_directives={"orig_registration" => {"regr_name"  => "_orig_fidplane",
+							 "extraction_list" => [[-138.2,20],[-138.2,-20],[34.3,0]],
+							 "radial_tol" => 6,
+							 "ms_set"     => $db->[$fn_ix],
+							 "ms_indep"   => ["I","KF_x","KF_y"],
+							 "ms_dep"     => "key_zsum_ref_rr",
+							 "kmsf_set"   => $tmpdb,
+							 "kmsf_indep" => ["I","xreq","yreq"],
+							 "kmsf_dep"   => "zsum_ballplane_rr"},
+				 "nearest_fidpos" => {"regr_name"  => "_nearest_fidplane",
+							  "extraction_list" => [[-138,0],[34.3,-18],[34.3,18]],
+							  "radial_tol" => 3,
+							  "ms_set"     => $db->[$fn_ix],
+							  "ms_indep"   => ["I","KF_x","KF_y"],
+							  "ms_dep"     => "key_zsum_ref_rr",
+							  "kmsf_set"   => $tmpdb,
+							  "kmsf_indep" => ["I","xreq","yreq"],
+							  "kmsf_dep"   => "zsum_ballplane_rr"},
+				 "fit_fid_twist" => {"regr_name"  => "_twisted_fidplane",
+							 "extraction_list" => [],
+							 "radial_tol" => 3,
+							 "ms_set"     => $db->[$fn_ix],
+							 "ms_indep"   => ["I","KF_x","KF_y","KF_x_by_KF_y"],
+							 "ms_dep"     => "key_zsum_ref_rr",
+							 "kmsf_set"   => $tmpdb,
+							 "kmsf_indep" => ["I","xreq","yreq","xreq_by_yreq"],
+							 "kmsf_dep"   => "zsum_ballplane_rr"}};
+    
+    # populate a longer list for fit_fid_twist case.
+    
+    for (my $ycoord=-25;$ycoord<=25;$ycoord+=3) {
+	push(@{$modeling_directives->{"fit_fid_twist"}->{"extraction_list"}},
+	     [-138,$ycoord],[34,$ycoord]);
+    }
 
-    regr_sample_rgns($tmpdb,"_fidplane",$cmm_BPref_lc,
-		     ["I",@{$cmm_BPref_lc}],$cmm_BPref_zc,
-		     [[-138.2,20],[-138.2,-20],[34.3,0]],$radial_tol);
+    # loop over the modeling directives and perform regressions on each dataset:
+    foreach my $mdkey ( keys %{$modeling_directives} ) {
+	my $md=$modeling_directives->{$mdkey};
+	regr_sample_rgns($md->{"kmsf_set"},$md->{"regr_name"},
+			 [@{$md->{"kmsf_indep"}}[1,2]],
+			 $md->{"kmsf_indep"},$md->{"kmsf_dep"},
+			 $md->{"extraction_list"},$md->{"radial_tol"});
+	regr_sample_rgns($md->{"ms_set"},$md->{"regr_name"},
+			 [@{$md->{"ms_indep"}}[1,2]],
+			 $md->{"ms_indep"},$md->{"ms_dep"},
+			 $md->{"extraction_list"},$md->{"radial_tol"});
+	# compute the regression differences 
+	# and evaluate on the grid of tooling ball locations
+	regression_difference(
+	    $db->[$fn_ix],"_ballplane_rel_".$mdkey,
+	    $md->{"ms_indep"},"key_zsum_ref_rr",
+	    $db->[$fn_ix]->{$md->{"regr_name"}}->{"regr"}->{"theta"},
+	    $tmpdb->{$md->{"regr_name"}}->{"regr"}->{"theta"});
 
-    regr_sample_rgns($db->[$fn_ix],"_fidplane",["KF_x","KF_y"],
-		     ["I","KF_x","KF_y"],"key_zsum_ref_rr",
-		     [[-138.2,20],[-138.2,-20],[34.3,0]],$radial_tol);
+	if ($mdkey =~ /twist/) {
+	    # sample the 3 locations corresponding to the kinematic ball load paths
+	    # so that we can compare twisted & untwisted models in the same breath.
+	    my $ball_centers=[[-108,0],[5.55,43.27],[5.55,-43.27]];
+	    my $corrected_ballplane_regr=
+		Statistics::Regression->new("BALLCENTERS",
+					    [@{$md->{"ms_indep"}}[0..2]]);
+	    foreach my $ball (@{$ball_centers}) {
+		my $theta=
+		    $md->{"ms_set"}->{"_ballplane_rel_".$mdkey}->{"regr"}->{"theta"};
+		my $ball_z;
+		$ball_z  = $theta->[0];
+		$ball_z += $theta->[1]*$ball->[0];
+		$ball_z += $theta->[2]*$ball->[1];
+		$ball_z += $theta->[3]*$ball->[0]*$ball->[1];
+		$corrected_ballplane_regr->include($ball_z,[1,@{$ball}]);
+	    }
+	    # shove aside the twisted fit as a new name and reassign the
+	    # corrected_balllapen_regr to be referred to by this mdkey
 
-    regression_difference($db->[$fn_ix],"_ballplane_rel",
-			  ["I","KF_x","KF_y"],"key_zsum_ref_rr",
-			  $db->[$fn_ix]->{"_fidplane"}->{"regr"}->{"theta"},
-			  $tmpdb->{"_fidplane"}->{"regr"}->{"theta"});
+	    # give them a new name
+	    $md->{"ms_set"}->{"_ballplane_rel_".$mdkey."_withtwistpar"}=
+		$md->{"ms_set"}->{"_ballplane_rel_".$mdkey}->{"regr"};
 
-    remove_regression($db->[$fn_ix],"_ballplane_rel","TS5_CMM_ballplane_ref");
+	    # do the surgery
+	    $md->{"ms_set"}->{"_ballplane_rel_".$mdkey}=
+	    {"regr" => {("regr_indep_axes" => [@{$md->{"ms_indep"}}[0..2]],
+			 "regr_dep_axis"   => $md->{"ms_dep"},
+			 "theta"           => [$corrected_ballplane_regr->theta()])}};
+	}
+	# now subtract off the newly prepared regression to form a new column
+	remove_regression($md->{"ms_set"},"_ballplane_rel_".$mdkey,
+			  "TS5_CMM_ballplane_ref_".$mdkey);
+    }
 
-    # compute the windowed regression for this last TS5_CMM_ballplane_ref 
-    # which should throw out
-    # outliers that exceed some number of sigma.
+    # copy over array reference for a new column name and proceed
+    append_column($db->[$fn_ix],"TS5_CMM_ballplane_ref",
+		  [@{$db->[$fn_ix]->{"TS5_CMM_ballplane_ref_"."fit_fid_twist"}}]);
 
+    # detach the original
+    detach_column($db->[$fn_ix],"TS5_CMM_ballplane_ref_"."fit_fid_twist");
+
+    # compute regression for flatness column
     regr_windowed_surface($db->[$fn_ix],
 			  "_windowed_ts5_cmm_ballplane_ref",
 			  ["I","KF_x","KF_y"],"TS5_CMM_ballplane_ref",
 			  $db->[$fn_ix]->{"_meas"},1.5);
     
-    remove_regression($db->[$fn_ix],"_windowed_ts5_cmm_ballplane_ref","TS5_CMM_ballplane_ref_rr");
+    # generate flatness column
+    remove_regression($db->[$fn_ix],
+		      "_windowed_ts5_cmm_ballplane_ref",
+		      "TS5_CMM_ballplane_ref_rr");
 
-    # for each label being output, compute regression for each surface using the TS5_CMM_ballplane_ref representation
-    # tabulate and subtract. This should subtract out the solid body contribution and leave in surface distortions..
-    # this is a higher level of analysis and should produce handsome plots.
+    # generate piecewise regression & piecewise flatness
+    regr_by_labels($db->[$fn_ix],"_rgr_bylabel",
+		   ["I","KF_x","KF_y"],"TS5_CMM_ballplane_ref",
+		   $db->[$fn_ix]->{"_meas"},1.5);
 
-    regr_by_labels($db->[$fn_ix],"_rgr_bylabel",["I","KF_x","KF_y"],"TS5_CMM_ballplane_ref",$db->[$fn_ix]->{"_meas"},1.5);
+    # at this point there should be 3 absolute height estimates, drawn from fits to fiducial
+    # samples for each dataset (ms,kmsf), named:
+    # {orig_registration,nearest_fidpos,fit_fid_twist}
+    # regression differences in the ms datasets named:
+    # "_ballplane_rel_".{orig_registration,nearest_fidpos,fit_fid_twist,fit_fid_twist_withtwistpar}
+    # and corresponding (preceding) regression subtracted columns in the datasets ms named:
+    # "TS5_CMM_ballplane_ref_".{orig_registration,nearest_fidpos,fit_fid_twist}
     
-    # check out this regression.
-    remove_regression($db->[$fn_ix],"_fidplane","fiducialsamp_rr");
+
+    printf "finished with TS5_CMM_ballplane_ref!\n";
 
     describe_contents($db->[$fn_ix]);
     my $export_file=$filenames->[$fn_ix];
     $export_file =~ s/.txt$//;
     $export_file .= "__ms.txt";
+
+#    # compute the heights relative to the fiducial transfer plane decided upon.
+#    remove_regression($db->[$fn_ix],"_twisted_fidplane","fiducialsamp_rr");
+#    remove_regression($tmpdb,"_twisted_fidplane","fiducialsamp_rr");
+
+    # safe to strip out unneeded columns prior to export.
+    
+    foreach my $hr ( $db->[$fn_ix],$tmpdb ) {
+	next if (!defined($delete_columns_later->{$hr}));
+	foreach my $delcol (@{$delete_columns_later->{$hr}}) {
+	    detach_column($hr,$delcol);
+	}
+    }
+
     export_file($db->[$fn_ix],$export_file,["label","I"],$db->[$fn_ix]->{"_meas"});
-
-    if (0) { # the following moves the output files back to this working directory for jh to register the output file to the catalog
-	my $cmd;
-	$cmd=sprintf("mv %s .",$filenames->[$fn_ix]."__ms.txt");
-	`$cmd`;
-	$cmd=sprintf("mv %s .",$filenames->[$fn_ix]."__ms.txt_.rgrs");
-	`$cmd`;
-    }
-    
-    remove_regression($tmpdb,"_fidplane","fiducialsamp_rr");
     export_file($tmpdb,"kmsf_temp.txt",["I"],[0..$tmpdb->{"n_entry"}-1]);
-    
-    my $status=0;
-    my $fptr=$db->[$fn_ix]->{"fitsfile"};
-    printf "status=$status\n" if ($status);
-    $fptr->create_img(DOUBLE_IMG,2,[0,0],$status);
-    printf "status=$status\n" if ($status);
-    stash_fits_version($fptr,$db->[$fn_ix],
-		       {"labels"=>"all"},["I"],"SLAC::TS5 DATA");
-    foreach my $label ("S00", "S01", "S02",
-		       "S10", "S11", "S12",
-		       "S20", "S21", "S22",
-		       "fid0","fid1"       ) {
-	stash_fits_version($fptr,$db->[$fn_ix],
-			   {"labels"=>[$label]},["I","label"],
-			   "SLAC::TS5 DATA"." (".$label.")");
-    }
-    stash_regressions_fits_version($fptr,$db->[$fn_ix]);
-    # finally close the fits file
-    $db->[$fn_ix]->{"fitsfile"}->close_file($status);
-    printf "status=$status\n" if ($status);
 
-    if ($cleanup==1) {
-	unlink $db->[$fn_ix]->{"filename"};
-	$cleanup=0;
-    } 
+    {
+	my $status=0;
+	my $fits_filename=$filenames->[$fn_ix];
+	$fits_filename =~ s/.txt$//;
+	$fits_filename .= ".fits";
+	unlink $fits_filename if (-e $fits_filename);
+	$db->[$fn_ix]->{"fitsfile"}=
+	    Astro::FITS::CFITSIO::create_file($fits_filename,$status);
+
+	my $fptr=$db->[$fn_ix]->{"fitsfile"};
+	printf "status=$status\n" if ($status);
+	$fptr->create_img(DOUBLE_IMG,2,[0,0],$status);
+	printf "status=$status\n" if ($status);
+	stash_fits_version($fptr,$db->[$fn_ix],
+			   {"labels"=>"all"},["I"],"SLAC::TS5 DATA");
+	foreach my $label ("S00", "S01", "S02",
+			   "S10", "S11", "S12",
+			   "S20", "S21", "S22",
+			   "fid0","fid1"       ) {
+	    stash_fits_version($fptr,$db->[$fn_ix],
+			       {"labels"=>[$label]},["I","label"],
+			       "SLAC::TS5 DATA"." (".$label.")");
+	}
+	stash_regressions_fits_version($fptr,$db->[$fn_ix]);
+	# finally close the fits file
+	$db->[$fn_ix]->{"fitsfile"}->close_file($status);
+	printf "status=$status\n" if ($status);
+	
+	if ($cleanup==1) {
+	    unlink $db->[$fn_ix]->{"filename"};
+	    $cleanup=0;
+	} 
+    }
+    # OK, so the kmsf file has been saved as many times as the ms file has been. shouldn't depend on the ms datasets anyway.
 }
 
 sub save_regressions {
@@ -300,6 +427,9 @@ sub remove_regression {
 }
 
 sub regr_by_labels {
+    # modified to return a hash of arrrays indicating outlier status (measured in sigma).
+    # keys of hash are *labels*, indexes of per-label arrays are according to 
+    # $starting_ix_list..
     my ($this,$new_regr_root,$regr_indep_axes,$regr_dep_axis,$starting_ix_list,$thresh_rms)=@_;
     #	    ($db->[$fn_ix],"_rgr_bylabel",["I","KF_x","KF_y"],"TS5_CMM_ballplane_ref",$db->[$fn_ix]->{"_meas"},1.5);
 
@@ -370,7 +500,37 @@ sub regr_by_labels {
 	}
 	$iter++;
     } while (($iter<=2) || ($stable_rejection!=1));
+
     # regressions are stored
+    
+    # pass through one more time to assign a mask array (for data point rejection downstream)
+#    open(GGGG,">","outliers.qdp") || die;
+    my $outlier_ix_list={};
+    {
+	foreach my $ix (@{$ix_list}) {
+	    my $lab=$this->{"label"}->[$ix];
+	    $outlier_ix_list->{$lab}=[] if (!defined($outlier_ix_list->{$lab}));
+	    my $rgr=$rgrs->{$lab};
+	    my ($data,$model)=($this->{$rgr->{"regr_dep_axis"}}->[$ix],0);
+	    foreach my $ia_ix (0..$#{$rgr->{"regr_indep_axes"}}) {
+		my $ia_val=$this->{$rgr->{"regr_indep_axes"}->[$ia_ix]}->[$ix];
+		my $rgr_coeff=$rgr->{"theta"}->[$ia_ix];
+		$model += $ia_val*$rgr_coeff;
+	    }	    
+	    $outlier_ix_list->{$lab}->[$ix]=($data-$model)/$rms->{$lab};
+#	    if (sqrt(pow(($data-$model)/$rms->{$lab},2)) > $thresh_rms) {
+#		# this is an outlier. assign like this for random access
+#		printf GGGG "%g %g %g %g\n",
+#		    $this->{$rgr->{"regr_indep_axes"}->[1]}->[$ix],
+#		    $this->{$rgr->{"regr_indep_axes"}->[2]}->[$ix],
+#		    $outlier_ix_list->{$lab}->[$ix],
+#		    $outlier_ix_list->{$lab}->[$ix]*$rms->{$lab};
+#	    }
+	}
+    }
+#    close(GGGG);
+#    exit;
+    
     # now since the regression is patchwork, store columns corresponding to the regression and the residuals here, and append them to $this
     {
 	# these are the columns that can be appended
@@ -391,6 +551,7 @@ sub regr_by_labels {
 	append_column($this,$regr_dep_axis."_pwl",$newcol_regmodel);
 	append_column($this,$regr_dep_axis."_pwl_rr",$newcol_regmodelsub);
     }
+    return($outlier_ix_list);
 }
 
 sub regr_windowed_surface {
@@ -470,9 +631,10 @@ sub regression_difference {
     $rgr->{"theta"}=$diff;
     return($diff);
 }
-    
+
 sub regr_sample_rgns {
     my ($thedb,$rgr,$lc,$indep_axes,$dep_axis,$samp_lc,$tol)=@_;
+
     if (!defined($thedb->{$lc->[0]}) || 
 	!defined($thedb->{$lc->[1]}) ||
 	!defined($thedb->{$dep_axis})) {
@@ -488,7 +650,6 @@ sub regr_sample_rgns {
 	}
     }
     
-
     my $regr_indep_axes=$indep_axes;
     my $regr_dep_axis=$dep_axis;
     my $rgressn=Statistics::Regression->new($regr_dep_axis,$regr_indep_axes);
@@ -860,6 +1021,22 @@ sub append_column {
     }
 }
 
+sub detach_column {
+    my ($this,$col_name)=@_;
+    foreach my $cnix (0..$#{$this->{"colnames"}}) {
+	next if (defined($this->{"colnames"}->[$cnix]) &&
+		 ($this->{"colnames"}->[$cnix] ne $col_name));
+	# this will also splice out any undefined elements in the "colnames" array
+	splice(@{$this->{"colnames"}},$cnix,1);
+    }
+    if (defined($this->{$col_name})) {
+	undef($this->{$col_name});
+    } else {
+	printf STDERR "column $col_name doesn't exist in $this.\nexiting..\n";
+	exit(1);
+    }
+}
+
 sub describe_contents {
     my ($this)=@_;
     printf STDERR ("currently have %d entries with column titles:\n%s\n",
@@ -971,6 +1148,7 @@ sub stash_fits_version {
 		    $include_this=1 if ($lbl eq $this->{"label"}->[$i]);
 		}
 		next if (!$include_this);
+		next if (!defined($this->{$colname}->[$i]));
 		$fptr->write_col($dtype->[$col_ix],
 				 $col_ix+1,$row+1,
 				 1,1,[$this->{$colname}->[$i]],$status);
@@ -1009,6 +1187,7 @@ sub stash_regressions_fits_version {
 	    my @data=($key,$this->{$key}->{"regr"}->{"regr_dep_axis"},
 		      @{$this->{$key}->{"regr"}->{"regr_indep_axes"}},
 		      @{$this->{$key}->{"regr"}->{"theta"}});
+	    next if ($#data-$[+1 != 8);
 	    # get the current number of rows.
 	    my $nrows;
 	    $fptr->get_num_rows($nrows,$status);
@@ -1053,5 +1232,24 @@ sub stash_regressions_fits_version {
 	    $fptr->write_col($dtype->[$col],$col+1,$nrows+1,1,1,[$data[$col]],$status);
 	    printf "status=$status\n" if ($status);
 	}
+    }
+}
+
+sub pare_array {
+    my ($ix_array,$outlier_hash,$labels,$thresh)=@_;
+    my @targeted_indices=();
+    foreach my $label (@{$labels}) {
+	foreach my $ix (keys @{$outlier_hash->{$label}}) {
+	    push(@targeted_indices,$ix) 
+		if (pow($outlier_hash->{$label}->[$ix],2)>pow($thresh,2));
+	}
+    }
+    @targeted_indices = sort {$a<=>$b} @targeted_indices;
+
+    foreach my $ix (reverse (0..$#{$ix_array})) {
+	next if ($ix_array->[$ix] != $targeted_indices[$#targeted_indices]);
+	splice(@targeted_indices,$#targeted_indices,1);
+	splice(@{$ix_array},$ix,1);
+	last if ($#targeted_indices==-1);
     }
 }

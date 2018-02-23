@@ -78,9 +78,10 @@ my $output_graphics_file_list;
 
 my $report_axes=["TS5_CMM_ballplane_ref",
 		 "TS5_CMM_ballplane_ref_rr",
-		 "TS5_CMM_ballplane_ref_pwl_rr"];
+		 "TS5_CMM_ballplane_ref_pwl_rr",
+		 "TS5_CMM_ballplane_ref_orig_registration"];
 
-my $titles=["raft imageheight","raft flatness","sensor flatness"];
+my $titles=["raft imageheight","raft flatness","sensor flatness","orig imageheight"];
 
 # $report_axes=["TS5_CMM_ballplane_ref_rr"];
 # $titles=["raft flatness"];
@@ -133,7 +134,7 @@ foreach my $zax_ix (0..$#{$report_axes}) {
 		$cond=sprintf("(%s)",$sets->{$infile});
 	    }
 
-	    foreach $edge_threshold (0.5) {
+	    foreach $edge_threshold (0.0) {
 
 		$tnt->{$infile}->{"hist"}=make_histogram(
 		    {("data"         => $tnt->{$infile},
