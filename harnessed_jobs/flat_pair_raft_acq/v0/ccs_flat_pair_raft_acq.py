@@ -33,11 +33,14 @@ class FlatAcquisition(EOAcquisition):
             self.image_clears()
             self.bias_image(seqno)
 
+            slit_width_changed = self._set_slitwidth(tokens, 2)
+            if slit_width_changed:
+                meas_flux = self.measured_flux(self.wl)
+                self.logger.info("flat_pair_acq: measured flux =", meas_flux)
+
             # Compute exposure time in ms to obtain the desired signal level.
             target_counts = float(tokens[1])  # e-/pixel
             exptime = self.compute_exptime(target_counts, meas_flux)
-
-            self._set_slitwidth(tokens, 2)
 
             # Create photodiode readout handler.
             pd_readout = PhotodiodeReadout(exptime, self)

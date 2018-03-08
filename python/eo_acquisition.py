@@ -139,7 +139,7 @@ class EOAcquisition(object):
         self._get_image_counts()
         self._set_default_wavelength()
         self.current_slitwidth \
-            = self.eo_config.get('DEFAULT_SLITWIDTH', default=240)
+            = int(self.eo_config.get('DEFAULT_SLITWIDTH', default=240))
         self.set_slitwidth(self.current_slitwidth, self.slit_id)
         self._read_instructions(acq_config_file)
         self._fn_pattern = "${CCDSerialLSST}_${testType}_${imageType}_${SequenceInfo}_${RunNumber}_${timestamp}.fits"
@@ -199,16 +199,19 @@ class EOAcquisition(object):
         self.set_wavelength(self.wl)
 
     def _set_slitwidth(self, tokens, index):
+        slit_width_changed = False
         try:
-            width = float(tokens[index])
+            width = int(tokens[index])
         except IndexError:
-            width = self.eo_config.get('DEFAULT_SLITWIDTH', default=240)
+            width = int(self.eo_config.get('DEFAULT_SLITWIDTH', default=240))
         if width != self.current_slitwidth:
             self.set_slitwidth(width, self.slit_id)
             self.current_slitwidth = width
+            slit_width_changed = True
+        return slit_width_changed
 
     def set_slitwidth(self, width, slit_id):
-        self.sub.mono.synchCommand('setSlitSize', slit_id, width)
+        self.sub.mono.synchCommand(10, 'setSlitSize', slit_id, width)
 
     def set_wavelength(self, wl):
         """
