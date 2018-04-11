@@ -638,7 +638,8 @@ exit;
 sub shell_command_console {
     my ($instr)=@_;
     my ($write,$read,$error);
-    my $cmd="/lsst/ccs/dev/bin/ShellCommandConsole";
+#    my $cmd="/lsst/ccs/dev/bin/ShellCommandConsole";
+    my $cmd="/lsst/ccs/prod/bin/ccs-shell";
 
     my $selwrite=IO::Select->new();
     my $selread =IO::Select->new();
@@ -672,7 +673,8 @@ sub shell_command_console {
  	$svfh = select(STDOUT); $|=1; select($svfh);
      }
 
-    printf STDERR "connecting to ShellCommandConsole "
+#    printf STDERR "connecting to ShellCommandConsole "
+    printf STDERR "connecting to ccs-shell "
 	if ($verbose);
 
     # block until ready to read. this is also what apparently causes program to stop if
@@ -684,7 +686,7 @@ sub shell_command_console {
 	    if ($verbose);
     } until(flush_read_buffers($sel));
 
-    select(undef,undef,undef,12);
+    select(undef,undef,undef,2);
     flush_read_buffers($sel);
 
 
