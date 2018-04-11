@@ -80,8 +80,17 @@ my $report_axes=["TS5_CMM_ballplane_ref",
 		 "TS5_CMM_ballplane_ref_rr",
 		 "TS5_CMM_ballplane_ref_pwl_rr",
 		 "TS5_CMM_ballplane_ref_orig_registration"];
+# only for reanalysis study
+$report_axes=["TS5_CMM_ballplane_ref",
+	      "TS5_CMM_ballplane_ref_rr",
+	      "TS5_CMM_ballplane_ref_pwl_rr",
+	      "TS5_CMM_ballplane_ref_orig_registration",
+	      "TS5_CMM_ballplane_ref_nearest_fidpos"];
 
 my $titles=["raft imageheight","raft flatness","sensor flatness","orig imageheight"];
+
+# only for reanalysis study
+$titles=["raft imageheight","raft flatness","sensor flatness","orig imageheight","nearest fidpos"];
 
 # $report_axes=["TS5_CMM_ballplane_ref_rr"];
 # $titles=["raft flatness"];
