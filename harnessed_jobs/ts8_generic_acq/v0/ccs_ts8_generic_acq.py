@@ -30,6 +30,7 @@ GENERIC_NBIAS           1   # Number of bias among a cycle
 GENERIC_NDARK           1   # Number of dark among a cycle
 GENERIC_NFLAT           1   # Number of flat among a cycle
 GENERIC_NFE55           1   # Number of fe55 among a cycle
+GENERIC_NFEFL           0   # Number of fe55+flat among a cycle
 GENERIC_SIGNAL      20000   # Target signal in e-
 # Exposure time in seconds, if present, it will override the target signal.
 #GENERIC_TDARK          10   # exposure tiem of dark image
