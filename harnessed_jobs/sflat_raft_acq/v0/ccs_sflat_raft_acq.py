@@ -29,6 +29,7 @@ class SuperFlatAcquisition(EOAcquisition):
             wl = float(tokens[1])
             target_flux = float(tokens[2])
             nframes = int(tokens[3])
+            self._set_slitwidth(tokens, 4)
             test_type = "SFLAT_%3.3d" % wl
             if target_flux < 1e4:
                 flux_level = 'L'

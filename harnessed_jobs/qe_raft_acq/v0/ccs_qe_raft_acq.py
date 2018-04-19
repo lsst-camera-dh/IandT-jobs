@@ -29,6 +29,7 @@ class QEAcquisition(EOAcquisition):
 
             wl = float(tokens[1])
             target_counts = float(tokens[2])
+            self._set_slitwidth(tokens, 3)
             meas_flux = self.measured_flux(wl)
             exptime = self.compute_exptime(target_counts, meas_flux)
 

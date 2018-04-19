@@ -7,6 +7,10 @@ import glob
 import time
 from collections import namedtuple
 import logging
+try:
+    import java.lang
+except ImportError:
+    print("could not import java.lang")
 from ccs_scripting_tools import CcsSubsystems, CCS
 from ts8_utils import set_ccd_info, write_REB_info
 
@@ -86,7 +90,7 @@ class EOAcquisition(object):
     Base class for TS8 electro-optical data acquisition.
     """
     def __init__(self, seqfile, acq_config_file, acqname, metadata,
-                 subsystems, ccd_names, logger=logger):
+                 subsystems, ccd_names, logger=logger, slit_id=2):
         """
         Parameters
         ----------
@@ -105,6 +109,13 @@ class EOAcquisition(object):
             names for the CcsSubsystems class, i.e., 'ts', 'ts8', 'pd',
             and 'mono'.  If None, then the default subsystems, 'ts', 'ts8',
             'ts/PhotoDiode', and 'ts/Monochromator', will be attached.
+        ccd_names : dict
+            Dictionary of namedtuple containing the CCD .sensor_id and
+            .maufacturer_sn information, keyed by slot name.
+        logger : logging.Logger
+            Log commands using the logger.info(...) function.
+        slit_id: int [2]
+            ID of the monochormator slit to set via ._set_slitwidth(...)
         """
         if subsystems is None:
             subsystems = dict(ts8='ts8', pd='ts8/Monitor',
@@ -122,10 +133,14 @@ class EOAcquisition(object):
         self.acqname = acqname
         self.md = metadata
         self.logger = logger
+        self.slit_id = slit_id
         self._set_ts8_metadata()
         self._get_exptime_limits()
         self._get_image_counts()
         self._set_default_wavelength()
+        self.current_slitwidth \
+            = int(self.eo_config.get('DEFAULT_SLITWIDTH', default=240))
+        self.set_slitwidth(self.current_slitwidth, self.slit_id)
         self._read_instructions(acq_config_file)
         self._fn_pattern = "${CCDSerialLSST}_${testType}_${imageType}_${SequenceInfo}_${RunNumber}_${timestamp}.fits"
         self.sub.ts8.synchCommand(90, "loadSequencer", self.seqfile)
@@ -182,6 +197,21 @@ class EOAcquisition(object):
         self.wl = float(self.eo_config.get('%s_WL' % self.acqname,
                                            default="550.0"))
         self.set_wavelength(self.wl)
+
+    def _set_slitwidth(self, tokens, index):
+        slit_width_changed = False
+        try:
+            width = int(tokens[index])
+        except IndexError:
+            width = int(self.eo_config.get('DEFAULT_SLITWIDTH', default=240))
+        if width != self.current_slitwidth:
+            self.set_slitwidth(width, self.slit_id)
+            self.current_slitwidth = width
+            slit_width_changed = True
+        return slit_width_changed
+
+    def set_slitwidth(self, width, slit_id):
+        self.sub.mono.synchCommand(10, 'setSlitSize', slit_id, width)
 
     def set_wavelength(self, wl):
         """
@@ -287,7 +317,7 @@ class EOAcquisition(object):
             try:
                 result = self.sub.ts8.synchCommand(timeout, command).getResult()
                 return result
-            except StandardError as eobj:
+            except (StandardError, java.lang.Exception) as eobj:
                 self.logger.info("EOAcquisition.take_image: try %i failed",
                                  itry)
                 self.logger.info(str(eobj))
@@ -295,7 +325,7 @@ class EOAcquisition(object):
         raise RuntimeError("Failed to take an image after %i tries."
                            % max_tries)
 
-    def image_clears(self, nclears=2, exptime=5):
+    def image_clears(self, nclears=0, exptime=5):
         """
         Take some bias frames to clear the CCDs.
 

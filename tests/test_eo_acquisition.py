@@ -16,6 +16,7 @@ class EOAcqConfigTestCase(unittest.TestCase):
         self.assertEqual(eo_config['FE55_BCOUNT'], '25')
         self.assertEqual(eo_config['FLAT_HILIM'], '240.0')
         self.assertEqual(eo_config['FLAT_LOLIM'], '0.025')
+        self.assertEqual(eo_config['DEFAULT_SLITWIDTH'], '240')
 
 class EOAcquisitionTestCase(unittest.TestCase):
     "TestCase class for the EOAcquisition class."

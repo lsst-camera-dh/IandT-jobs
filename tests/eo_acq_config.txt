@@ -1,5 +1,5 @@
 # site.cfg
-# 
+#
 # Configuration file for TS3 acquisition scripts
 #
 # Contains parameters and 'commands' for acquiring data for LSST CCD 
@@ -10,8 +10,9 @@
 
 ###############################################################################
 # Some potentially useful constants
-# 
+#
 C  299792458               # in meters per second, in case you need it
+DEFAULT_SLITWIDTH  240  # units are microns for output slit
 
 ###############################################################################
 # Fe55
@@ -29,10 +30,10 @@ fe55    50.0   10     # exposure time and image count for an fe55 data set
 # Dark
 # Dark integration images are acquired in sets of a given exposure time and 
 # image count. Bias images are acquired prior to acquiring any dark images
-# 
+#
 # A constant named DARK_BCOUNT is used to specifiy the number of bias images
 # to acquire as part of the data set prior to acquiring the dark images.
-# 
+#
 # NOTE: ANALYSIS REQUIRES EXPTIME TO BE EQUAL
 DARK_BCOUNT    5    # number of bias frames per dark set
 DARK_DELAY     0    # number of seconds betwen darks in a set
@@ -47,23 +48,23 @@ dark   500.0   2    # integration time and image count for dark set
 #
 # A constant named SFLAT_BCOUNT is used to specifiy the number of bias images
 # to acquire as part of the data set prior to acquiring the flat field images.
-# 
+#
 # NOTE: ANALYSIS REQUIRES SOME TAKEN AT 500nm
 SFLAT_BCOUNT   0    # number of bias frames to take with a superflat set
 SFLAT_HILIM   120.0  # maximum seconds for a fluxcal exposure
 SFLAT_LOLIM     0.1  # minimum seconds for a fluxcal exposure
 
-sflat  500  1000   1   # wavelength, signal(e-), count 
-sflat  500  50000  1   # wavelength, signal(e-), count 
+sflat  500  1000   1  240 # wavelength, signal(e-), count, slitwidth
+sflat  500  50000  1  1000 # wavelength, signal(e-), count, slitwidth
 
 ###############################################################################
 # Lambda
-# Acquire images for use in QE measurement. 
-# Images are acquired as 'sets' of images that include a bias frame and 
-# N exposures of a given duration at a specified wavelength.  
+# Acquire images for use in QE measurement.
+# Images are acquired as 'sets' of images that include a bias frame and
+# N exposures of a given duration at a specified wavelength.
 # The lambda 'command' has the format of:
-# 
-# lambda   wavelength  signal 
+#
+# lambda   wavelength  signal  slitwidth
 # where signal is desired image signal in e-/pixel
 #
 LAMBDA_IMCOUNT   1    # number of images at each wavelength
@@ -71,84 +72,84 @@ LAMBDA_BCOUNT    1    # total number of bias frames
 LAMBDA_HILIM   120.0  # maximum seconds for a fluxcal exposure
 LAMBDA_LOLIM     0.1  # minimum seconds for a fluxcal exposure
 
-#.lambda   0320   20000
-#.lambda   0330   20000
-#.lambda   0340   20000
-lambda   0350   20000
-#lambda   0360   20000
-#lambda   0370   20000
-#lambda   0380   20000
-#lambda   0390   20000
-lambda   0400   20000
-#.lambda   0410   20000
-#lambda   0420   20000
-#lambda   0430   20000
-#lambda   0440   20000
-lambda   0450   20000
-#lambda   0460   20000
-#lambda   0470   20000
-#lambda   0480   20000
-#lambda   0490   20000
-lambda   0500   20000
-#lambda   0510   20000
-#lambda   0520   20000
-#lambda   0530   20000
-#.lambda   0540   20000
-lambda   0550   20000
-#.lambda   0560   20000
-#lambda   0570   20000
-#lambda   0580   20000
-#lambda   0590   20000
-lambda   0600   20000
-#lambda   0610   20000
-#lambda   0620   20000
-#lambda   0630   20000
-#lambda   0640   20000
-lambda   0650   20000
-#lambda   0660   20000
-#lambda   0670   20000
-#.lambda   0680   20000
-#.lambda   0690   20000
-lambda   0700   20000
-#lambda   0710   20000
-lambda   0720   20000
-#lambda   0730   20000
-#lambda   0740   20000
-lambda   0750   20000
-#lambda   0760   20000
-lambda   0770   20000
-#lambda   0780   20000
-#lambda   0790   20000
-lambda   0800   20000
-#lambda   0810   20000
-#lambda   0820   20000
-lambda   0830   20000
-#lambda   0840   20000
-#lambda   0850   20000
-lambda   0870   20000
-#lambda   0880   20000
-#lambda   0890   20000
-lambda   0900   20000
-#lambda   0910   20000
-lambda   0920   20000
-#lambda   0930   20000
-#lambda   0940   20000
-#lambda   0950   20000
-lambda   0960   20000
-#lambda   0970   20000
-#lambda   0980   20000
-#lambda   0990   20000
-lambda   1000   20000
-#lambda   1010   20000
-#lambda   1020   20000
-#lambda   1030   20000
-#lambda   1040   20000
-lambda   1050   20000
-#lambda   1060   20000
-#lambda   1070   20000
-#lambda   1080   20000
-#lambda   1090   20000
-lambda   1100   20000
+#.lambda   0320   20000  240
+#.lambda   0330   20000  240
+#.lambda   0340   20000  240
+lambda   0350   20000  240
+#lambda   0360   20000  240
+#lambda   0370   20000  240
+#lambda   0380   20000  240
+#lambda   0390   20000  240
+lambda   0400   20000  240
+#.lambda   0410   20000  240
+#lambda   0420   20000  240
+#lambda   0430   20000  240
+#lambda   0440   20000  240
+lambda   0450   20000  240
+#lambda   0460   20000  240
+#lambda   0470   20000  240
+#lambda   0480   20000  240
+#lambda   0490   20000  240
+lambda   0500   20000  240
+#lambda   0510   20000  240
+#lambda   0520   20000  240
+#lambda   0530   20000  240
+#.lambda   0540   20000  240
+lambda   0550   20000  240
+#.lambda   0560   20000  240
+#lambda   0570   20000  240
+#lambda   0580   20000  240
+#lambda   0590   20000  240
+lambda   0600   20000  240
+#lambda   0610   20000  240
+#lambda   0620   20000  240
+#lambda   0630   20000  240
+#lambda   0640   20000  240
+lambda   0650   20000  240
+#lambda   0660   20000  240
+#lambda   0670   20000   240
+#.lambda   0680   20000   240
+#.lambda   0690   20000   240
+lambda   0700   20000   240
+#lambda   0710   20000   240
+lambda   0720   20000   240
+#lambda   0730   20000   240
+#lambda   0740   20000   240
+lambda   0750   20000   240
+#lambda   0760   20000   240
+lambda   0770   20000   240
+#lambda   0780   20000   240
+#lambda   0790   20000   240
+lambda   0800   20000   240
+#lambda   0810   20000   240
+#lambda   0820   20000   240
+lambda   0830   20000   240
+#lambda   0840   20000   240
+#lambda   0850   20000   240
+lambda   0870   20000   240
+#lambda   0880   20000   240
+#lambda   0890   20000   240
+lambda   0900   20000   240
+#lambda   0910   20000   240
+lambda   0920   20000   240
+#lambda   0930   20000   240
+#lambda   0940   20000   240
+#lambda   0950   20000   240
+lambda   0960   20000   240
+#lambda   0970   20000   240
+#lambda   0980   20000   240
+#lambda   0990   20000   240
+lambda   1000   20000   240
+#lambda   1010   20000   240
+#lambda   1020   20000   240
+#lambda   1030   20000   240
+#lambda   1040   20000   240
+lambda   1050   20000   240
+#lambda   1060   20000   240
+#lambda   1070   20000   240
+#lambda   1080   20000   240
+#lambda   1090   20000   240
+lambda   1100   20000   240
 
 ###############################################################################
 # Flat
@@ -156,7 +157,7 @@ lambda   1100   20000
 # For each 'flat' command a pair of flat field images are acquired
 #
 # the format for a flat command is
-# flat   signal  
+# flat   signal  slitwidth
 # where signal is the desired acquired signal level in e-/pixel
 #
 # FLAT_WL is used to determine what wavelength will be used for illumination
@@ -166,77 +167,77 @@ FLAT_WL     675      # wavelength to use for the flats
 FLAT_HILIM  240.0    # maximum seconds for a flap field exposure
 FLAT_LOLIM  0.025    # minimum seconds for a flat field exposure
 
-#flat      100       # signal level desired, in e-/pixel
-#flat      200
-#flat      300
-#flat      400
-#flat      500
-#flat      600
-#flat      700
-flat      800
-#flat      900
-#flat     1000
-#flat     1100
-flat     1200
-#flat     1300
-#flat     1400
-#flat     1500
-#flat     2000
-flat     2500
-#flat     3000
-flat     3500
-#flat     4000
-flat     4500
-#flat     5000
-flat     7500
-flat    10000
-#flat    12000
-#flat    15000
-#flat    20000
-#flat    25000
-#flat    30000
-#flat    35000
-flat    40000
-#flat    45000
-#flat    50000
-#flat    55000
-flat    60000
-#flat    65000
-#flat    70000
-#flat    75000
-flat    80000
-#flat    85000
-#flat    86000
-#flat    87000
-#flat    88000
-#flat    89000
-flat    90000
-#flat    91000
-#flat    92000
-#flat    93000
-#flat    94000
-#flat    95000
-flat   100000
-#flat   105000
-flat   110000
-#flat   115000
-flat   120000
-#flat   125000
-flat   130000
-#flat   135000
-flat   140000
-#flat   145000
-flat   150000
-#flat   155000
-flat   160000
-#flat   165000
-#flat   170000
-flat   180000
-#flat   190000
-flat   200000
-#flat   210000
-flat   220000
-#flat   230000
+#flat      100   240    # signal level desired, in e-/pixel
+#flat      200   240
+#flat      300   240
+#flat      400   240
+#flat      500   240
+#flat      600   240
+#flat      700   240
+flat      800   240
+#flat      900   240
+#flat     1000   240
+#flat     1100   240
+flat     1200   240
+#flat     1300   240
+#flat     1400   240
+#flat     1500   240
+#flat     2000   240
+flat     2500   240
+#flat     3000   240
+flat     3500   240
+#flat     4000   240
+flat     4500   240
+#flat     5000   240
+flat     7500   240
+flat    10000   240
+#flat    12000   240
+#flat    15000   240
+#flat    20000   240
+#flat    25000   240
+#flat    30000   240
+#flat    35000   240
+flat    40000   240
+#flat    45000   240
+#flat    50000   240
+#flat    55000   240
+flat    60000   240
+#flat    65000   240
+#flat    70000   240
+#flat    75000   240
+flat    80000   240
+#flat    85000   240
+#flat    86000   240
+#flat    87000   240
+#flat    88000   240
+#flat    89000   240
+flat    90000   240
+#flat    91000   240
+#flat    92000   240
+#flat    93000   240
+#flat    94000   240
+#flat    95000   240
+flat   100000   240
+#flat   105000   240
+flat   110000   240
+#flat   115000   240
+flat   120000   240
+#flat   125000   240
+flat   130000   240
+#flat   135000   240
+flat   140000   240
+#flat   145000   240
+flat   150000   240
+#flat   155000   240
+flat   160000   240
+#flat   165000   240
+#flat   170000   240
+flat   180000   240
+#flat   190000   240
+flat   200000   240
+#flat   210000   240
+flat   220000   240
+#flat   230000   240
 
 ################################################################################
 # Pocket Pumping

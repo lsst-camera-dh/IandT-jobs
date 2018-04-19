@@ -62,17 +62,30 @@ if __name__ == '__main__':
     ccs_sub.ts8.synchCommand(10, "setTestStand TS8")
 
     test_type = 'CONN'
-    image_type = 'FLAT'
-
     command = "setTestType %s" % test_type
-    ccs_sub.ts8.synchCommand(10, command)
-
-    command = "setImageType %s" % image_type
     ccs_sub.ts8.synchCommand(10, command)
 
     openShutter = False
     actuateXED = False
     filename_format = "${CCDSerialLSST}_${testType}_${imageType}_%04d_${RunNumber}_${timestamp}.fits"
+
+    # Take 5 bias frames to clear the CCDs and enable a noise
+    # measurement.
+    image_type = 'BIAS'
+    command = "setImageType %s" % image_type
+    ccs_sub.ts8.synchCommand(10, command)
+    exptime = 0
+    for i in range(5):
+        filename = filename_format % i
+        command = 'exposeAcquireAndSave %i %s %s "%s"' % \
+                  (exptime, openShutter, actuateXED, filename)
+        ccs_sub.ts8.synchCommand(100, command)
+        logger.info("%s taken with exptime %i ms", image_type, exptime)
+
+    # Take the flats for the 3 exposure times used at BNL.
+    image_type = 'FLAT'
+    command = "setImageType %s" % image_type
+    ccs_sub.ts8.synchCommand(10, command)
 
     # Take frames for three different exposure times.
     exptimes = (100, 1000, 4000)
