@@ -313,7 +313,7 @@ class EOAcquisition(object):
         
         #- new for test
         self.verify_sequencer_params()
-        self.shifted_clear(1, 6.5)
+        self.shifted_clear(1, 6.0)
         #- end new for test
 
         command = 'exposeAcquireAndSave %d %s %s "%s"' \
@@ -423,7 +423,7 @@ class EOAcquisition(object):
         exptime = min(max(exptime, self.exptime_min), self.exptime_max)
         return exptime
 
-    def getParallelHighConfig():
+    def getParallelHighConfig(self):
 	"""
 	get phi0, phi1, phi2 existing values of pclkHighP
 	"""
@@ -457,7 +457,7 @@ class EOAcquisition(object):
 	    return None
 	return (phi0, phi1, phi2)
 
-    def get_ccdtype():
+    def get_ccdtype(self):
 	""" return ccdtype as a string"""
 	res = str(self.sub.ts8.synchCommand(10, "getCcdType").getResult())
 	if re.match(r"^e2v$", res):
@@ -468,26 +468,26 @@ class EOAcquisition(object):
            self.logger.info("CCD Type unknown, returning None")
 	return None
 
-    def verify_sequener_params():
+    def verify_sequencer_params(self):
         """ Check that CleaningNumber = 0 and ClearCount = 1
             Otherwise the wrong sequencer is loaded
         """
         #- CleaningNummber = [0, 0, 0]
-        res = self.sub.ts8.synchCommand(10, 
-                   "getSequencerParameter", "CleaningNumber").getResult()
+        res = str(self.sub.ts8.synchCommand(10, 
+                   "getSequencerParameter", "CleaningNumber").getResult())
         if not re.match(r"\[0, 0, 0\]", res):
                 self.logger.info(
                     "SeqParam CleaningNumber:{} invalid".format(res))
                 raise java.lang.Exception("Bad Sequencer")
         #- ClearCount = [1, 1, 1]
-        res = self.sub.ts8.synchCommand(10, 
-                   "getSequencerParameter", "ClearCount").getResult()
+        res = str(self.sub.ts8.synchCommand(10, 
+                   "getSequencerParameter", "ClearCount").getResult())
         if not re.match(r"\[1, 1, 1\]", res):
                 self.logger.info(
                     "SeqParam ClearCount:{} invalid".format(res))
                 raise java.lang.Exception("Bad Sequencer")
 
-    def shifted_clear(nclears, phinew):
+    def shifted_clear(self, nclears, phinew):
 	""" set P-Hi to phinew, do nclears set P-Hi back to nominal
 	"""
 	if (nclears < 1 ):
@@ -497,13 +497,13 @@ class EOAcquisition(object):
 	    #- verify input value makes sense
 	    #
 	    if (phinew < 6.0 or phinew > 8.0):
-                self.logger.info("P-HI:{} not in range 6.0..8.0".format(phinew)
+                self.logger.info("P-HI:{} not in range 6.0..8.0".format(phinew))
                 #- throw an exception here or something
-                raise java.lang.Exception("Bad phinew value")
+                raise java.lang.Exception("Bad phinew value {}".format(phinew))
 	    #
 	    #- get original values
 	    #
-	    phiold = getParallelHighConfig()
+	    phiold = self.getParallelHighConfig()
             if phiold == None:
                 self.logger.info("getParallelHighConfig() = None")
                 #- throw an exception here or something
@@ -516,16 +516,16 @@ class EOAcquisition(object):
 	    self.sub.ts8dac0.synchCommand(10, "change", "pclkHighP", phinew)
 	    self.sub.ts8dac1.synchCommand(10, "change", "pclkHighP", phinew)
 	    self.sub.ts8dac2.synchCommand(10, "change", "pclkHighP", phinew)
-	    self.sub.ts8sub.synchCommand(10, "loadDacs true")
+	    self.sub.ts8.synchCommand(10, "loadDacs true")
 	#
 	#- Perform the Clear main
 	#
 	self.logger.info("Clearing CCD {} times...".format(nclears))
 	for seqno in range(nclears):
-	    ts8sub.synchCommand(10, "setSequencerStart", "Clear")
-	    #ts8sub.synchCommand(10, "startSequencer")
-	    ts8sub.synchCommand(10, "waitSequencerDone", 1000).getResult()
-	    ts8sub.synchCommand(10, "setSequencerStart", "Bias")
+	    self.sub.ts8.synchCommand(10, "setSequencerStart", "Clear")
+	    self.sub.ts8.synchCommand(10, "startSequencer")
+	    self.sub.ts8.synchCommand(10, "waitSequencerDone", 1000).getResult()
+	    self.sub.ts8.synchCommand(10, "setSequencerStart", "Bias")
 	if ccdtype == 'e2v':
 	    #
 	    #- change back to original value
@@ -533,8 +533,9 @@ class EOAcquisition(object):
 	    self.logger.info("changing dac {} to {}...".format(
 	                     "pclkHighP", phiold))
 	    self.sub.ts8dac0.synchCommand(10, "change", "pclkHighP", phiold[0])
-	    self.sub.ts8dac0.synchCommand(10, "change", "pclkHighP", phiold[1])
-	    self.sub.ts8dac0.synchCommand(10, "change", "pclkHighP", phiold[2])
+	    self.sub.ts8dac1.synchCommand(10, "change", "pclkHighP", phiold[1])
+	    self.sub.ts8dac2.synchCommand(10, "change", "pclkHighP", phiold[2])
+	    self.sub.ts8.synchCommand(10, "loadDacs true")
 	    #
 
 class PhotodiodeReadout(object):
