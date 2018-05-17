@@ -313,7 +313,7 @@ class EOAcquisition(object):
         
         #- new for test
         self.verify_sequencer_params()
-        self.shifted_clear(1, 6.5)
+        self.shifted_clear(1, 6.0)
         #- end new for test
 
         command = 'exposeAcquireAndSave %d %s %s "%s"' \
