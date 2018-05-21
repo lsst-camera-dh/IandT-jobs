@@ -197,15 +197,16 @@ class EOAcquisition(object):
         self.sub.ts8.synchCommand(10, "setMonoWavelength", rwl)
         return rwl
 
-    def set_nominal_voltages(self):
+    def set_nominal_voltages(self, ccs_config):
         """
         Reset to the nominal voltages in the CCS config file.
         """
-
-        #self.ts8.synchCommand(10) # Add appropriate command here
-        #self.sub.ts8.synchCommand(10, "loadDacs true")
-        #self.sub.ts8.synchCommand(10, "loadBiasDacs true")
-        pass
+        self.sub.ts8.synchCommand(10, "setBackBias false")
+        self.sub.ts8.synchCommand(10, "loadConfiguration", ccs_config)
+        self.sub.ts8.synchCommand(10, "loadDacs true")
+        self.sub.ts8.synchCommand(10, "loadBiasDacs true")
+        self.sub.ts8.synchCommand(10, "loadAspics true")
+        self.sub.ts8.synchCommand(10, "setBackBias true")
 
     def _read_instructions(self, acq_config_file):
         """
