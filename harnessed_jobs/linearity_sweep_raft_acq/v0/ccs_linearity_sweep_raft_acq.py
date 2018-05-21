@@ -55,6 +55,7 @@ class LinearitySweepAcquisition(EOAcquisition):
             for vod, vrd in voltage_pairs:
 
                 ## Sync commands issued to subsystems to change voltages
+                self.sub.ts8.synchCommand(10, "setBackBias false")
                 self.sub.reb0bias0.synchCommand(10, "change", "odP", vod)
                 self.sub.reb0bias1.synchCommand(10, "change", "odP", vod)
                 self.sub.reb0bias2.synchCommand(10, "change", "odP", vod)
@@ -64,7 +65,6 @@ class LinearitySweepAcquisition(EOAcquisition):
                 self.sub.reb2bias0.synchCommand(10, "change", "odP", vod)
                 self.sub.reb2bias1.synchCommand(10, "change", "odP", vod)
                 self.sub.reb2bias2.synchCommand(10, "change", "odP", vod)
-
                 self.sub.reb0bias0.synchCommand(10, "change", "rdP", vrd)
                 self.sub.reb0bias1.synchCommand(10, "change", "rdP", vrd)
                 self.sub.reb0bias2.synchCommand(10, "change", "rdP", vrd)
@@ -74,12 +74,11 @@ class LinearitySweepAcquisition(EOAcquisition):
                 self.sub.reb2bias0.synchCommand(10, "change", "rdP", vrd)
                 self.sub.reb2bias1.synchCommand(10, "change", "rdP", vrd)
                 self.sub.reb2bias2.synchCommand(10, "change", "rdP", vrd)
-
-                ## Synch to ts8-raft to load DACs
                 self.sub.ts8.synchCommand(10, "loadBiasDacs true")
+                self.sub.ts8.synchCommand(10, "setBackBias true")
                 
                 for iframe in range(nframes):
-                    self.bias_image(seqno) # Will this work with a the ramp sequencer?
+                    self.bias_image(seqno) # Will this work with the ramp sequencer?
                     file_template = '${CCDSerialLSST}_${testType}_${imageType}_%.2f_%.2f_%3.3d_${timestamp}.fits' % (vod, vrd, seqno+1)
                     fits_files = self.take_image(seqno, exptime, openShutter, 
                                                  actuateXed, image_type,

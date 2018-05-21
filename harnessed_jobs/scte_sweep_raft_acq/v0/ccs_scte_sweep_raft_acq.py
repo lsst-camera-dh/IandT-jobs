@@ -64,16 +64,15 @@ class ScteSweepAcquisition(EOAcquisition):
 
             for serlo, serhi in voltage_pairs:
 
-                ## Sync commands issued to subsystems to change voltages
+                self.sub.ts8.synchCommand(10, "setBackBias false")
                 self.sub.reb0rails.synchCommand(10, "change", "sclkLowP", serlo)
                 self.sub.reb1rails.synchCommand(10, "change", "sclkLowP", serlo)
                 self.sub.reb2rails.synchCommand(10, "change", "sclkLowP", serlo)
                 self.sub.reb0rails.synchCommand(10, "change", "sclkHighP", serhi)
                 self.sub.reb1rails.synchCommand(10, "change", "sclkHighP", serhi)
                 self.sub.reb2rails.synchCommand(10, "change", "sclkHighP", serhi)
-
-                ## Synch to ts8-raft to load DACs
                 self.sub.ts8.synchCommand(10, "loadDacs true")
+                self.sub.ts8.synchCommand(10, "setBackBias true")
                 
                 for iframe in range(nframes):
                     self.bias_image(seqno)
