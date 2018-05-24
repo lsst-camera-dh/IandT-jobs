@@ -199,13 +199,24 @@ class EOAcquisition(object):
 
     def set_nominal_voltages(self):
         """
-        Reset to the nominal voltages in the CCS config file.
+        Load the original configuration information and reset all voltages.
         """
+        config_info = repr(self.ts8.synchCommand(10, "getConfigurationInfo").getResult())
+        info_list = config_info[config_info.find("[")+1:config_info.find("]")]
+        config = info_list.split(',')[3]
 
-        #self.ts8.synchCommand(10) # Add appropriate command here
-        #self.sub.ts8.synchCommand(10, "loadDacs true")
-        #self.sub.ts8.synchCommand(10, "loadBiasDacs true")
-        pass
+        self.ts8.synchCommand(10, "setBackBias false")
+
+        try:
+            self.ts8.synchCommand(10, "loadConfiguration", config)
+            self.ts8.synchCommand(10, "loadBiasDacs true")
+            self.ts8.synchCommand(10, "loadDacs true")
+            self.ts8.synchCommand(10, "loadAspics true")
+        except:
+            self.ts8.synchCommand(10, "setBackBias false")
+            raise
+        
+        self.ts8.synchCommand(10, "setBackBias true")
 
     def _read_instructions(self, acq_config_file):
         """
