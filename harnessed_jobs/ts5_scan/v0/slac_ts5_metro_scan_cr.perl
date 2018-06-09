@@ -670,6 +670,11 @@ sub get_scanspecs {
 				     "lat_offset" => [0,0],
 				     "outer_loop_y" => 0,
 				     "label" => "SELFCAL_fid1"};
+    if (1) {
+	# for corner raft..
+	$selfcal_spec_fiducial->[0]->{"outer_loop_y"}=1;
+	$selfcal_spec_fiducial->[1]->{"outer_loop_y"}=1;
+    }
 
     # move onto sensors
     $samp=[1,1];
@@ -705,7 +710,7 @@ sub get_scanspecs {
 			"ny" => floor($selfcal_dim->[1]/$selfcal->{"spacing"}+1),
 			"cen" => $sensor_cen,
 			"rot"=> $ip_rot->{$sen_i,$sen_j},
-			"outer_loop_y" => 0,
+			"outer_loop_y" => 0, 
 			"lat_offset"   => $lat_offset->{$sen_i,$sen_j},
 			"label"        => "SELFCAL_"."S".$sen_i.$sen_j};
 	    }
@@ -733,7 +738,7 @@ sub get_scanspecs {
 		    "ny" => floor($selfcal_dim->[1]/$selfcal->{"spacing"}+1),
 		    "cen" => $sensor_cen,
 		    "rot"=> $gs_ip_rot->{$gs_ix},
-		    "outer_loop_y" => 0,
+		    "outer_loop_y" => 1, # outer loop spec needs to be coordinated with selfcal definition
 		    "lat_offset"   => $gs_lat_offset->{$gs_ix},
 		    "label"        => "SELFCAL_"."GS".$gs_ix};
 	    push(@{$selfcal_spec_sensors},$scspec);
@@ -759,7 +764,7 @@ sub get_scanspecs {
 		    "ny" => floor($selfcal_dim->[1]/$selfcal->{"spacing"}+1),
 		    "cen" => $sensor_cen,
 		    "rot"=> $wfs_ip_rot->{$wfs_ix},
-		    "outer_loop_y" => 0,
+		    "outer_loop_y" => 1, # outer loop spec needs to be coordinated with selfcal definition
 		    "lat_offset"   => $wfs_lat_offset->{$wfs_ix},
 		    "label"        => "SELFCAL_"."WFS".$wfs_ix};
 	    push(@{$selfcal_spec_sensors},$scspec);
