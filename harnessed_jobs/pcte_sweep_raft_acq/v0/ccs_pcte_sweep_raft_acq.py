@@ -64,7 +64,6 @@ class PcteSweepAcquisition(EOAcquisition):
 
             for parlo, parhi in voltage_pairs:
 
-                self.sub.ts8.synchCommand(10, "setBackBias false")
                 self.sub.reb0rails.synchCommand(10, "change", "pclkLowP", parlo)
                 self.sub.reb1rails.synchCommand(10, "change", "pclkLowP", parlo)
                 self.sub.reb2rails.synchCommand(10, "change", "pclkLowP", parlo)
@@ -72,7 +71,6 @@ class PcteSweepAcquisition(EOAcquisition):
                 self.sub.reb1rails.synchCommand(10, "change", "pclkHighP", parhi)
                 self.sub.reb2rails.synchCommand(10, "change", "pclkHighP", parhi)
                 self.sub.ts8.synchCommand(10, "loadDacs true")
-                self.sub.ts8.synchCommand(10, "setBackBias true")
                 
                 for iframe in range(nframes):
                     self.bias_image(seqno)

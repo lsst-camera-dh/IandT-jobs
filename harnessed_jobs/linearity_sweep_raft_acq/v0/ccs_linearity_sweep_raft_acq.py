@@ -55,7 +55,6 @@ class LinearitySweepAcquisition(EOAcquisition):
             for vod, vrd in voltage_pairs:
 
                 ## Sync commands issued to subsystems to change voltages
-                self.sub.ts8.synchCommand(10, "setBackBias false")
                 self.sub.reb0bias0.synchCommand(10, "change", "odP", vod)
                 self.sub.reb0bias1.synchCommand(10, "change", "odP", vod)
                 self.sub.reb0bias2.synchCommand(10, "change", "odP", vod)
@@ -75,7 +74,6 @@ class LinearitySweepAcquisition(EOAcquisition):
                 self.sub.reb2bias1.synchCommand(10, "change", "rdP", vrd)
                 self.sub.reb2bias2.synchCommand(10, "change", "rdP", vrd)
                 self.sub.ts8.synchCommand(10, "loadBiasDacs true")
-                self.sub.ts8.synchCommand(10, "setBackBias true")
                 
                 for iframe in range(nframes):
                     self.bias_image(seqno) # Will this work with the ramp sequencer?

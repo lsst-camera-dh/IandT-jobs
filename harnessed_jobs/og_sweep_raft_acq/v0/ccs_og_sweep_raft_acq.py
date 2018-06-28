@@ -58,7 +58,6 @@ class OGSweepAcquisition(EOAcquisition):
             for vog in vog_values:
 
                 ## Sync commands issued to subsystems to change voltages
-                self.sub.ts8.synchCommand(10, "setBackBias false")
                 self.sub.reb0bias0.synchCommand(10, "change", "ogP", vog)
                 self.sub.reb0bias1.synchCommand(10, "change", "ogP", vog)
                 self.sub.reb0bias2.synchCommand(10, "change", "ogP", vog)
@@ -69,7 +68,6 @@ class OGSweepAcquisition(EOAcquisition):
                 self.sub.reb2bias1.synchCommand(10, "change", "ogP", vog)
                 self.sub.reb2bias2.synchCommand(10, "change", "ogP", vog)
                 self.sub.ts8.synchCommand(10, "loadBiasDacs true")
-                self.sub.ts8.synchCommand(10, "setBackBias true")
                 
                 for iframe in range(nframes):
                     self.bias_image(seqno)
