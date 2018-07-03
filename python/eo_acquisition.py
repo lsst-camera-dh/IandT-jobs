@@ -472,20 +472,22 @@ class EOAcquisition(object):
         """ Check that CleaningNumber = 0 and ClearCount = 1
             Otherwise the wrong sequencer is loaded
         """
-        #- CleaningNummber = [0, 0, 0]
-        res = str(self.sub.ts8.synchCommand(10, 
-                   "getSequencerParameter", "CleaningNumber").getResult())
-        if not re.match(r"\[0, 0, 0\]", res):
-                self.logger.info(
-                    "SeqParam CleaningNumber:{} invalid".format(res))
-                raise java.lang.Exception("Bad Sequencer")
-        #- ClearCount = [1, 1, 1]
-        res = str(self.sub.ts8.synchCommand(10, 
-                   "getSequencerParameter", "ClearCount").getResult())
-        if not re.match(r"\[1, 1, 1\]", res):
-                self.logger.info(
-                    "SeqParam ClearCount:{} invalid".format(res))
-                raise java.lang.Exception("Bad Sequencer")
+	ccdtype = self.get_ccdtype()
+	if ccdtype == 'e2v':
+	    #- CleaningNummber = [0, 0, 0]
+	    res = str(self.sub.ts8.synchCommand(10, 
+		       "getSequencerParameter", "CleaningNumber").getResult())
+	    if not re.match(r"\[0, 0, 0\]", res):
+		    self.logger.info(
+			"SeqParam CleaningNumber:{} invalid".format(res))
+		    raise java.lang.Exception("Bad Sequencer")
+	    #- ClearCount = [1, 1, 1]
+	    res = str(self.sub.ts8.synchCommand(10, 
+		       "getSequencerParameter", "ClearCount").getResult())
+	    if not re.match(r"\[1, 1, 1\]", res):
+		    self.logger.info(
+			"SeqParam ClearCount:{} invalid".format(res))
+		    raise java.lang.Exception("Bad Sequencer")
 
     def shifted_clear(self, nclears, phinew):
 	""" set P-Hi to phinew, do nclears set P-Hi back to nominal
