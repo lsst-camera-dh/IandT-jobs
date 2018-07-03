@@ -45,6 +45,12 @@ results.append(lcatr.schema.fileref.make(outfile))
 seq_file = glob.glob('*.seq')[0]
 results.append(lcatr.schema.fileref.make(seq_file))
 
+# Add png files.
+raft_id = siteUtils.getUnitId()
+md = siteUtils.DataCatalogMetadata(ORIGIN=siteUtils.getSiteName(),
+                                   TEST_CATEGORY='EO')
+results.extend(siteUtils.persist_png_files('*.png', raft_id, metadata=md))
+
 results.extend(siteUtils.jobInfo())
 
 lcatr.schema.write_file(results)
