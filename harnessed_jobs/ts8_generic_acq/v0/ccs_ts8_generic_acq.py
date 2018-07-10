@@ -51,8 +51,7 @@ GENERIC_SIGNAL      20000   # Target signal in e-
                        ( "BIAS", False, False, "RaD_BIAS" ),
                        ( "DARK", False, False, "RaD_DARK" ),
                        ( "FLAT", True,  False, "RaD_FLAT" ),
-                       ( "FE55", True,  True , "RaD_FE55" ),
-        
+                       ( "FE55", False, True , "RaD_FE55" )
                                 ]:
                     key, openShutter, actuateXed, image_type = params
                     print "## %s ###################################" % key
@@ -84,7 +83,6 @@ GENERIC_SIGNAL      20000   # Target signal in e-
                         pd_readout.start_accumulation()
                         fits_files = self.take_image(seqno, exptime, openShutter, actuateXed, image_type)
                     	pd_readout.get_readings(fits_files, seqno, i)
-			    
 
                 seqno = seqno + 1
 
