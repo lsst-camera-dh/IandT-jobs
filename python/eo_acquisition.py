@@ -310,10 +310,11 @@ class EOAcquisition(object):
         self.sub.ts8.synchCommand(10, "setTestType", test_type)
         self.sub.ts8.synchCommand(10, "setImageType", image_type)
         self.sub.ts8.synchCommand(10, "setSeqInfo", seqno)
-        
+
         #- new for test
         self.verify_sequencer_params()
-        self.shifted_clear(1, 6.0)
+        #- self.shifted_clear(1, 6.0) #- need flag to switch between
+        self.std_clear(1)
         #- end new for test
 
         command = 'exposeAcquireAndSave %d %s %s "%s"' \
@@ -424,121 +425,135 @@ class EOAcquisition(object):
         return exptime
 
     def getParallelHighConfig(self):
-	"""
-	get phi0, phi1, phi2 existing values of pclkHighP
-	"""
-	command = "printConfigurableParameters"
-	res = str(self.sub.ts8dac0.synchCommand(10, command).getResult())
-	m = re.search(r"pclkHighP: (\d+\.\d+),", res)
+        """
+        get phi0, phi1, phi2 existing values of pclkHighP
+        """
+        command = "printConfigurableParameters"
+        res = str(self.sub.ts8dac0.synchCommand(10, command).getResult())
+        m = re.search(r"pclkHighP: (\d+\.\d+),", res)
         if not m:
             return None
         phi0 = float(m.group(1))
-	if (phi0 < 8.0 or phi0 > 10.0):
+        if (phi0 < 8.0 or phi0 > 10.0):
             self.logger.info(
-                "ts8dac0.pclkHighP: {} not in 8.0..10.0".format(phi1))
-	    return None
-	res = str(self.sub.ts8dac1.synchCommand(10, command).getResult())
-	m = re.search(r"pclkHighP: (\d+\.\d+),", res)
+                "ts8dac0.pclkHighP: {} not in 8.0..10.0".format(phi0))
+            return None
+        res = str(self.sub.ts8dac1.synchCommand(10, command).getResult())
+        m = re.search(r"pclkHighP: (\d+\.\d+),", res)
         if not m:
             return None
-	phi1 = float(m.group(1))
-	if (phi1 < 8.0 or phi1 > 10.0):
+        phi1 = float(m.group(1))
+        if (phi1 < 8.0 or phi1 > 10.0):
             self.logger.info(
                 "ts8dac1.pclkHighP: {} not in 8.0..10.0".format(phi1))
-	    return None
-	res = str(self.sub.ts8dac2.synchCommand(10, command).getResult())
-	m = re.search(r"pclkHighP: (\d+\.\d+),", res)
+            return None
+        res = str(self.sub.ts8dac2.synchCommand(10, command).getResult())
+        m = re.search(r"pclkHighP: (\d+\.\d+),", res)
         if not m:
             return None
-	phi2 = float(m.group(1))
-	if (phi2 < 8.0 or phi2 > 10.0):
+        phi2 = float(m.group(1))
+        if (phi2 < 8.0 or phi2 > 10.0):
             self.logger.info(
-                "ts8dac2.pclkHighP: {} not in 8.0..10.0".format(phi1))
-	    return None
-	return (phi0, phi1, phi2)
+                "ts8dac2.pclkHighP: {} not in 8.0..10.0".format(phi2))
+            return None
+        return (phi0, phi1, phi2)
 
-    def get_ccdtype(self):
-	""" return ccdtype as a string"""
-	res = str(self.sub.ts8.synchCommand(10, "getCcdType").getResult())
-	if re.match(r"^e2v$", res):
-	   return "e2v"
-	elif re.match(r"^itl$", res):
-	   return "itl"
-	else:
-           self.logger.info("CCD Type unknown, returning None")
-	return None
+        def get_ccdtype(self):
+            """ return ccdtype as a string"""
+            res = str(self.sub.ts8.synchCommand(10, "getCcdType").getResult())
+            if re.match(r"^e2v$", res):
+                return "e2v"
+            elif re.match(r"^itl$", res):
+                return "itl"
+            else:
+                self.logger.info("CCD Type unknown, returning None")
+                return None
 
     def verify_sequencer_params(self):
         """ Check that CleaningNumber = 0 and ClearCount = 1
-            Otherwise the wrong sequencer is loaded
+        Otherwise the wrong sequencer is loaded
         """
-	ccdtype = self.get_ccdtype()
-	if ccdtype == 'e2v':
-	    #- CleaningNummber = [0, 0, 0]
-	    res = str(self.sub.ts8.synchCommand(10, 
-		       "getSequencerParameter", "CleaningNumber").getResult())
-	    if not re.match(r"\[0, 0, 0\]", res):
-		    self.logger.info(
-			"SeqParam CleaningNumber:{} invalid".format(res))
-		    raise java.lang.Exception("Bad Sequencer")
-	    #- ClearCount = [1, 1, 1]
-	    res = str(self.sub.ts8.synchCommand(10, 
-		       "getSequencerParameter", "ClearCount").getResult())
-	    if not re.match(r"\[1, 1, 1\]", res):
-		    self.logger.info(
-			"SeqParam ClearCount:{} invalid".format(res))
-		    raise java.lang.Exception("Bad Sequencer")
+        ccdtype = self.get_ccdtype()
+        #- CleaningNummber = [0, 0, 0]
+        res = str(self.sub.ts8.synchCommand(10,
+                                            "getSequencerParameter", "CleaningNumber").getResult())
+        if not re.match(r"\[0, 0, 0\]", res):
+            self.logger.info(
+                "SeqParam CleaningNumber:{} invalid".format(res))
+            raise java.lang.Exception("Bad Sequencer")
+        #- ClearCount = [1, 1, 1]
+        res = str(self.sub.ts8.synchCommand(10,
+                                            "getSequencerParameter", "ClearCount").getResult())
+        if not re.match(r"\[1, 1, 1\]", res):
+            self.logger.info(
+                "SeqParam ClearCount:{} invalid".format(res))
+            raise java.lang.Exception("Bad Sequencer")
 
     def shifted_clear(self, nclears, phinew):
-	""" set P-Hi to phinew, do nclears set P-Hi back to nominal
-	"""
-	if (nclears < 1 ):
-	    return
-	ccdtype = self.get_ccdtype()
-	if ccdtype == 'e2v':
-	    #- verify input value makes sense
-	    #
-	    if (phinew < 6.0 or phinew > 8.0):
-                self.logger.info("P-HI:{} not in range 6.0..8.0".format(phinew))
-                #- throw an exception here or something
-                raise java.lang.Exception("Bad phinew value {}".format(phinew))
-	    #
-	    #- get original values
-	    #
-	    phiold = self.getParallelHighConfig()
+        """ set P-Hi to phinew, do nclears set P-Hi back to nominal
+        """
+        if (nclears < 1 ):
+            return
+        ccdtype = self.get_ccdtype()
+        if ccdtype == 'e2v':
+            #- verify input value makes sense
+            #
+            if (phinew < 6.0 or phinew > 8.0):
+                    self.logger.info("P-HI:{} not in range 6.0..8.0".format(phinew))
+                    #- throw an exception here or something
+                    raise java.lang.Exception("Bad phinew value {}".format(phinew))
+            #
+            #- get original values
+            #
+            phiold = self.getParallelHighConfig()
             if phiold == None:
                 self.logger.info("getParallelHighConfig() = None")
                 #- throw an exception here or something
                 raise java.lang.Exception("failed getting PHi config")
-	    #
-	    #- change to the new value
-	    #
-	    self.logger.info("changing dac {} to {}...".format(
-                             "pclkHighP", phinew))
-	    self.sub.ts8dac0.synchCommand(10, "change", "pclkHighP", phinew)
-	    self.sub.ts8dac1.synchCommand(10, "change", "pclkHighP", phinew)
-	    self.sub.ts8dac2.synchCommand(10, "change", "pclkHighP", phinew)
-	    self.sub.ts8.synchCommand(10, "loadDacs true")
-	#
-	#- Perform the Clear main
-	#
-	self.logger.info("Clearing CCD {} times...".format(nclears))
-	for seqno in range(nclears):
-	    self.sub.ts8.synchCommand(10, "setSequencerStart", "Clear")
-	    self.sub.ts8.synchCommand(10, "startSequencer")
-	    self.sub.ts8.synchCommand(10, "waitSequencerDone", 1000).getResult()
-	    self.sub.ts8.synchCommand(10, "setSequencerStart", "Bias")
-	if ccdtype == 'e2v':
-	    #
-	    #- change back to original value
-	    #
-	    self.logger.info("changing dac {} to {}...".format(
-	                     "pclkHighP", phiold))
-	    self.sub.ts8dac0.synchCommand(10, "change", "pclkHighP", phiold[0])
-	    self.sub.ts8dac1.synchCommand(10, "change", "pclkHighP", phiold[1])
-	    self.sub.ts8dac2.synchCommand(10, "change", "pclkHighP", phiold[2])
-	    self.sub.ts8.synchCommand(10, "loadDacs true")
-	    #
+            #
+            #- change to the new value
+            #
+            self.logger.info("changing dac {} to {}...".format(
+                                "pclkHighP", phinew))
+            self.sub.ts8dac0.synchCommand(10, "change", "pclkHighP", phinew)
+            self.sub.ts8dac1.synchCommand(10, "change", "pclkHighP", phinew)
+            self.sub.ts8dac2.synchCommand(10, "change", "pclkHighP", phinew)
+            self.sub.ts8.synchCommand(10, "loadDacs true")
+        #
+        #- Perform the Clear main
+        #
+        self.logger.info("Clearing CCD {} times...".format(nclears))
+        for seqno in range(nclears):
+            self.sub.ts8.synchCommand(10, "setSequencerStart", "Clear")
+            self.sub.ts8.synchCommand(10, "startSequencer")
+            self.sub.ts8.synchCommand(10, "waitSequencerDone", 1000).getResult()
+            self.sub.ts8.synchCommand(10, "setSequencerStart", "Bias")
+        if ccdtype == 'e2v':
+            #
+            #- change back to original value
+            #
+            self.logger.info("changing dac {} to {}...".format(
+                            "pclkHighP", phiold))
+            self.sub.ts8dac0.synchCommand(10, "change", "pclkHighP", phiold[0])
+            self.sub.ts8dac1.synchCommand(10, "change", "pclkHighP", phiold[1])
+            self.sub.ts8dac2.synchCommand(10, "change", "pclkHighP", phiold[2])
+            self.sub.ts8.synchCommand(10, "loadDacs true")
+            #
+
+    def std_clear(self, nclears):
+        """ set P-Hi to phinew, do nclears set P-Hi back to nominal
+        """
+        if (nclears < 1 ):
+            return
+        #
+        #- Perform the Clear main
+        #
+        self.logger.info("Clearing CCD {} times...".format(nclears))
+        for seqno in range(nclears):
+            self.sub.ts8.synchCommand(10, "setSequencerStart", "Clear")
+            self.sub.ts8.synchCommand(10, "startSequencer")
+            self.sub.ts8.synchCommand(10, "waitSequencerDone", 1000)
+            self.sub.ts8.synchCommand(10, "setSequencerStart", "Bias")
 
 class PhotodiodeReadout(object):
     """
