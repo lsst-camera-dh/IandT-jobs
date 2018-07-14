@@ -315,7 +315,7 @@ class EOAcquisition(object):
         self.verify_sequencer_params()
         #- self.shifted_clear(1, 6.0) #- need flag to switch between
         #- self.std_clear(1)
-        #- self.ccd_clear(1)
+        self.ccd_clear(1)
         #- end new for test
 
         command = 'exposeAcquireAndSave %d %s %s "%s"' \
