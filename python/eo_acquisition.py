@@ -314,7 +314,8 @@ class EOAcquisition(object):
         #- new for test
         self.verify_sequencer_params()
         #- self.shifted_clear(1, 6.0) #- need flag to switch between
-        self.std_clear(1)
+        #- self.std_clear(1)
+        #- self.ccd_clear(1)
         #- end new for test
 
         command = 'exposeAcquireAndSave %d %s %s "%s"' \
@@ -458,6 +459,40 @@ class EOAcquisition(object):
             return None
         return (phi0, phi1, phi2)
 
+    def getParallelLowConfig(self):
+        """
+        get phi0, phi1, phi2 existing values of pclkLowP
+        """
+        command = "printConfigurableParameters"
+        res = str(self.sub.ts8dac0.synchCommand(10, command).getResult())
+        m = re.search(r"pclkLowP: (\d+\.\d+),", res)
+        if not m:
+            return None
+        phi0 = float(m.group(1))
+        if (phi0 < 0.0 or phi0 > 1.0):
+            self.logger.info(
+                "ts8dac0.pclkLowP: {} not in 0.0..1.0".format(phi0))
+            return None
+        res = str(self.sub.ts8dac1.synchCommand(10, command).getResult())
+        m = re.search(r"pclkLowP: (\d+\.\d+),", res)
+        if not m:
+            return None
+        phi1 = float(m.group(1))
+        if (phi1 < 0.0 or phi1 > 1.0):
+            self.logger.info(
+                "ts8dac1.pclkLowP: {} not in 0.0..1.0".format(phi1))
+            return None
+        res = str(self.sub.ts8dac2.synchCommand(10, command).getResult())
+        m = re.search(r"pclkLowP: (\d+\.\d+),", res)
+        if not m:
+            return None
+        phi2 = float(m.group(1))
+        if (phi2 < 0.0 or phi2 > 1.0):
+            self.logger.info(
+                "ts8dac2.pclkLowP: {} not in 0.0..1.0".format(phi2))
+            return None
+        return (phi0, phi1, phi2)
+
         def get_ccdtype(self):
             """ return ccdtype as a string"""
             res = str(self.sub.ts8.synchCommand(10, "getCcdType").getResult())
@@ -476,18 +511,18 @@ class EOAcquisition(object):
         ccdtype = self.get_ccdtype()
         #- CleaningNummber = [0, 0, 0]
         res = str(self.sub.ts8.synchCommand(10,
-                                            "getSequencerParameter", "CleaningNumber").getResult())
+                         "getSequencerParameter", "CleaningNumber").getResult())
         if not re.match(r"\[0, 0, 0\]", res):
             self.logger.info(
                 "SeqParam CleaningNumber:{} invalid".format(res))
-            raise java.lang.Exception("Bad Sequencer")
+            raise java.lang.Exception("Bad Sequencer: CleaningNumber=0 required")
         #- ClearCount = [1, 1, 1]
         res = str(self.sub.ts8.synchCommand(10,
-                                            "getSequencerParameter", "ClearCount").getResult())
+                             "getSequencerParameter", "ClearCount").getResult())
         if not re.match(r"\[1, 1, 1\]", res):
             self.logger.info(
                 "SeqParam ClearCount:{} invalid".format(res))
-            raise java.lang.Exception("Bad Sequencer")
+            raise java.lang.Exception("Bad Sequencer: ClearCount=1 required")
 
     def shifted_clear(self, nclears, phinew):
         """ set P-Hi to phinew, do nclears set P-Hi back to nominal
@@ -499,9 +534,9 @@ class EOAcquisition(object):
             #- verify input value makes sense
             #
             if (phinew < 6.0 or phinew > 8.0):
-                    self.logger.info("P-HI:{} not in range 6.0..8.0".format(phinew))
+                self.logger.info("P-HI:{} not in range 6.0..8.0".format(phinew))
                     #- throw an exception here or something
-                    raise java.lang.Exception("Bad phinew value {}".format(phinew))
+                raise java.lang.Exception("Bad phinew value {}".format(phinew))
             #
             #- get original values
             #
@@ -539,6 +574,88 @@ class EOAcquisition(object):
             self.sub.ts8dac2.synchCommand(10, "change", "pclkHighP", phiold[2])
             self.sub.ts8.synchCommand(10, "loadDacs true")
             #
+
+    def ccd_clear(self, nclears):
+        """
+        clear the ccd according to type and conditions
+        ccdtype==itl: just run clear main as is
+        ccdtype==e2v: if running unipolar mode do shifted clearing
+        where shifted clear drops/raises P-High before/after clearing
+        and where the shifted value "phi_shifted" is hardcoded below
+        """
+        if (nclears < 1 ):
+            return
+        ccdtype = self.get_ccdtype()
+        if ccdtype == 'e2v':
+            phi_shifted = 5.5  #- hard coded value for now
+            #- verify input value makes sense
+            #
+            if (phi_shifted < 5.0 or phi_shifted > 7.0):
+                self.logger.info("P-HI:{} not in range 5.0..7.0".format(phi_shifted))
+                    #- throw an exception here or something
+                raise java.lang.Exception("Bad phi_shifted value {}".format(phi_shifted))
+            #
+            #- get original values for Parallel high and low rails
+            #
+            phi = self.getParallelHighConfig()
+            if phi == None:
+                self.logger.info("getParallelHighConfig() = None")
+                #- throw an exception here or something
+                raise java.lang.Exception("failed getting PHi config")
+            #
+            plo = self.getParallelLowConfig()
+            if plo == None:
+                self.logger.info("getParallelLowConfig() = None")
+                #- throw an exception here or something
+                raise java.lang.Exception("failed getting PLow config")
+            #
+            #- determine operating mode (unipolar (3) or bipolar (0))
+            #
+            cnt = 0
+            for i in range(len(phi)):
+                if phi[i] > 7.5 and plo[i] > 0.0  and plo[i] < 2.0:
+                    cnt += 1
+                if phi[i] > 2.5 and phi[i] < 6.0  and plo[i] < -4.0:
+                    cnt -= 1
+            if cnt == 3:
+                unipolar = True
+                self.logger.info("Parallel Voltages are unipolar => Shifted Clearing")
+            elif cnt == -3:
+                unipolar = False
+            else:
+                raise java.lang.Exception(
+                    "invalid mode: must be bipolar (+/-) or unipolar (>0)")
+            if unipolar:
+                #
+                #- change to the new value
+                #
+                self.logger.info("changing dac {} to {}...".format(
+                    "pclkHighP", phi_shifted))
+                self.sub.ts8dac0.synchCommand(10, "change", "pclkHighP", phi_shifted)
+                self.sub.ts8dac1.synchCommand(10, "change", "pclkHighP", phi_shifted)
+                self.sub.ts8dac2.synchCommand(10, "change", "pclkHighP", phi_shifted)
+                self.sub.ts8.synchCommand(10, "loadDacs true")
+                #
+        #- Perform the Clear main
+        #
+        self.logger.info("Clearing CCD {} times...".format(nclears))
+        for seqno in range(nclears):
+            self.sub.ts8.synchCommand(10, "setSequencerStart", "Clear")
+            self.sub.ts8.synchCommand(10, "startSequencer")
+            self.sub.ts8.synchCommand(10, "waitSequencerDone", 1000).getResult()
+            self.sub.ts8.synchCommand(10, "setSequencerStart", "Bias")
+        if ccdtype == 'e2v':
+            if unipolar:
+                #
+                #- change back to original value
+                #
+                self.logger.info("changing dac {} to {}...".format(
+                    "pclkHighP", phi))
+                self.sub.ts8dac0.synchCommand(10, "change", "pclkHighP", phi[0])
+                self.sub.ts8dac1.synchCommand(10, "change", "pclkHighP", phi[1])
+                self.sub.ts8dac2.synchCommand(10, "change", "pclkHighP", phi[2])
+                self.sub.ts8.synchCommand(10, "loadDacs true")
+                #
 
     def std_clear(self, nclears):
         """ set P-Hi to phinew, do nclears set P-Hi back to nominal
