@@ -1,12 +1,14 @@
 """
 Test Stand 8 electro-optical acquisition jython scripting module.
 """
+from __future__ import print_function
 import os
 import sys
 import glob
 import time
 from collections import namedtuple
 import logging
+import re
 try:
     import java.lang
 except ImportError:
@@ -150,7 +152,7 @@ class EOAcquisition(object):
         """
         Check that the required subsystems are present.
         """
-        required = 'ts8 pd mono'.split()
+        required = 'ts8 pd mono ts8dac0 ts8dac1 ts8dac2'.split()
         missing = []
         for subsystem in required:
             if not hasattr(self.sub, subsystem):
@@ -211,6 +213,7 @@ class EOAcquisition(object):
         return slit_width_changed
 
     def set_slitwidth(self, width, slit_id):
+        """Set the monochromator slit width."""
         self.sub.mono.synchCommand(10, 'setSlitSize', slit_id, width)
 
     def set_wavelength(self, wl):
@@ -309,6 +312,10 @@ class EOAcquisition(object):
         self.sub.ts8.synchCommand(10, "setTestType", test_type)
         self.sub.ts8.synchCommand(10, "setImageType", image_type)
         self.sub.ts8.synchCommand(10, "setSeqInfo", seqno)
+
+        self.verify_sequencer_params()
+        self.ccd_clear(1)
+
         command = 'exposeAcquireAndSave %d %s %s "%s"' \
             % (1000*exptime, openShutter, actuateXed, file_template)
         # ensure timeout exceeds exposure time by 20 seconds.
@@ -416,6 +423,185 @@ class EOAcquisition(object):
         exptime = min(max(exptime, self.exptime_min), self.exptime_max)
         return exptime
 
+    def getParallelHighConfig(self):
+        """
+        get phi0, phi1, phi2 existing values of pclkHighP
+        """
+        command = "printConfigurableParameters"
+        res = str(self.sub.ts8dac0.synchCommand(10, command).getResult())
+        m = re.search(r"pclkHighP: ([-\d]+\.\d+),", res)
+        if not m:
+            self.logger.info("m is None, res=%s", res)
+            return None
+        phi0 = float(m.group(1))
+        if phi0 < 1.0:
+            self.logger.info("ts8dac0.pclkHighP=%s < 1.0", phi0)
+            return None
+        res = str(self.sub.ts8dac1.synchCommand(10, command).getResult())
+        m = re.search(r"pclkHighP: ([-\d]+\.\d+),", res)
+        if not m:
+            self.logger.info("m is None, res=%s", res)
+            return None
+        phi1 = float(m.group(1))
+        if phi1 < 1.0:
+            self.logger.info("ts8dac1.pclkHighP=%s < 1.0", phi1)
+            return None
+        res = str(self.sub.ts8dac2.synchCommand(10, command).getResult())
+        m = re.search(r"pclkHighP: ([-\d]+\.\d+),", res)
+        if not m:
+            self.logger.info("m is None, res=%s", res)
+            return None
+        phi2 = float(m.group(1))
+        if phi2 < 1.0:
+            self.logger.info("ts8dac2.pclkHighP=%s < 1.0", phi2)
+            return None
+        return phi0, phi1, phi2
+
+    def getParallelLowConfig(self):
+        """
+        get plo0, plo1, plo2 existing values of pclkLowP
+        """
+        command = "printConfigurableParameters"
+        res = str(self.sub.ts8dac0.synchCommand(10, command).getResult())
+        m = re.search(r"pclkLowP: ([-\d]+\.\d+),", res)
+        if not m:
+            self.logger.info("m is None, res=%s", res)
+            return None
+        plo0 = float(m.group(1))
+        if plo0 > 0.5:
+            self.logger.info("ts8dac0.pclkLowP: %s > 0.5", plo0)
+            return None
+        res = str(self.sub.ts8dac1.synchCommand(10, command).getResult())
+        m = re.search(r"pclkLowP: ([-\d]+\.\d+),", res)
+        if not m:
+            self.logger.info("m is None, res=%s", res)
+            return None
+        plo1 = float(m.group(1))
+        if plo1 > 0.5:
+            self.logger.info("ts8dac1.pclkLowP: %s > 0.5", plo1)
+            return None
+        res = str(self.sub.ts8dac2.synchCommand(10, command).getResult())
+        m = re.search(r"pclkLowP: ([-\d]+\.\d+),", res)
+        if not m:
+            self.logger.info("m is None, res=%s", res)
+            return None
+        plo2 = float(m.group(1))
+        if plo2 > 0.5:
+            self.logger.info("ts8dac2.pclkLowP: %s > 0.5", plo2)
+            return None
+        return (plo0, plo1, plo2)
+
+    def get_ccdtype(self):
+        """ return ccdtype as a string"""
+        res = str(self.sub.ts8.synchCommand(10, "getCcdType").getResult())
+        if re.match(r"^e2v$", res):
+            return "e2v"
+        elif re.match(r"^itl$", res):
+            return "itl"
+        else:
+            self.logger.info("CCD Type unknown, returning None")
+            return None
+
+    def verify_sequencer_params(self):
+        """ Check that CleaningNumber = 0 and ClearCount = 1
+        Otherwise the wrong sequencer is loaded
+        """
+        #- CleaningNummber = [0, 0, 0]
+        res = str(self.sub.ts8.synchCommand(10,
+                         "getSequencerParameter", "CleaningNumber").getResult())
+        if not re.match(r"\[0, 0, 0\]", res):
+            self.logger.info("SeqParam CleaningNumber:%s invalid", res)
+            raise java.lang.Exception("Bad Sequencer: CleaningNumber=0 required")
+        #- ClearCount = [1, 1, 1]
+        res = str(self.sub.ts8.synchCommand(10,
+                             "getSequencerParameter", "ClearCount").getResult())
+        if not re.match(r"\[1, 1, 1\]", res):
+            self.logger.info("SeqParam ClearCount:%s invalid", res)
+            raise java.lang.Exception("Bad Sequencer: ClearCount=1 required")
+
+    def ccd_clear(self, nclears):
+        """
+        clear the ccd according to type and conditions
+        ccdtype==itl: just run clear main as is
+        ccdtype==e2v: if running unipolar mode do shifted clearing
+        where shifted clear drops/raises P-High before/after clearing
+        and where the shifted value "phi_shifted" is hardcoded below
+        """
+        if nclears < 1:
+            return
+        ccdtype = self.get_ccdtype()
+        if ccdtype == 'e2v':
+            phi_shifted = 5.5  #- hard coded value for now
+            #- verify input value makes sense
+            #
+            if phi_shifted < 5.0 or phi_shifted > 7.0:
+                self.logger.info("P-HI:%s not in range 5.0..7.0", phi_shifted)
+                raise java.lang.Exception("Bad phi_shifted value {}".format(phi_shifted))
+            #
+            #- get original values for Parallel high and low rails
+            #
+            phi = self.getParallelHighConfig()
+            if phi is None:
+                self.logger.info("getParallelHighConfig() = None")
+                #- throw an exception here or something
+                raise java.lang.Exception("failed getting PHi config")
+            #
+            plo = self.getParallelLowConfig()
+            if plo is None:
+                self.logger.info("getParallelLowConfig() = None")
+                #- throw an exception here or something
+                raise java.lang.Exception("failed getting PLow config")
+            #
+            #- determine operating mode (unipolar (3) or bipolar (0))
+            #
+            self.logger.info("phi[]= %s", phi)
+            self.logger.info("plo[]= %s", plo)
+            cnt = 0
+            for i in range(len(phi)):
+                if phi[i] > 7.5 and plo[i] >= 0.0  and plo[i] < 2.0:
+                    cnt += 1
+                if phi[i] > 2.0 and phi[i] < 7.0  and plo[i] < -3.0:
+                    cnt -= 1
+            if cnt == 3:
+                unipolar = True
+                self.logger.info("Parallel Voltages are unipolar => Shifted Clearing")
+            elif cnt == -3:
+                unipolar = False
+                self.logger.info("Parallel Voltages are bipolar => Regular Clearing")
+            else:
+                raise java.lang.Exception(
+                    "invalid mode: must be bipolar (+/-) or unipolar (>0)")
+            if unipolar:
+                #
+                #- change to the new value
+                #
+                self.logger.info("changing dac %s to %s...",
+                                 "pclkHighP", phi_shifted)
+                self.sub.ts8dac0.synchCommand(10, "change", "pclkHighP", phi_shifted)
+                self.sub.ts8dac1.synchCommand(10, "change", "pclkHighP", phi_shifted)
+                self.sub.ts8dac2.synchCommand(10, "change", "pclkHighP", phi_shifted)
+                self.sub.ts8.synchCommand(10, "loadDacs true")
+                #
+        #- Perform the Clear main
+        #
+        self.logger.info("Clearing CCD %s times...", nclears)
+        for _ in range(nclears):
+            self.sub.ts8.synchCommand(10, "setSequencerStart", "Clear")
+            self.sub.ts8.synchCommand(10, "startSequencer")
+            self.sub.ts8.synchCommand(10, "waitSequencerDone", 1000).getResult()
+            self.sub.ts8.synchCommand(10, "setSequencerStart", "Bias")
+        if ccdtype == 'e2v':
+            if unipolar:
+                #
+                #- change back to original value
+                #
+                self.logger.info("changing dac %s to %s...",
+                                 "pclkHighP", phi)
+                self.sub.ts8dac0.synchCommand(10, "change", "pclkHighP", phi[0])
+                self.sub.ts8dac1.synchCommand(10, "change", "pclkHighP", phi[1])
+                self.sub.ts8dac2.synchCommand(10, "change", "pclkHighP", phi[2])
+                self.sub.ts8.synchCommand(10, "loadDacs true")
+                #
 
 class PhotodiodeReadout(object):
     """
@@ -461,8 +647,8 @@ class PhotodiodeReadout(object):
         """
 
         # get Keithley picoAmmeters ready by resetting and clearing buffer
-        result = self.sub.pd.synchCommand(60, "reset")
-        result = self.sub.pd.synchCommand(60, "clrbuff")
+        self.sub.pd.synchCommand(60, "reset")
+        self.sub.pd.synchCommand(60, "clrbuff")
 
         # start accummulating current readings
         self._pd_result = self.sub.pd.asynchCommand("accumBuffer", self.nreads,
@@ -487,7 +673,6 @@ class PhotodiodeReadout(object):
         Output the accumulated photodiode readings to a text file.
         """
         # make sure Photodiode readout has had enough time to run
-        elapsed_time = time.time() - self._start_time
         pd_filename = os.path.join(self.md.cwd,
                                    "pd-values_%d-for-seq-%d-exp-%d.txt"
                                    % (int(self._start_time), seqno, icount))
@@ -505,7 +690,7 @@ class PhotodiodeReadout(object):
         for fits_file in fits_files:
             full_path = glob.glob('%s/*/%s' % (self.md.cwd, fits_file))[0]
             command = "addBinaryTable %s %s AMP0.MEAS_TIMES AMP0_MEAS_TIMES AMP0_A_CURRENT %d" % (pd_filename, full_path, self._start_time)
-            result = self.sub.ts8.synchCommand(200, command)
+            self.sub.ts8.synchCommand(200, command)
             self.logger.info("Photodiode readout added to fits file %s",
                              fits_file)
 
