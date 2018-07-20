@@ -5,7 +5,7 @@ from collections import OrderedDict, namedtuple
 import java.lang
 
 ChannelLimits = namedtuple('ChannelLimits',
-                           ['reb_ps_name','low_lim', 'high_lim', 'comp_range'])
+                           ['reb_ps_name', 'low_lim', 'high_lim', 'comp_range'])
 
 class RebCurrentLimits(OrderedDict):
     """
