@@ -75,12 +75,9 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
     # Compare the REB hardware serial number to the value in the
     # eTraveler tables for this REB in this raft.  (10.4.2.2, step 6)
     if reb_info.serialNumber != reb_eT_info[reb_slot].manufacturer_sn:
-        logger.info("REB manufacturer serial number mismatch: %s, %s"
-                    % (reb_info.serialNumber,
-                       reb_eT_info[reb_slot].manufacturer_sn))
-#        raise java.lang.Exception("REB manufacturer serial number mismatch: %s, %s"
-#                                  % (reb_info.serialNumber,
-#                                     reb_eT_info[reb_slot].manufacturer_sn))
+        raise java.lang.Exception("REB manufacturer serial number mismatch: %s, %s"
+                                  % (reb_info.serialNumber,
+                                     reb_eT_info[reb_slot].manufacturer_sn))
 
     # TODO: Read and record the firmware version ID, then verify it is
     # the correct version (LCA-10064-A, p.17, step 7).  Currently,
