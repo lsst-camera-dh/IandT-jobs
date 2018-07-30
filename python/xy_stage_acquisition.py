@@ -22,6 +22,8 @@ class XYStageAcquisition(EOAcquisition):
 
         self.bcount = int(self.eo_config.get('%s_BCOUNT' % acqname.upper(),
                                              default=1))
+        self.dcount = int(self.eo_config.get('%s_DCOUNT' % acqname.upper(),
+                                             default=0))
         self.imcount = int(self.eo_config.get('%s_IMCOUNT' % acqname.upper(),
                                               default=1))
         self.xoffset = float(self.eo_config.get('%s_XOFFSET' % acqname.upper(),

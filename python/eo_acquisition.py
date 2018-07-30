@@ -359,6 +359,16 @@ class EOAcquisition(object):
         self.take_image(seqno, exptime, openShutter, actuateXed, "BIAS",
                         timeout=150, max_tries=max_tries)
 
+    def dark_image(self, seqno, exptime, max_tries=3):
+        """
+        Take dark image
+        """
+        openShutter = False
+        actuateXed = False
+        timeout = int(max(150, exptime + 20))
+        self.take_image(seqno, exptime, openShutter, actuateXed, "DARK",
+                        timeout=timeout, max_tries=max_tries)
+
     def measured_flux(self, wl, seqno=0, fluxcal_time=2.):
         """
         Compute the measured flux by taking an exposure at the
