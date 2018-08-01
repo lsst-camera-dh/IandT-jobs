@@ -25,7 +25,7 @@ class XYStageEOAcquisition(XYStageAcquisition):
         self.bcount.
         """
         # Move to initial (xoffset, yoffset) position.
-        self._moveTo(self.xoffset, self.yoffset)     
+        self._moveTo(self.xoffset, self.yoffset)
 
         # Loop over image sequence.
         actuateXed = False
