@@ -50,6 +50,9 @@ class XYStageEOAcquisition(XYStageAcquisition):
             for i in range(self.imcount):
                 self.take_image(seqno, exptime, openShutter, actuateXed,
                                 image_type, file_template=file_template)
+            # Take dark frame(s)
+            for i in range(self.dcount):
+                self.dark_image(seqno, exptime)
             # Take bias frame(s).
             for i in range(self.bcount):
                 self.bias_image(seqno)
