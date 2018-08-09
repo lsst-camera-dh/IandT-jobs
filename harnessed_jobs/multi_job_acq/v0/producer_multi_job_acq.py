@@ -5,17 +5,17 @@ from eo_acquisition import EOAcqConfig
 
 # Mapping of acquisition type to harnessed job names. Commented out
 # entries do not yet have harnessed jobs implemented.
-job_names = dict(
-#    bias='bias_raft_acq',
-    fe55='fe55_raft_acq',
-    dark='dark_raft_acq',
-#    persistence='persistence_raft_acq',
-    sflat='sflat_raft_acq',
-    lambda='qe_raft_acq',
-    flat='flat_raft_acq',
-#    scan='scan_mode_acq',
-    ppump='ppump_raft_acq'
-    )
+job_names = {
+#    'bias': 'bias_raft_acq',
+    'fe55': 'fe55_raft_acq',
+    'dark': 'dark_raft_acq',
+#    'persistence': 'persistence_raft_acq',
+    'sflat': 'sflat_raft_acq',
+    'lambda': 'qe_raft_acq',
+    'flat': 'flat_raft_acq',
+#    'scan': 'scan_mode_acq',
+    'ppump': 'ppump_raft_acq'
+    }
 
 # Find the raft-level EO configuration file.
 acq_config_file = os.path.join(os.environ['LCATR_CONFIG_DIR'], 'acq.cfg')
