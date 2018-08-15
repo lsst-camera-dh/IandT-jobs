@@ -342,7 +342,7 @@ class EOAcquisition(object):
                 self.logger.info("Clear attempt %d failed:\n %s", i, str(eobj))
                 time.sleep(1.0)
 
-    def bias_image(self, seqno, max_tries=3):
+    def bias_image(self, seqno, test_type=None, max_tries=3):
         """
         Take bias images.
         """
@@ -350,7 +350,7 @@ class EOAcquisition(object):
         openShutter = False
         actuateXed = False
         self.take_image(seqno, exptime, openShutter, actuateXed, "BIAS",
-                        timeout=150, max_tries=max_tries)
+                        test_type=test_type, timeout=150, max_tries=max_tries)
 
     def measured_flux(self, wl, seqno=0, fluxcal_time=2.):
         """
