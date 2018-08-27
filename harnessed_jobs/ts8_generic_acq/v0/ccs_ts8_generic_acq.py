@@ -51,7 +51,7 @@ GENERIC_SIGNAL      20000   # Target signal in e-
                        ( "BIAS", False, False, "RaD_BIAS" ),
                        ( "DARK", False, False, "RaD_DARK" ),
                        ( "FLAT", True,  False, "RaD_FLAT" ),
-                       ( "FE55", True,  True , "RaD_FE55" ),
+                       ( "FE55", False, True , "RaD_FE55" ),
         
                                 ]:
                     key, openShutter, actuateXed, image_type = params
