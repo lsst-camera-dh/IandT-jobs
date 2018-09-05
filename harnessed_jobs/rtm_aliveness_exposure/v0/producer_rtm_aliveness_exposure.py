@@ -17,7 +17,7 @@ ccsProducer('rtm_aliveness_exposure', 'ccs_rtm_aliveness_exposure.py',
 raft_id = siteUtils.getUnitId()
 run_number = siteUtils.getRunNumber()
 
-raft = camera_components.Raft.create_from_etrav(raft_id, db_name='Dev')
+raft = camera_components.Raft.create_from_etrav(raft_id)
 results_files = dict()
 bias_files = dict()
 bbox = None
