@@ -6,14 +6,14 @@ from eo_acquisition import EOAcqConfig
 # Mapping of acquisition type to harnessed job names. Commented out
 # entries do not yet have harnessed jobs implemented.
 job_names = {
-#    'bias': 'bias_raft_acq',
+    'bias': 'bias_raft_acq',
     'fe55': 'fe55_raft_acq',
     'dark': 'dark_raft_acq',
-#    'persistence': 'persistence_raft_acq',
+    'persistence': 'persistence_raft_acq',
     'sflat': 'sflat_raft_acq',
     'lambda': 'qe_raft_acq',
     'flat': 'flat_raft_acq',
-#    'scan': 'scan_mode_acq',
+    'scan': 'scan_mode_acq',
     'ppump': 'ppump_raft_acq'
     }
 
