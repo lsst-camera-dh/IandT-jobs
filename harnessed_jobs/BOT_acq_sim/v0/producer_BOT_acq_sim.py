@@ -4,6 +4,8 @@ import os
 from simulation import fake_camera
 import time
 import siteUtils
+import yaml
+from configparser import SafeConfigParser
 
 # This is the generic "fake" BOT, which maps rafts to slots
 RAFTMAP_YAML = os.path.join(os.path.dirname(fake_camera.__file__), 'test_bot.yaml')
@@ -12,10 +14,34 @@ fake_cam = fake_camera.FakeCamera.create_from_yaml(RAFTMAP_YAML)
 # These are specific to one run
 ARGS_DICT = dict(root_folder_out='.')
 
-# These are specific to this test
-ACQ_TYPES = ['dark_raft_acq']
+# Mapping of acquisition type to harnessed job names. Commented out
+# entries do not yet have harnessed jobs implemented.
+JOB_NAMES = {
+    'bias': 'bias_raft_acq',
+    'fe55': 'fe55_raft_acq',
+    'dark': 'dark_raft_acq',
+    'persistence': 'persistence_raft_acq',
+    'sflat': 'sflat_raft_acq',
+    'lambda': 'qe_raft_acq',
+    'flat': 'flat_raft_acq',
+    'scan': 'scan_mode_acq',
+    'ppump': 'ppump_raft_acq',
+    }
 
-for acq_type in ACQ_TYPES:
-    ARGS_DICT['acq_type_in'] = acq_type
+
+# Find the raft-level EO configuration file.
+ACQ_SIM_CONFIG_FILE = os.path.join(os.environ['LCATR_CONFIG_DIR'], 'BOT_acq_sim.cfg')
+
+# Read in the acquisition sequence.
+ACQS = []
+scp = SafeConfigParser()
+scp.read(ACQ_SIM_CONFIG_FILE)
+for acq_type, acq_val in scp.items("ACQUIRE"):
+    if acq_val:
+        ACQS.append(acq_type)
+
+# Loop over the acquisition types
+for acq_type in ACQS:
+    ARGS_DICT['acq_type_in'] = JOB_NAMES[acq_type]
     fake_cam.run(**ARGS_DICT)
 
