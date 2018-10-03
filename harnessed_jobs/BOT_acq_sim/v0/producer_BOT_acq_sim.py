@@ -10,7 +10,7 @@ RAFTMAP_YAML = os.path.join(os.path.dirname(fake_camera.__file__), 'test_bot.yam
 fake_cam = fake_camera.FakeCamera.create_from_yaml(RAFTMAP_YAML)
 
 # These are specific to one run
-ARGS_DICT = dict(root_folder_out='test_data')
+ARGS_DICT = dict(root_folder_out='.')
 
 # These are specific to this test
 ACQ_TYPES = ['dark_raft_acq']

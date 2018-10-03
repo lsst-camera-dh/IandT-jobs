@@ -9,7 +9,7 @@ import time
 from simulation import fake_camera
 
 # These are specific to one run
-ARGS_DICT = dict(root_folder_out='test_data')
+ARGS_DICT = dict(root_folder_out='.')
 
 # These are specific to this test
 OUTREGEXP = os.path.join(fake_camera.make_output_topdir_path(**ARGS_DICT), '*')
