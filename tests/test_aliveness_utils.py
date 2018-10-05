@@ -53,7 +53,7 @@ class AlivenessUtilsTestCase(unittest.TestCase):
             channels = permutation(range(1, 17))[:num_bad]
             for channel in channels:
                 flat_frame[channel] = bias_frame[channel]
-            flat_frame.writeto(raft_file, clobber=True)
+            flat_frame.writeto(raft_file, overwrite=True)
 
     def tearDown(self):
         "Clean up FITS files"
