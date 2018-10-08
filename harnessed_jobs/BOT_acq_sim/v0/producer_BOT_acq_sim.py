@@ -8,7 +8,7 @@ import yaml
 from configparser import SafeConfigParser
 
 # This is the generic "fake" BOT, which maps rafts to slots
-RAFTMAP_YAML = os.path.join(os.path.dirname(fake_camera.__file__), 'test_bot.yaml')
+RAFTMAP_YAML = os.path.join(os.environ['LCATR_CONFIG_DIR'], 'test_bot.yaml')
 fake_cam = fake_camera.FakeCamera.create_from_yaml(RAFTMAP_YAML)
 
 # These are specific to one run
@@ -34,11 +34,10 @@ ACQ_SIM_CONFIG_FILE = os.path.join(os.environ['LCATR_CONFIG_DIR'], 'BOT_acq_sim.
 
 # Read in the acquisition sequence.
 ACQS = []
-scp = SafeConfigParser()
+scp = SafeConfigParser(allow_no_value=True)
 scp.read(ACQ_SIM_CONFIG_FILE)
 for acq_type, acq_val in scp.items("ACQUIRE"):
-    if acq_val:
-        ACQS.append(acq_type)
+    ACQS.append(acq_type)
 
 # Loop over the acquisition types
 for acq_type in ACQS:
