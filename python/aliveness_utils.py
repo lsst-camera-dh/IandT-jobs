@@ -69,7 +69,7 @@ def raft_channel_statuses(fits_files, threshold_factor=0.1):
         the channel status values of "good" or "bad"; the int is the exposure
         time in seconds.
     """
-    exptimes = [int(imutils.Metadata(item, 1).get('EXPTIME'))
+    exptimes = [int(imutils.Metadata(item).get('EXPTIME'))
                 for item in fits_files]
     if min(exptimes) != max(exptimes):
         raise RuntimeError("The exposure times differ among the " +
