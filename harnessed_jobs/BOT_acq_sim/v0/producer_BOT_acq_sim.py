@@ -27,10 +27,9 @@ JOB_NAMES = {
     'persistence': 'persistence_raft_acq',
     'sflat': 'sflat_raft_acq',
     'lambda': 'qe_raft_acq',
-    'flat': 'flat_raft_acq',
+    'flat': 'flat_pair_raft_acq',
     'scan': 'scan_mode_acq',
     'ppump': 'ppump_raft_acq',
-    'flat_pair' : 'flat_pair_raft_acq',
     }
 
 
