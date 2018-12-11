@@ -1,3 +1,0 @@
-#%Module1.0 #-*-tcl-*-#
-source "$::env(LCATR_MODULES)/lcatr.tcl"
-lcatr_package producer_BOT_aliveness_acq.py validator_BOT_aliveness_acq.py
