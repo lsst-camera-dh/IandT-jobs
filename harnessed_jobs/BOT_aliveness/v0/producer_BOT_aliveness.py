@@ -4,8 +4,15 @@ Producer script for BOT aliveness test acquisitions.
 """
 import os
 import subprocess
+import matplotlib.pyplot as plt
+import lsst.afw.math as afw_math
 import siteUtils
+import lsst.eotest.sensor as sensorTest
+import lsst.eotest.raft as raftTest
+from correlated_noise import correlated_noise, raft_leve_oscan_correlations
 from camera_components import camera_info
+from multiprocessor_execution import run_device_analysis_pool
+
 
 # Find BOT aliveness acquisition config file from the top-level
 # acquisition configuration file.
@@ -15,23 +22,23 @@ with open(os.path.join(os.environ['LCATR_CONFIG_DIR'], 'acq.cfg'), 'r') as fd:
             cfg_file = line.strip().split('=')[1].strip()
             break
 
-run_number = siteUtils.getRunNUmber()
+run_number = siteUtils.getRunNumber()
 
 command = '/home/ccs/bot-data.py --symlink . --run {} {}'.format(run_number,
                                                                  cfg_file)
 subprocess.check_call(command)
 
 def read_noise_stats(raft_name, run_number=run_number):
-    slot_names = camera_model.get_slot_names()
     file_prefix = '{}_{}'.format(run_number, raft_name)
     title = '{}, {}'.format(run_number, raft_name)
 
     bias_files = dict()
     results_files = dict()
+    slot_names = camera_info.get_slot_names()
     for slot_name in slot_names:
         det_name = '{}_{}'.format(raft_name, slot_name)
         pattern = 'dark_bias_*/*_{}.fits'.format(det_name)
-        bias_files[slot_name] = siteUtils.dependency_glob(pattern)
+        bias_files[slot_name] = sorted(glob.glob(pattern))
         if not bias_files[slot_name]:
             print("read_noise_stats: Needed bias files missing for raft",
                   raft_name)
