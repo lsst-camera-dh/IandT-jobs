@@ -3,48 +3,86 @@
 Producer script for BOT aliveness test acquisitions.
 """
 import os
+import glob
+import shutil
 import subprocess
 import matplotlib.pyplot as plt
 import lsst.afw.math as afw_math
 import siteUtils
 import lsst.eotest.sensor as sensorTest
 import lsst.eotest.raft as raftTest
-from correlated_noise import correlated_noise, raft_leve_oscan_correlations
+from correlated_noise import correlated_noise, raft_level_oscan_correlations
 from camera_components import camera_info
 from multiprocessor_execution import run_device_analysis_pool
 
-
-# Find BOT aliveness acquisition config file from the top-level
-# acquisition configuration file.
-with open(os.path.join(os.environ['LCATR_CONFIG_DIR'], 'acq.cfg'), 'r') as fd:
-    for line in fd:
-        if line.startswith('bot_aliveness_acq_cfg'):
-            cfg_file = line.strip().split('=')[1].strip()
-            break
-
 run_number = siteUtils.getRunNumber()
 
-command = '/home/ccs/bot-data.py --symlink . --run {} {}'.format(run_number,
-                                                                 cfg_file)
-subprocess.check_call(command)
+def take_bot_data():
+    # Find BOT aliveness acquisition config file from the top-level
+    # acquisition configuration file.
+    with open(os.path.join(os.environ['LCATR_CONFIG_DIR'], 'acq.cfg'),
+              'r') as fd:
+        for line in fd:
+            if line.startswith('bot_aliveness_cfg'):
+                cfg_file = line.strip().split('=')[1].strip()
+                break
 
-def read_noise_stats(raft_name, run_number=run_number):
-    file_prefix = '{}_{}'.format(run_number, raft_name)
-    title = '{}, {}'.format(run_number, raft_name)
+    command = '/home/ccs/bot-data.py --symlink . --run {} {}'.format(run_number,
+                                                                     cfg_file)
+    subprocess.check_call(command)
 
-    bias_files = dict()
-    results_files = dict()
+
+def symlink_r_and_d_data(r_and_d_path=None):
+    # symlink copies of R_and_D frames for testing.
+    print("symlinking R and D data")
+    if r_and_d_path is None:
+        r_and_d_path \
+            = '/gpfs/slac/lsst/fs2/u1/devel/jchiang/BOT_aliveness/R_and_D_data'
+    r_and_d_dirs = [x for x in sorted(glob.glob(os.path.join(r_and_d_path, '*'))) if os.path.isdir(x)]
+    for i in range(0, 2):
+        outdir = 'dark_bias_{:03d}'.format(i)
+        os.makedirs(outdir, exist_ok=True)
+        #os.symlink(r_and_d_dirs[i], outdir)
+        command = 'cp {}/* {}/'.format(r_and_d_dirs[i], outdir)
+        print(command)
+        subprocess.check_call(command, shell=True)
+    for i in range(2, 5):
+        outdir = 'dark_dark_{:03d}'.format(i)
+        os.makedirs(outdir, exist_ok=True)
+        #os.symlink(r_and_d_dirs[i], outdir)
+        command = 'cp {}/* {}/'.format(r_and_d_dirs[i], outdir)
+        print(command)
+        subprocess.check_call(command, shell=True)
+
+
+def get_bias_files(raft_name):
     slot_names = camera_info.get_slot_names()
+    bias_files = dict()
     for slot_name in slot_names:
         det_name = '{}_{}'.format(raft_name, slot_name)
         pattern = 'dark_bias_*/*_{}.fits'.format(det_name)
         bias_files[slot_name] = sorted(glob.glob(pattern))
         if not bias_files[slot_name]:
-            print("read_noise_stats: Needed bias files missing for raft",
-                  raft_name)
-            return
+            raise FileNotFoundError("needed bias files not found for %s"
+                                    % det_name)
+    return bias_files
 
-        ccd = sensortest.MaskedCCD(bias_files[slot_name][-1])
+
+def read_noise_stats(raft_name, run_number=run_number):
+    file_prefix = '{}_{}'.format(run_number, raft_name)
+    title = '{}, {}'.format(run_number, raft_name)
+
+    results_files = dict()
+    try:
+        bias_files = get_bias_files(raft_name)
+    except FileNotFoundError:
+        print("read_noise_stats: Needed bias files missing for raft",
+              raft_name)
+        return
+
+    for slot_name in bias_files:
+        det_name = '{}_{}'.format(raft_name, slot_name)
+        ccd = sensorTest.MaskedCCD(bias_files[slot_name][-1])
         bbox = ccd.amp_geom.serial_overscan
         bbox.grow(-10)
         outfile = '%s_eotest_results.fits' % det_name
@@ -63,19 +101,47 @@ def read_noise_stats(raft_name, run_number=run_number):
                          title=title)
     plt.savefig('{}_read_noise.png'.format(file_prefix))
 
-    for slot_name in slot_names:
-        corr_fig_prefix = '{}_{}'.format(title, slot_name)
-        corr_fig_title = '{}, {}'.format(title, slot_name)
-        _, corr_fig, _ = correlated_noise(bias_files[slot_name], target=0,
-                                          make_plots=True, title=corr_fig_title)
-        plt.figure(corr_fig.number)
-        plt.savefig('{}_correlated_noise.png'.format(corr_fig_prefix))
+def correlated_noise_figures(det_name, run_number=run_number):
+    file_prefix = '{}_{}'.format(run_number, det_name)
+    title = '{}, {}'.format(run_number, det_name)
+    pattern = 'dark_bias_*/*_{}.fits'.format(det_name)
+    bias_files = sorted(glob.glob(pattern))
+    if not bias_files:
+        print("correlated_noise_figures: Needed bias files not found for",
+              det_name)
+        return
+    _, corr_fig, _ = correlated_noise(bias_files, target=0, make_plots=True,
+                                      title=title)
+    plt.figure(corr_fig.number)
+    plt.savefig('{}_correlated_noise.png'.format(file_prefix))
 
-    oscan_title = 'Overscan correlations, {}'.format(title)
+def raft_overscan_correlations(raft_name, run_number=run_number):
+    file_prefix = '{}_{}'.format(run_number, raft_name)
+    title = '{}, {}'.format(run_number, raft_name)
+
+    try:
+        bias_files = get_bias_files(raft_name)
+    except FileNotFoundError:
+        print("raft_overscan_correlations: Needed bias files missing for raft",
+              raft_name)
+        return
+
     bias_files = {slot_name: x[0] for slot_name, x in bias_files.items()}
+    oscan_title = 'Overscan correlations, {}'.format(title)
     raft_level_oscan_correlations(bias_files, title=oscan_title)
     plt.savefig('{}_overscan_correlations.png'.format(file_prefix))
 
-raft_names = camera_info.get_raft_names()
-processes = None
-run_device_analysis_pool(read_noise_stats, raft_names, processes=processes)
+if __name__ == '__main__':
+    if 'LCATR_RUN_SIM' in os.environ:
+        symlink_r_and_d_data()
+    else:
+        take_bot_data()
+
+    det_names = camera_info.get_det_names()
+    raft_names = camera_info.get_raft_names()
+    processes = None
+    run_device_analysis_pool(read_noise_stats, raft_names, processes=processes)
+    run_device_analysis_pool(correlated_noise_figures, det_names,
+                             processes=processes)
+    run_device_analysis_pool(raft_overscan_correlations, raft_names,
+                             processes=processes)

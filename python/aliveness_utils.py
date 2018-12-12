@@ -71,7 +71,9 @@ def raft_channel_statuses(fits_files, threshold_factor=0.1):
     """
     exptimes = [int(imutils.Metadata(item).get('EXPTIME'))
                 for item in fits_files]
+
     if min(exptimes) != max(exptimes):
+        print(fits_files)
         raise RuntimeError("The exposure times differ among the " +
                            "input FITS files for this raft.")
     channel_signal = defaultdict(dict)
