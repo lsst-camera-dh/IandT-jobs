@@ -17,7 +17,7 @@ run_number = siteUtils.getRunNumber()
 results = []
 
 raft_names = camera_info.get_raft_names()
-dark_frames = glob.glob('dark_dark-*')
+dark_frames = glob.glob('dark_dark_*')
 row_template \
     = "%(exptime)s  %(slot_name)s  %(channel)s  %(signal)s  %(status)s\n"
 for raft_name in raft_names:
