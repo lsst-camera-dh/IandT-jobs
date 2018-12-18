@@ -9,10 +9,14 @@ from configparser import SafeConfigParser
 
 # This is the generic "fake" BOT, which maps rafts to slots
 RAFTMAP_YAML = os.path.join(os.environ['LCATR_CONFIG_DIR'], 'test_bot.yaml')
+IMAGE_TYPE_DICT_YAML = os.path.join(os.environ['LCATR_CONFIG_DIR'], 'image_type_map.yaml')
+
 fake_cam = fake_camera.FakeCamera.create_from_yaml(RAFTMAP_YAML)
 
 # These are specific to one run
-ARGS_DICT = dict(root_folder_out='.')
+ARGS_DICT = dict(root_folder_out='.',
+                 image_type_dict_yaml=IMAGE_TYPE_DICT_YAML,
+                 dry_run=False)
 
 # Mapping of acquisition type to harnessed job names. Commented out
 # entries do not yet have harnessed jobs implemented.
@@ -23,7 +27,7 @@ JOB_NAMES = {
     'persistence': 'persistence_raft_acq',
     'sflat': 'sflat_raft_acq',
     'lambda': 'qe_raft_acq',
-    'flat': 'flat_raft_acq',
+    'flat': 'flat_pair_raft_acq',
     'scan': 'scan_mode_acq',
     'ppump': 'ppump_raft_acq',
     }
