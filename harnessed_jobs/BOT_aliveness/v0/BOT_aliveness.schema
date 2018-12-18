@@ -1,0 +1,9 @@
+# -*- python -*-
+{
+    'schema_name' : 'BOT_aliveness',
+    'schema_version' : 0,
+    'exptime' : int,
+    'slot' : str,
+    'raft' : str,
+    'bad_channels' : int
+}
