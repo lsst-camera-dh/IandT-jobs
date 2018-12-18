@@ -40,14 +40,14 @@ def symlink_r_and_d_data(r_and_d_path=None):
             = '/gpfs/slac/lsst/fs2/u1/devel/jchiang/BOT_aliveness/R_and_D_data'
     r_and_d_dirs = [x for x in sorted(glob.glob(os.path.join(r_and_d_path, '*'))) if os.path.isdir(x)]
     for i in range(0, 2):
-        outdir = 'dark_bias_{:03d}'.format(i)
+        outdir = 'dark_bias-{:03d}'.format(i)
         os.makedirs(outdir, exist_ok=True)
         #os.symlink(r_and_d_dirs[i], outdir)
         command = 'cp {}/* {}/'.format(r_and_d_dirs[i], outdir)
         print(command)
         subprocess.check_call(command, shell=True)
     for i in range(2, 5):
-        outdir = 'dark_dark_{:03d}'.format(i)
+        outdir = 'dark_dark-{:03d}'.format(i)
         os.makedirs(outdir, exist_ok=True)
         #os.symlink(r_and_d_dirs[i], outdir)
         command = 'cp {}/* {}/'.format(r_and_d_dirs[i], outdir)
@@ -60,7 +60,7 @@ def get_bias_files(raft_name):
     bias_files = dict()
     for slot_name in slot_names:
         det_name = '{}_{}'.format(raft_name, slot_name)
-        pattern = 'dark_bias_*/*_{}.fits'.format(det_name)
+        pattern = 'dark_bias-*/*_{}.fits'.format(det_name)
         bias_files[slot_name] = sorted(glob.glob(pattern))
         if not bias_files[slot_name]:
             raise FileNotFoundError("needed bias files not found for %s"
@@ -104,7 +104,7 @@ def read_noise_stats(raft_name, run_number=run_number):
 def correlated_noise_figures(det_name, run_number=run_number):
     file_prefix = '{}_{}'.format(run_number, det_name)
     title = '{}, {}'.format(run_number, det_name)
-    pattern = 'dark_bias_*/*_{}.fits'.format(det_name)
+    pattern = 'dark_bias-*/*_{}.fits'.format(det_name)
     bias_files = sorted(glob.glob(pattern))
     if not bias_files:
         print("correlated_noise_figures: Needed bias files not found for",
