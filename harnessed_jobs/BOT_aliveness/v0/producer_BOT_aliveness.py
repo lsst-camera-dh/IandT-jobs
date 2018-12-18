@@ -29,7 +29,7 @@ def take_bot_data():
 
     command = '/home/ccs/bot-data.py --symlink . --run {} {}'.format(run_number,
                                                                      cfg_file)
-    subprocess.check_call(command)
+    subprocess.check_call(command, shell=True)
 
 
 def symlink_r_and_d_data(r_and_d_path=None):
