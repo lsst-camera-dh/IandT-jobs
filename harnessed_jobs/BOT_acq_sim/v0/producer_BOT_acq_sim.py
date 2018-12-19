@@ -34,11 +34,8 @@ JOB_NAMES = {
 
 
 # Find the raft-level EO configuration file.
-with open(os.path.join(os.environ['LCATR_CONFIG_DIR'], 'acq.cfg'), 'r') as fd:
-    for line in fd:
-        if line.startswith('bot_eo_acq_cfg'):
-            ACQ_SIM_CONFIG_FILE = line.strip().split('=')[1].strip()
-            break
+acq_config = siteUtils.get_job_acq_configs()
+ACQ_SIM_CONFIG_FILE = acq_config['bot_eo_acq_cfg']
 
 # Read in the acquisition sequence.
 ACQS = []
