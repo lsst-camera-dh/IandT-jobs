@@ -5,6 +5,7 @@ Validator script for BOT_acq harnessed job.
 import os
 import glob
 import lcatr.schema
+import siteUtils
 from camera_components import camera_info
 
 results = []
