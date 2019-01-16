@@ -18,36 +18,33 @@ from multiprocessor_execution import run_device_analysis_pool
 run_number = siteUtils.getRunNumber()
 
 def take_bot_data():
-    # Find BOT aliveness acquisition config file from the top-level
-    # acquisition configuration file.
-    with open(os.path.join(os.environ['LCATR_CONFIG_DIR'], 'acq.cfg'),
-              'r') as fd:
-        for line in fd:
-            if line.startswith('bot_aliveness_cfg'):
-                cfg_file = line.strip().split('=')[1].strip()
-                break
-
-    command = '/home/ccs/bot-data.py --symlink . --run {} {}'.format(run_number,
-                                                                     cfg_file)
+    """
+    Take the BOT data for the aliveness test.
+    """
+    acq_config = siteUtils.get_job_acq_configs()
+    command = '/home/ccs/bot-data.py --symlink . --run {} {}'\
+        .format(run_number, acq_config['bot_aliveness_cfg'])
     subprocess.check_call(command, shell=True)
 
 
 def symlink_r_and_d_data(r_and_d_path=None):
-    # symlink copies of R_and_D frames for testing.
+    """
+    Symlink copies of R_and_D frames for testing.
+    """
     print("symlinking R and D data")
     if r_and_d_path is None:
         r_and_d_path \
             = '/gpfs/slac/lsst/fs2/u1/devel/jchiang/BOT_aliveness/R_and_D_data'
     r_and_d_dirs = [x for x in sorted(glob.glob(os.path.join(r_and_d_path, '*'))) if os.path.isdir(x)]
     for i in range(0, 2):
-        outdir = 'dark_bias-{:03d}'.format(i)
+        outdir = 'dark_bias_{:03d}'.format(i)
         os.makedirs(outdir, exist_ok=True)
         #os.symlink(r_and_d_dirs[i], outdir)
         command = 'cp {}/* {}/'.format(r_and_d_dirs[i], outdir)
         print(command)
         subprocess.check_call(command, shell=True)
     for i in range(2, 5):
-        outdir = 'dark_dark-{:03d}'.format(i)
+        outdir = 'dark_dark_{:03d}'.format(i)
         os.makedirs(outdir, exist_ok=True)
         #os.symlink(r_and_d_dirs[i], outdir)
         command = 'cp {}/* {}/'.format(r_and_d_dirs[i], outdir)
@@ -56,11 +53,14 @@ def symlink_r_and_d_data(r_and_d_path=None):
 
 
 def get_bias_files(raft_name):
+    """
+    Get the bias files for the aliveness test.
+    """
     slot_names = camera_info.get_slot_names()
     bias_files = dict()
     for slot_name in slot_names:
         det_name = '{}_{}'.format(raft_name, slot_name)
-        pattern = 'dark_bias-*/*_{}.fits'.format(det_name)
+        pattern = 'dark_bias_*/*_{}.fits'.format(det_name)
         bias_files[slot_name] = sorted(glob.glob(pattern))
         if not bias_files[slot_name]:
             raise FileNotFoundError("needed bias files not found for %s"
@@ -69,6 +69,9 @@ def get_bias_files(raft_name):
 
 
 def read_noise_stats(raft_name, run_number=run_number):
+    """
+    Compute the read noise stats and make plots.
+    """
     file_prefix = '{}_{}'.format(run_number, raft_name)
     title = '{}, {}'.format(run_number, raft_name)
 
@@ -102,9 +105,12 @@ def read_noise_stats(raft_name, run_number=run_number):
     plt.savefig('{}_read_noise.png'.format(file_prefix))
 
 def correlated_noise_figures(det_name, run_number=run_number):
+    """
+    Compute intra-CCD read noise correlations.
+    """
     file_prefix = '{}_{}'.format(run_number, det_name)
     title = '{}, {}'.format(run_number, det_name)
-    pattern = 'dark_bias-*/*_{}.fits'.format(det_name)
+    pattern = 'dark_bias_*/*_{}.fits'.format(det_name)
     bias_files = sorted(glob.glob(pattern))
     if not bias_files:
         print("correlated_noise_figures: Needed bias files not found for",
@@ -116,6 +122,9 @@ def correlated_noise_figures(det_name, run_number=run_number):
     plt.savefig('{}_correlated_noise.png'.format(file_prefix))
 
 def raft_overscan_correlations(raft_name, run_number=run_number):
+    """
+    Compute raft-level inter-CCD read noise correlations.
+    """
     file_prefix = '{}_{}'.format(run_number, raft_name)
     title = '{}, {}'.format(run_number, raft_name)
 
