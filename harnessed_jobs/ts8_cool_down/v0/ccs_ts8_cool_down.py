@@ -32,8 +32,8 @@ ready_state = ccs_sub.ts.asynchCommand('setTSReady')
 ts_state = 0
 while ts_state == 0:
     try:
-        ts_state = ccs_sub.ts.synchCommand(10, "isTestStandReady").getResult()
-        ctemp = ccs_sub.cryo.synchCommand(20, "getTemp B").getResult()
+        ts_state = ccs_sub.ts.synchCommand(10, "isTestStandReady")
+        ctemp = ccs_sub.cryo.synchCommand(20, "getTemp B")
         logger.info("time = %s, temp = %f", time.time(), ctemp)
     except StandardError as eobj:
         logger.info("Exception caught while waiting for test stand ready state")
@@ -44,4 +44,4 @@ while ts_state == 0:
 
 # Final check of test stand readiness.
 reply = ready_state.get()
-result = ccs_sub.ts.synchCommand(120, "goTestStand").getResult()
+result = ccs_sub.ts.synchCommand(120, "goTestStand")

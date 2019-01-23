@@ -70,7 +70,7 @@ class RebCurrentLimits(OrderedDict):
         for limits in self.values():
             ps_channel_name = 'REB%d.%s' % (rebid, limits.reb_ps_name)
             ps_current = self.rebps.synchCommand(10, 'readChannelValue',
-                                                 ps_channel_name).getResult()
+                                                 ps_channel_name)
             self.logger.info("%s: %s mA", ps_channel_name, ps_current)
             if ((enforce_lower_limits and ps_current < limits.low_lim)
                 or ps_current > limits.high_lim):
@@ -101,10 +101,10 @@ class RebCurrentLimits(OrderedDict):
                 continue
             ps_channel_name = 'REB%d.%s' % (rebid, limits.reb_ps_name)
             ps_current = self.rebps.synchCommand(10, 'readChannelValue',
-                                                 ps_channel_name).getResult()
+                                                 ps_channel_name)
             reb_channel_name = 'R00.Reb%d.%s' % (rebid, channel_name)
             reb_current = self.ts8.synchCommand(10, 'readChannelValue',
-                                                reb_channel_name).getResult()
+                                                reb_channel_name)
             if abs(ps_current - reb_current) > limits.comp_range:
                 message \
                     = "Currents for %s and %s lie outside comparative range." \

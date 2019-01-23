@@ -17,7 +17,7 @@ logger = logging.getLogger()
 
 def verify_rebs(ts8, logger=logger):
     "List the REBs that are attached."
-    rebs = ts8.synchCommand(10, "getREBDeviceNames").getResult()
+    rebs = ts8.synchCommand(10, "getREBDeviceNames")
     logger.info("%i REBs found:", len(rebs))
     for reb in rebs:
         logger.info("  %s", reb)
@@ -41,7 +41,7 @@ def setup_sequencer(ts8, sequence_file=sequence_file, nclears=10,
         ts8.synchCommand(10, command)
 
     command = 'exposeAcquireAndSave 100 False False ""'
-    logger.info(ts8.synchCommand(300, command).getResult())
+    logger.info(ts8.synchCommand(300, command))
 
 if __name__ == '__main__':
     if subsystems is None:
