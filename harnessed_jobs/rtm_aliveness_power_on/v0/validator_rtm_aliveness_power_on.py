@@ -30,7 +30,7 @@ for section in config.sections():
         plotter.plot()
         plt.savefig('%s_%s_%s.png' % (section, local_time,
                                       siteUtils.getUnitId()))
-    except StandardError as eobj:
+    except Exception as eobj:
         print("Exception caught while producing trending plot:")
         print(str(eobj))
         print("continuing...")
