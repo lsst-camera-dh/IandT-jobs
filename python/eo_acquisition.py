@@ -46,14 +46,14 @@ def hit_target_pressure(vac_sub, target, wait=5, tmax=7200, logger=logger):
         The logger object.
     """
     tstart = time.time()
-    pressure = vac_sub.synchCommand(20, "readPressure").getResult()
+    pressure = vac_sub.synchCommand(20, "readPressure")
     while pressure > target or pressure < 0:
         logger.info("time = %s, pressure = %f", time.time(), pressure)
         if (time.time() - tstart) > tmax:
             raise RuntimeError("Exceeded allowed pump-down time for "
                                + "target pressure %s" % target)
         time.sleep(wait)
-        pressure = vac_sub.synchCommand(20, "readPressure").getResult()
+        pressure = vac_sub.synchCommand(20, "readPressure")
 
 AcqMetadata = namedtuple('AcqMetadata', 'cwd raft_id run_number'.split())
 
@@ -226,7 +226,7 @@ class EOAcquisition(object):
             The desired wavelength in nm.
         """
         command = "setWaveAndFilter %s" % wl
-        rwl = self.sub.mono.synchCommand(60, command).getResult()
+        rwl = self.sub.mono.synchCommand(60, command)
         self.sub.ts8.synchCommand(10, "setMonoWavelength", rwl)
         return rwl
 
@@ -322,7 +322,7 @@ class EOAcquisition(object):
         timeout = int(max(timeout, exptime + 20))
         for itry in range(max_tries):
             try:
-                result = self.sub.ts8.synchCommand(timeout, command).getResult()
+                result = self.sub.ts8.synchCommand(timeout, command)
                 return result
             except (StandardError, java.lang.Exception) as eobj:
                 self.logger.info("EOAcquisition.take_image: try %i failed",
@@ -408,7 +408,7 @@ class EOAcquisition(object):
             file_path = glob.glob(os.path.join(self.md.cwd, '*', fits_file))[0]
             command = "getFluxStats %s" % file_path
             flux_sum += \
-                float(self.sub.ts8.synchCommand(10, command).getResult())
+                float(self.sub.ts8.synchCommand(10, command))
         return flux_sum/len(fits_files)
 
     def compute_exptime(self, target_counts, meas_flux):
@@ -438,7 +438,7 @@ class EOAcquisition(object):
         get phi0, phi1, phi2 existing values of pclkHighP
         """
         command = "printConfigurableParameters"
-        res = str(self.sub.ts8dac0.synchCommand(10, command).getResult())
+        res = str(self.sub.ts8dac0.synchCommand(10, command))
         m = re.search(r"pclkHighP: ([-\d]+\.\d+),", res)
         if not m:
             self.logger.info("m is None, res=%s", res)
@@ -447,7 +447,7 @@ class EOAcquisition(object):
         if phi0 < 1.0:
             self.logger.info("ts8dac0.pclkHighP=%s < 1.0", phi0)
             return None
-        res = str(self.sub.ts8dac1.synchCommand(10, command).getResult())
+        res = str(self.sub.ts8dac1.synchCommand(10, command))
         m = re.search(r"pclkHighP: ([-\d]+\.\d+),", res)
         if not m:
             self.logger.info("m is None, res=%s", res)
@@ -456,7 +456,7 @@ class EOAcquisition(object):
         if phi1 < 1.0:
             self.logger.info("ts8dac1.pclkHighP=%s < 1.0", phi1)
             return None
-        res = str(self.sub.ts8dac2.synchCommand(10, command).getResult())
+        res = str(self.sub.ts8dac2.synchCommand(10, command))
         m = re.search(r"pclkHighP: ([-\d]+\.\d+),", res)
         if not m:
             self.logger.info("m is None, res=%s", res)
@@ -472,7 +472,7 @@ class EOAcquisition(object):
         get plo0, plo1, plo2 existing values of pclkLowP
         """
         command = "printConfigurableParameters"
-        res = str(self.sub.ts8dac0.synchCommand(10, command).getResult())
+        res = str(self.sub.ts8dac0.synchCommand(10, command))
         m = re.search(r"pclkLowP: ([-\d]+\.\d+),", res)
         if not m:
             self.logger.info("m is None, res=%s", res)
@@ -481,7 +481,7 @@ class EOAcquisition(object):
         if plo0 > 0.5:
             self.logger.info("ts8dac0.pclkLowP: %s > 0.5", plo0)
             return None
-        res = str(self.sub.ts8dac1.synchCommand(10, command).getResult())
+        res = str(self.sub.ts8dac1.synchCommand(10, command))
         m = re.search(r"pclkLowP: ([-\d]+\.\d+),", res)
         if not m:
             self.logger.info("m is None, res=%s", res)
@@ -490,7 +490,7 @@ class EOAcquisition(object):
         if plo1 > 0.5:
             self.logger.info("ts8dac1.pclkLowP: %s > 0.5", plo1)
             return None
-        res = str(self.sub.ts8dac2.synchCommand(10, command).getResult())
+        res = str(self.sub.ts8dac2.synchCommand(10, command))
         m = re.search(r"pclkLowP: ([-\d]+\.\d+),", res)
         if not m:
             self.logger.info("m is None, res=%s", res)
@@ -503,7 +503,7 @@ class EOAcquisition(object):
 
     def get_ccdtype(self):
         """ return ccdtype as a string"""
-        res = str(self.sub.ts8.synchCommand(10, "getCcdType").getResult())
+        res = str(self.sub.ts8.synchCommand(10, "getCcdType"))
         if re.match(r"^e2v$", res):
             return "e2v"
         elif re.match(r"^itl$", res):
@@ -518,13 +518,13 @@ class EOAcquisition(object):
         """
         #- CleaningNummber = [0, 0, 0]
         res = str(self.sub.ts8.synchCommand(10,
-                         "getSequencerParameter", "CleaningNumber").getResult())
+                         "getSequencerParameter", "CleaningNumber"))
         if not re.match(r"\[0, 0, 0\]", res):
             self.logger.info("SeqParam CleaningNumber:%s invalid", res)
             raise java.lang.Exception("Bad Sequencer: CleaningNumber=0 required")
         #- ClearCount = [1, 1, 1]
         res = str(self.sub.ts8.synchCommand(10,
-                             "getSequencerParameter", "ClearCount").getResult())
+                             "getSequencerParameter", "ClearCount"))
         if not re.match(r"\[1, 1, 1\]", res):
             self.logger.info("SeqParam ClearCount:%s invalid", res)
             raise java.lang.Exception("Bad Sequencer: ClearCount=1 required")
@@ -598,7 +598,7 @@ class EOAcquisition(object):
         for _ in range(nclears):
             self.sub.ts8.synchCommand(10, "setSequencerStart", "Clear")
             self.sub.ts8.synchCommand(10, "startSequencer")
-            self.sub.ts8.synchCommand(10, "waitSequencerDone", 1000).getResult()
+            self.sub.ts8.synchCommand(10, "waitSequencerDone", 1000)
             self.sub.ts8.synchCommand(10, "setSequencerStart", "Bias")
         if ccdtype == 'e2v':
             if unipolar:
@@ -670,7 +670,7 @@ class PhotodiodeReadout(object):
         running = False
         while not running:
             try:
-                running = self.sub.pd.synchCommand(20, "isAccumInProgress").getResult()
+                running = self.sub.pd.synchCommand(20, "isAccumInProgress")
             except StandardError as eobj:
                 self.logger.info("PhotodiodeReadout.start_accumulation:")
                 self.logger.info(str(eobj))
@@ -691,7 +691,7 @@ class PhotodiodeReadout(object):
 
         result = self.sub.pd.synchCommand(1000, "readBuffer", pd_filename)
         self.logger.info("Photodiode readout accumulation finished at %f, %s",
-                         time.time() - self._start_time, result.getResult())
+                         time.time() - self._start_time, result)
 
         return pd_filename
 
