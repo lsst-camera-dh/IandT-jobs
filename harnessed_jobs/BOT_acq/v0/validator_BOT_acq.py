@@ -15,6 +15,9 @@ for det_name in det_names:
     for item in fits_files:
         results.append(lcatr.schema.fileref.make(item))
 
+pd_files = sorted(glob.glob('*/Photodiode_Readings.txt'))
+results.extend([lcatr.schema.fileref.make(_) for _ in pd_files])
+
 results.extend(siteUtils.jobInfo())
 
 lcatr.schema.write_file(results)
