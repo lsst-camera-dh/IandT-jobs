@@ -108,7 +108,8 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
         outfile = '/'.join((tsCWD, outfile))
         logger.info('Writing powerOn output to %s', outfile)
         with open(outfile, 'w') as output:
-            output.write(str(ccs_sub.ts8.synchCommand(10, 'powerCCDsOn', rebid)))
+            output.write(str(getattr(ccs_sub,"ts8reb%d" % rebid).synchCommand(10, 'powerCCDsOn')))
+
         os.chmod(outfile, 0664)
         logger.info("------ %s power-on complete ------\n", reb_slot)
     except java.lang.Exception as eobj:
