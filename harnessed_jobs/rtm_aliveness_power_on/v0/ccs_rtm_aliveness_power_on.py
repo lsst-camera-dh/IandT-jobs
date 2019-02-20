@@ -95,7 +95,11 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
     logger.info("Turn on REB clock and rail voltages.")
 
     # Load configurations
-    ccs_sub.ts8.synchCommand(10, "loadCategories Rafts: RaftsLimits: Limits:")
+    ccs_sub.ts8.synchCommand(10, "loadCategories Rafts: RaftsLimits: Limits: RaftsPower:")
+
+    command = "loadSequencer %s" % sequence_file
+    ccs_sub.ts8.synchCommand(10, command)
+    ccs_sub.ts8.synchCommand(10, "loadAspics True")
 
     # Run the powerOn CCS command (10.4.2.2, steps 11-13)
     try:
@@ -104,7 +108,8 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
         outfile = '/'.join((tsCWD, outfile))
         logger.info('Writing powerOn output to %s', outfile)
         with open(outfile, 'w') as output:
-            output.write(str(ccs_sub.ts8.synchCommand(900, 'powerOn', rebid)))
+            output.write(str(getattr(ccs_sub,"ts8reb%d" % rebid).synchCommand(10, 'powerCCDsOn')))
+
         os.chmod(outfile, 0664)
         logger.info("------ %s power-on complete ------\n", reb_slot)
     except java.lang.Exception as eobj:
@@ -128,10 +133,12 @@ if __name__ == '__main__':
         logger.info("  power line %d for REB ID %d", power_line, rebid)
 
     for rebid, power_line in power_lines.items():
+        logger.info("  power line %d for REB ID %d", power_line, rebid)
         try:
             reb_power_on(ccs_sub, rebid, power_line, ccd_type)
         except (java.lang.Exception, StandardError) as eobj:
-            ccs_sub.rebps.synchCommand(10, 'sequencePower', rebid, False)
+            #  ccs_sub.rebps.synchCommand(10, 'sequencePower', rebid, False)
+            logger.info(eobj.message)
             raise
 
     logger.info("Stop time: %f", time.time())
