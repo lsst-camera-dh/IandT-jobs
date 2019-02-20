@@ -58,7 +58,6 @@ if __name__ == '__main__':
 
     setup_sequencer(ccs_sub.ts8)
 
-    ccs_sub.ts8.synchCommand(10, 'setRunNumber %s' % RUNNUM)
     ccs_sub.ts8.synchCommand(10, "setTestStand TS8")
 
     test_type = 'CONN'
