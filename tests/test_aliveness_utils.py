@@ -36,7 +36,6 @@ class AlivenessUtilsTestCase(unittest.TestCase):
         Make a collection of single sensor images, one for each slot
         in a raft, with a prescribed number of bad channels.
         """
-        bias_frame = fits.open(self.bias_file)
         self.slots = ['S%i%i' % pair for pair in
                       itertools.product(range(3), range(3))]
         self.raft_files = [os.path.join(slot,
@@ -46,14 +45,15 @@ class AlivenessUtilsTestCase(unittest.TestCase):
             slot = self.slots[i]
             if not os.path.isdir(slot):
                 os.mkdir(os.path.join(slot))
-            flat_frame = fits.open(self.flat_file)
-            # Insert i+1 bad channels in random locations.
-            num_bad = i + 1
-            self.nbad[slot] = num_bad
-            channels = permutation(range(1, 17))[:num_bad]
-            for channel in channels:
-                flat_frame[channel] = bias_frame[channel]
-            flat_frame.writeto(raft_file, overwrite=True)
+            with fits.open(self.flat_file) as flat_frame, \
+                 fits.open(self.bias_file) as bias_frame:
+                # Insert i+1 bad channels in random locations.
+                num_bad = i + 1
+                self.nbad[slot] = num_bad
+                channels = permutation(range(1, 17))[:num_bad]
+                for channel in channels:
+                    flat_frame[channel] = bias_frame[channel]
+                flat_frame.writeto(raft_file, overwrite=True)
 
     def tearDown(self):
         "Clean up FITS files"
