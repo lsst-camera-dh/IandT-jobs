@@ -8,7 +8,8 @@ from ccsTools import ccsProducer, CcsRaftSetup
 import lsst.eotest.sensor as sensorTest
 import lsst.eotest.raft as raftTest
 import siteUtils
-from correlated_noise import correlated_noise, raft_level_oscan_correlations
+from correlated_noise import correlated_noise, plot_correlated_noise, \
+    raft_level_oscan_correlations
 import camera_components
 import aliveness_utils
 
@@ -71,38 +72,46 @@ for slot, sensor_id in raft.items():
     results.write()
     results_files[slot] = outfile
 
+file_prefix = '{}_{}'.format(raft_id, run_number)
+title = '{}, Run {}'.format(raft_id, run_number)
 spec_plots = raftTest.RaftSpecPlots(results_files)
-spec_plots.make_plot('READ_NOISE', 'noise per pixel (ADU rms)',
-                     title='{}, Run {}'.format(raft_id, run_number))
-plt.savefig('{}_{}_read_noise.png'.format(raft_id, run_number))
+
+spec_plots.make_plot('READ_NOISE', 'noise per pixel (ADU rms)', title=title)
+plt.savefig('{}_read_noise.png'.format(file_prefix))
+plt.close('all')
 
 columns = ['MEAN_SIGNAL_%s_minus_%s' % (seqno, seqnos[0])
            for seqno in seqnos[1:]]
-spec_plots.make_multi_column_plot(columns, 'mean signal (ADU)',
-                                  title='{}, Run {}'.format(raft_id, run_number))
-plt.savefig('{}_{}_diff_mean_signal.png'.format(raft_id, run_number))
+spec_plots.make_multi_column_plot(columns, 'mean signal (ADU)', title=title)
+plt.savefig('{}_diff_mean_signal.png'.format(file_prefix))
+plt.close('all')
 
 spec_plots.make_plot('SLOPE', 'slope of mean signal vs exptime (adu/s)',
-                     title='{}, Run {}'.format(raft_id, run_number))
-plt.savefig('{}_{}_mean_signal_vs_exptime_slope.png'.format(raft_id, run_number))
+                     title=title)
+plt.savefig('{}_mean_signal_vs_exptime_slope.png'.format(file_prefix))
+plt.close('all')
 
-def plot_correlated_noise(bias_files, slot, sensor_id, run_number):
-    _, corr_fig, _ = correlated_noise(bias_files, target=0, make_plots=True,
-                                      title='{}, {}, Run {}'.format(slot,
-                                                                    sensor_id,
-                                                                    run_number))
-    plt.figure(corr_fig.number)
-    plt.savefig('{}_{}_correlated_noise.png'.format(sensor_id, run_number))
+def compute_correlated_noise(bias_files, slot, sensor_id):
+    (corr_data, bias_stats), _, _ = correlated_noise(bias_files)
+    f1, f2 = plot_correlated_noise(corr_data, bias_stats)
+    return f1, slot, sensor_id
 
 with multiprocessing.Pool(processes=len(list(raft.items()))) as pool:
-    results = []
+    workers = []
     for slot, sensor_id in raft.items():
-        results.append(pool.apply_async(plot_correlated_noise,
-                                        (bias_files[slot], slot, sensor_id,
-                                         run_number)))
+        workers.append(pool.apply_async(compute_correlated_noise,
+                                        (bias_files[slot], slot, sensor_id)))
     pool.close()
     pool.join()
-    [_.get() for _ in results]
+    results = [_.get() for _ in workers]
+
+for items in results:
+    fig1, slot, sensor_id = items
+    plt.figure(fig1.number)
+    fig1.suptitle('{}, {}, Run {}'.format(slot, sensor_id, run_number))
+    plt.savefig('{}_{}_correlated_noise.png'.format(sensor_id, run_number))
+
+plt.close('all')
 
 title = 'Overscan correlations, {}, Run {}'.format(raft_id, run_number)
 bias_files = {slot: x[0] for slot, x in bias_files.items()}
