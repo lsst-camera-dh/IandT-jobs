@@ -66,7 +66,8 @@ if __name__ == '__main__':
 
     openShutter = False
     actuateXED = False
-    filename_format = "${CCDSerialLSST}_${testType}_${imageType}_%04d_${RunNumber}_${timestamp}.fits"
+    filename_format = "${CCDSerialLSST}_${testType}_${imageType}_%04d_" \
+                      + str(RUNNUM) + "_${timestamp}.fits"
 
     # Take 5 bias frames to clear the CCDs and enable a noise
     # measurement.
