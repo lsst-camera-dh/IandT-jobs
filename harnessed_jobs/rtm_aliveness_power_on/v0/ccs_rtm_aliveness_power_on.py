@@ -53,7 +53,7 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
     # Power on the REB using the power-up sequence. (10.4.2.2, step 2)
     ccs_sub.rebps.synchCommand(10, 'sequencePower', power_line, True)
 
-    time.sleep(1)
+    time.sleep(2)
     # Check that the power-supply currents are within the limits
     # for each channel. (10.4.2.2, step 3)
     reb_current_limits.check_rebps_limits(rebid, enforce_lower_limits=False,
@@ -92,26 +92,23 @@ def reb_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
     reb_current_limits.check_comparative_ranges(rebid,
                                                 raise_exception=raise_exception)
 
-    logger.info("Turn on REB clock and rail voltages.")
 
-    # Load configurations
-    ccs_sub.ts8.synchCommand(10, "loadCategories Rafts: RaftsLimits: Limits: RaftsPower:")
+def ccd_power_on(ccs_sub, rebid, power_line, ccd_type, raise_exception=True):
+    logger = ccs_sub.ts8.logger
+    logger.info("Turn on CCD clock and rail voltages.")
+    reb_slot = 'REB%d' % rebid
 
-    command = "loadSequencer %s" % sequence_file
-    ccs_sub.ts8.synchCommand(10, command)
-    ccs_sub.ts8.synchCommand(10, "loadAspics True")
-
-    # Run the powerOn CCS command (10.4.2.2, steps 11-13)
+    # Run the powerCCDsOn CCS command (10.4.2.2, steps 11-13)
     try:
         outfile = '%s_REB%i_%s_powerOn_aliveness_test_output.txt' \
                   % (UNITID, rebid, RUNNUM)
         outfile = '/'.join((tsCWD, outfile))
-        logger.info('Writing powerOn output to %s', outfile)
+        logger.info('Writing powerCCDsOn output to %s', outfile)
         with open(outfile, 'w') as output:
             output.write(str(getattr(ccs_sub,"ts8reb%d" % rebid).synchCommand(10, 'powerCCDsOn')))
 
         os.chmod(outfile, 0664)
-        logger.info("------ %s power-on complete ------\n", reb_slot)
+        logger.info("------ %s powerCCDsOn complete ------\n", reb_slot)
     except java.lang.Exception as eobj:
         logger.info(eobj.message)
         raise eobj
@@ -124,6 +121,9 @@ if __name__ == '__main__':
 
     ccs_sub = CcsSubsystems(subsystems=subsystems, logger=logger)
 
+    # Load configurations
+    ccs_sub.ts8.synchCommand(10, "loadCategories Rafts: RaftsLimits: Limits: RaftsPower:")
+
     # Assumed mapping of power supply lines to REBs.
     num_lines = 3
     power_lines = {i: i for i in range(num_lines)}
@@ -131,11 +131,21 @@ if __name__ == '__main__':
     logger.info("Will attempt to power on and check currents for")
     for rebid, power_line in power_lines.items():
         logger.info("  power line %d for REB ID %d", power_line, rebid)
+        try:
+            reb_power_on(ccs_sub, rebid, power_line, ccd_type)
+        except (java.lang.Exception, StandardError) as eobj:
+            #  ccs_sub.rebps.synchCommand(10, 'sequencePower', rebid, False)
+            logger.info(eobj.message)
+            raise
+
+    command = "loadSequencer %s" % sequence_file
+    ccs_sub.ts8.synchCommand(10, command)
+    ccs_sub.ts8.synchCommand(10, "loadAspics True")
 
     for rebid, power_line in power_lines.items():
         logger.info("  power line %d for REB ID %d", power_line, rebid)
         try:
-            reb_power_on(ccs_sub, rebid, power_line, ccd_type)
+            ccd_power_on(ccs_sub, rebid, power_line, ccd_type)
         except (java.lang.Exception, StandardError) as eobj:
             #  ccs_sub.rebps.synchCommand(10, 'sequencePower', rebid, False)
             logger.info(eobj.message)
