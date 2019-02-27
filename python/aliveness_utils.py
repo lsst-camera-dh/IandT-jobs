@@ -7,7 +7,74 @@ import numpy as np
 import lsst.eotest.image_utils as imutils
 import lsst.eotest.sensor as sensorTest
 
-__all__ = ['get_median_signal_levels', 'raft_channel_statuses']
+__all__ = ['get_read_noise', 'get_mean_image_adu',
+           'get_median_signal_levels', 'raft_channel_statuses']
+
+def get_read_noise(ccd, boxsize=10, nsamp=50):
+    """
+    Compute the read noise per amp derived by randomly subsampling
+    the overscan region and taking the median of the stdev values
+    from the sample of subregions.
+
+    Parameters
+    ----------
+    ccd: lsst.eotest.sensor.MaskedCCD
+        The pixel data for a CCD frame.
+    boxsize: int [10]
+        The linear size in pixels of the square regions for subsampling.
+    nsamp: int [50]
+        The number of subregions to generate.
+
+    Returns
+    -------
+    dict: a dictionary of the stdev values in ADU keyed by amp number.
+    """
+    read_noise = {}
+    for amp in ccd:
+        sampler = imutils.SubRegionSampler(boxsize, boxsize, nsamp,
+                                           imaging=ccd.amp_geom.serial_overscan)
+        image = ccd[amp].Factory(ccd[amp], ccd.amp_geom.serial_overscan)
+        bbox = image.getBBox()
+        stdevs = []
+        for x, y in zip(sampler.xarr, sampler.yarr):
+            subim = sampler.subim(image, x + bbox.getMinX(), y + bbox.getMinY())
+            stdevs.append(np.std(subim.getImage().getArray().ravel()))
+        read_noise[amp] = np.median(stdevs)
+    return read_noise
+
+
+def get_mean_image_adu(ccd, boxsize=50, nsamp=50):
+    """
+    Compute the mean signal in the imaging region by randomly
+    subsampling the overscan subtracted imaging section and taking the
+    median of the mean signal in each subregion.
+
+    Parameters
+    ----------
+    ccd: lsst.eotest.sensor.MaskedCCD
+        The pixel data for a CCD frame.
+    boxsize: int [50]
+        The linear size in pixels of the square regions for subsampling.
+    nsamp: int [50]
+        The number of subregions to generate.
+
+    Returns
+    -------
+    dict: a dictionary of the mean values in ADU keyed by amp number.
+    """
+    medians = {}
+    for amp in ccd:
+        sampler = imutils.SubRegionSampler(boxsize, boxsize, nsamp,
+                                           imaging=ccd.amp_geom.imaging)
+        image = ccd.unbiased_and_trimmed_image(amp)
+        bbox = image.getBBox()
+        values = []
+        for x, y in zip(sampler.xarr, sampler.yarr):
+            subim = sampler.subim(image, x + bbox.getMinX(), y + bbox.getMinY())
+            values.append(np.mean(subim.getImage().getArray().ravel()))
+        medians[amp] = np.median(values)
+    return medians
+
 
 def get_median_signal_levels(ccd, segment_region, boxsize=10, nsamp=50):
     """
@@ -18,20 +85,18 @@ def get_median_signal_levels(ccd, segment_region, boxsize=10, nsamp=50):
 
     Parameters
     ----------
-    ccd : lsst.eotest.sensor.MaskedCCD
+    ccd: lsst.eotest.sensor.MaskedCCD
         The pixel data for a CCD frame.
-    segment_region : lsst.afw.geom.Box2I
+    segment_region: lsst.afw.geom.Box2I
         The bounding box for the segment subregion to sample.
-    boxsize : int, optional
+    boxsize: int [10]
         The linear size in pixels of the square regions for subsampling.
-        Default: 10
-    nsamp : int, optional
-        The number of subregions to generate. Default: 50
+    nsamp : int [50]
+        The number of subregions to generate.
 
     Returns
     -------
-    dict : a dictionary of the median signal values keyed by channel/amp
-        number.
+    dict : a dictionary of the median signal values keyed by amp number.
     """
     medians = {}
     for amp in ccd:
@@ -46,6 +111,7 @@ def get_median_signal_levels(ccd, segment_region, boxsize=10, nsamp=50):
             means.append(np.mean(subim.getImage().getArray().ravel()))
         medians[amp] = np.median(means)
     return medians
+
 
 def raft_channel_statuses(fits_files, threshold_factor=0.1):
     """

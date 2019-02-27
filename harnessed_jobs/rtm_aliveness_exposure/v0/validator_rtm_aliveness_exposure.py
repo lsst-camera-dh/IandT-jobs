@@ -13,7 +13,7 @@ results = []
 job_schema = lcatr.schema.get('rtm_aliveness_exposure')
 
 # Infer the sequence numbers from the files for the sensor in slot S00.
-seqnos = [x.split('_')[-3] for x in sorted(glob.glob('S00/*.fits'))]
+seqnos = [x.split('_')[-3] for x in sorted(glob.glob('S00/*flat*.fits'))]
 
 row_template = "%(seqno)s  %(slot)s  %(channel)s  %(signal)s  %(status)s\n"
 
