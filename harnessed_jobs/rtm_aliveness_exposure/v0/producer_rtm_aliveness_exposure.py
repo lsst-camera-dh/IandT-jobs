@@ -42,35 +42,19 @@ for slot, sensor_id in raft.items():
     # sampler to estimate the read noise from the overscane regoins.
     sampled_rn = aliveness_utils.get_read_noise(ccd)
 
-    outfile = '%s_eotest_results.fits' % sensor_id
-    results = sensorTest.EOTestResults(outfile)
+    results_files[slot] = '%s_eotest_results.fits' % sensor_id
+    results = sensorTest.EOTestResults(results_files[slot])
     for amp in sampled_rn:
         results.add_seg_result(amp, 'READ_NOISE', sampled_rn[amp])
-
-    # Mean image adu levels for each sequence number (exposure time).
-    exptimes = np.zeros(len(seqnos), dtype=float)
-    mean_signals = defaultdict(lambda: np.zeros(len(seqnos), dtype=float))
-    for i, seqno in enumerate(seqnos):
-        flat = sorted(glob.glob('%s/%s_conn_flat_%s_*.fits'
-                                % (slot, sensor_id, seqno)))[0]
-        ccd = sensorTest.MaskedCCD(flat)
-        exptimes[i] = ccd.md.get('EXPTIME')
-        means = aliveness_utils.get_mean_image_adu(ccd)
-        if i > 0:
-            for amp, value in means.items():
-                colname = 'MEAN_SIGNAL_%s_minus_%s' % (seqno, seqnos[0])
-                delta_signal = float(value - mean_signals[amp][0])
-                results.add_seg_result(amp, colname, delta_signal)
-                mean_signals[amp][i] = value
-
-    # Linearity fits to mean signal vs exptime.
-    for amp, signal in mean_signals.items():
-        pars = np.polyfit(exptimes, signal, 1)
-        results.add_seg_result(amp, 'SLOPE', float(pars[0]))
-        results.add_seg_result(amp, 'INTERCEPT', float(pars[1]))
-
     results.write()
-    results_files[slot] = outfile
+
+    frames = dict()
+    for seqno in seqnos:
+        frames[seqno] = sorted(glob.glob('%s/%s_conn_flat_%s_*.fits'
+                                         % (slot, sensor_id, seqno)))[0]
+
+    columns = aliveness_utils.compute_response_diffs(frames,
+                                                     results_files[slot])
 
 file_prefix = '{}_{}'.format(raft_id, run_number)
 title = '{}, Run {}'.format(raft_id, run_number)
@@ -80,8 +64,6 @@ spec_plots.make_plot('READ_NOISE', 'noise per pixel (ADU rms)', title=title)
 plt.savefig('{}_read_noise.png'.format(file_prefix))
 plt.close('all')
 
-columns = ['MEAN_SIGNAL_%s_minus_%s' % (seqno, seqnos[0])
-           for seqno in seqnos[1:]]
 spec_plots.make_multi_column_plot(columns, 'mean signal (ADU)', title=title)
 plt.savefig('{}_diff_mean_signal.png'.format(file_prefix))
 plt.close('all')
