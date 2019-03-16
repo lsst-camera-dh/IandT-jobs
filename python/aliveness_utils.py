@@ -7,8 +7,53 @@ import numpy as np
 import lsst.eotest.image_utils as imutils
 import lsst.eotest.sensor as sensorTest
 
-__all__ = ['get_read_noise', 'get_mean_image_adu',
+__all__ = ['compoute_response_diffs', 'get_read_noise', 'get_mean_image_adu',
            'get_median_signal_levels', 'raft_channel_statuses']
+
+
+def compute_response_diffs(frames, results_file):
+    """
+    For each amp, compute the difference in response of sequential frames
+    sorted by exposure time.
+
+    Parameters
+    ----------
+    frames: dict
+        Filenames for single CCD frames, keyed by sequence number.
+    results_file: str
+        Filename of eotest results file to which the response differences
+        are written.
+
+    Returns
+    -------
+    list of column names
+    """
+    seqnos = sorted(frames.keys())
+    results = sensorTest.EOTestResults(results_file)
+    mean_signals = defaultdict(list)
+    columns = set()
+    exptimes = []
+    for i, seqno in enumerate(seqnos):
+        ccd = sensorTest.MaskedCCD(frames[seqno])
+        exptimes.append(ccd.md.get('EXPTIME'))
+        means = get_mean_image_adu(ccd)
+        for amp, value in means.items():
+            mean_signals[amp].append(value)
+            if i > 0:
+                column = 'MEAN_SIGNAL_{}_minus_{}'.format(seqnos[i],
+                                                          seqnos[i-1])
+                columns.add(column)
+                delta_signal = float(value - mean_signals[amp][i-1])
+                results.add_seg_result(amp, column, delta_signal)
+
+    for amp, signal in mean_signals.items():
+        pars = np.polyfit(exptimes, signal, 1)
+        results.add_seg_result(amp, 'SLOPE', float(pars[0]))
+        results.add_seg_result(amp, 'INTERCEPT', float(pars[1]))
+
+    results.write()
+    return columns
+
 
 def get_read_noise(ccd, boxsize=10, nsamp=50):
     """

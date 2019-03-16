@@ -6,6 +6,7 @@ import os
 import glob
 import shutil
 import subprocess
+import pathlib
 import matplotlib.pyplot as plt
 import lsst.afw.math as afw_math
 import siteUtils
@@ -38,18 +39,10 @@ def symlink_r_and_d_data(r_and_d_path=None):
     r_and_d_dirs = [x for x in sorted(glob.glob(os.path.join(r_and_d_path, '*'))) if os.path.isdir(x)]
     for i in range(0, 2):
         outdir = 'dark_bias_{:03d}'.format(i)
-        os.makedirs(outdir, exist_ok=True)
-        #os.symlink(r_and_d_dirs[i], outdir)
-        command = 'cp {}/* {}/'.format(r_and_d_dirs[i], outdir)
-        print(command)
-        subprocess.check_call(command, shell=True)
+        os.symlink(r_and_d_dirs[i], outdir)
     for i in range(2, 5):
         outdir = 'dark_dark_{:03d}'.format(i)
-        os.makedirs(outdir, exist_ok=True)
-        #os.symlink(r_and_d_dirs[i], outdir)
-        command = 'cp {}/* {}/'.format(r_and_d_dirs[i], outdir)
-        print(command)
-        subprocess.check_call(command, shell=True)
+        os.symlink(r_and_d_dirs[i], outdir)
 
 
 def get_bias_files(raft_name):
@@ -140,6 +133,15 @@ def raft_overscan_correlations(raft_name, run_number=run_number):
     raft_level_oscan_correlations(bias_files, title=oscan_title)
     plt.savefig('{}_overscan_correlations.png'.format(file_prefix))
 
+
+def cleanup():
+    """Create an empty PRESERVE_SYMLINKS file and clean up eotest_results
+    files that are not meant to be archived.
+    """
+    pathlib.Path('PRESERVE_SYMLINKS').touch()
+    for item in glob.glob('*eotest_results.fits'):
+        os.remove(item)
+
 if __name__ == '__main__':
     if 'LCATR_RUN_SIM' in os.environ:
         symlink_r_and_d_data()
@@ -154,3 +156,4 @@ if __name__ == '__main__':
                              processes=processes)
     run_device_analysis_pool(raft_overscan_correlations, raft_names,
                              processes=processes)
+    cleanup()
