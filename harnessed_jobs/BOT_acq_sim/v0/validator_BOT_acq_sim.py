@@ -1,26 +1,24 @@
 #!/usr/bin/env python
 """ Validator script """
-
 import os
 import glob
+import time
 import lcatr.schema
 import siteUtils
-import time
-from simulation import fake_camera
 
-# These are specific to one run
-ARGS_DICT = dict(root_folder_out='.')
+results = []
 
-# These are specific to this test
-OUTREGEXP = os.path.join(fake_camera.make_output_topdir_path(**ARGS_DICT), '*')
+if 'LCATR_ACQ_RUN' not in os.environ:
+    files = sorted(glob.glob(os.path.join('.', '*', '*.fits')))
+    t0 = time.time()
+    results.extend([lcatr.schema.fileref.make(item) for item in files])
+    print('time to make filerefs:', (time.time() - t0)/60., 'mins')
 
-RESULTS = []
-DIRS = sorted(glob.glob(OUTREGEXP))
-FILES = []
-for DIR in DIRS:
-    FILES += sorted(glob.glob(os.path.join(DIR, '*.fits')))
-DATA_PRODUCTS = [lcatr.schema.fileref.make(item) for item in FILES]
+results.extend(siteUtils.jobInfo())
 
-RESULTS.extend(DATA_PRODUCTS)
-lcatr.schema.write_file(RESULTS)
+t0 = time.time()
+lcatr.schema.write_file(results)
+print('time to write summary.lims:', (time.time() - t0)/60., 'mins')
+t0 = time.time()
 lcatr.schema.validate_file()
+print('time to validate summary.lims:', (time.time() - t0)/60., 'mins')

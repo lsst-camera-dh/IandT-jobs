@@ -9,14 +9,21 @@ import siteUtils
 from camera_components import camera_info
 
 results = []
-det_names = camera_info.get_det_names()
-for det_name in det_names:
-    fits_files = sorted(glob.glob('*/*_{}.fits'.format(det_name)))
-    for item in fits_files:
-        results.append(lcatr.schema.fileref.make(item))
 
-pd_files = sorted(glob.glob('*/Photodiode_Readings.txt'))
-results.extend([lcatr.schema.fileref.make(_) for _ in pd_files])
+if 'LCATR_ACQ_RUN' not in os.environ:
+    det_names = camera_info.get_det_names()
+    for det_name in det_names:
+        fits_files = sorted(glob.glob('*/*_{}.fits'.format(det_name)))
+        for item in fits_files:
+            results.append(lcatr.schema.fileref.make(item))
+
+    pd_files = sorted(glob.glob('*/Photodiode_Readings.txt'))
+    results.extend([lcatr.schema.fileref.make(_) for _ in pd_files])
+
+    acq_config = siteUtils.get_job_acq_configs()
+    bot_eo_acq_cfg = os.path.basename(acq_config['bot_eo_acq_cfg'])
+    if os.path.isfile(bot_eo_acq_cfg):
+        results.append(lcatr.schema.fileref.make(bot_eo_acq_cfg))
 
 results.extend(siteUtils.jobInfo())
 

@@ -1,11 +1,19 @@
 #!/usr/bin/env python
 """ Producer script """
 import os
-from simulation import fake_camera
-import time
-import siteUtils
-import yaml
+import sys
+import subprocess
 from configparser import SafeConfigParser
+import siteUtils
+from simulation import fake_camera
+
+if 'LCATR_ACQ_RUN' in os.environ:
+    sys.exit(0)
+
+command = 'ln -s /gpfs/slac/lsst/fs2/u1/devel/jchiang/BOT_sims/BOT_acq_sim_data/* .'
+subprocess.check_call(command, shell=True)
+subprocess.check_call('touch PRESERVE_SYMLINKS', shell=True)
+sys.exit(0)
 
 # This is the generic "fake" BOT, which maps rafts to slots
 RAFTMAP_YAML = os.path.join(os.environ['LCATR_CONFIG_DIR'], 'test_bot.yaml')
@@ -49,4 +57,3 @@ for acq_type, acq_val in scp.items("ACQUIRE"):
 for acq_type in ACQS:
     ARGS_DICT['acq_type_in'] = JOB_NAMES[acq_type]
     fake_cam.run(**ARGS_DICT)
-
