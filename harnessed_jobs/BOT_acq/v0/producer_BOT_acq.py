@@ -22,7 +22,7 @@ if 'LCATR_ACQ_RUN' in os.environ:
 run_number = siteUtils.getRunNumber()
 
 acq_config = siteUtils.get_job_acq_configs()
-bot_eo_acq_cfg = os.path.basename(acq_config['bot_eo_acq_cfg'])
+bot_eo_acq_cfg = acq_config['bot_eo_acq_cfg']
 shutil.copy(bot_eo_acq_cfg, '.')
 
 command = '/home/ccs/bot-data.py --symlink . --run {} {}'\
