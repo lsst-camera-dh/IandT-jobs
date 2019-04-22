@@ -26,6 +26,7 @@ logging.basicConfig(format="%(message)s",
                     stream=sys.stdout)
 logger = logging.getLogger()
 
+
 def hit_target_pressure(vac_sub, target, wait=5, tmax=7200, logger=logger):
     """
     Function to wait until target pressure in vacuum gauge subsystem
@@ -55,7 +56,9 @@ def hit_target_pressure(vac_sub, target, wait=5, tmax=7200, logger=logger):
         time.sleep(wait)
         pressure = vac_sub.synchCommand(20, "readPressure")
 
+
 AcqMetadata = namedtuple('AcqMetadata', 'cwd raft_id run_number'.split())
+
 
 class EOAcqConfig(dict):
     """
@@ -86,6 +89,7 @@ class EOAcqConfig(dict):
         optional default.
         """
         return super(EOAcqConfig, self).get(key, default)
+
 
 class EOAcquisition(object):
     """
@@ -433,73 +437,6 @@ class EOAcquisition(object):
         exptime = min(max(exptime, self.exptime_min), self.exptime_max)
         return exptime
 
-    def getParallelHighConfig(self):
-        """
-        get phi0, phi1, phi2 existing values of pclkHighP
-        """
-        command = "printConfigurableParameters"
-        res = str(self.sub.ts8dac0.synchCommand(10, command))
-        m = re.search(r"pclkHighP: ([-\d]+\.\d+),", res)
-        if not m:
-            self.logger.info("m is None, res=%s", res)
-            return None
-        phi0 = float(m.group(1))
-        if phi0 < 1.0:
-            self.logger.info("ts8dac0.pclkHighP=%s < 1.0", phi0)
-            return None
-        res = str(self.sub.ts8dac1.synchCommand(10, command))
-        m = re.search(r"pclkHighP: ([-\d]+\.\d+),", res)
-        if not m:
-            self.logger.info("m is None, res=%s", res)
-            return None
-        phi1 = float(m.group(1))
-        if phi1 < 1.0:
-            self.logger.info("ts8dac1.pclkHighP=%s < 1.0", phi1)
-            return None
-        res = str(self.sub.ts8dac2.synchCommand(10, command))
-        m = re.search(r"pclkHighP: ([-\d]+\.\d+),", res)
-        if not m:
-            self.logger.info("m is None, res=%s", res)
-            return None
-        phi2 = float(m.group(1))
-        if phi2 < 1.0:
-            self.logger.info("ts8dac2.pclkHighP=%s < 1.0", phi2)
-            return None
-        return phi0, phi1, phi2
-
-    def getParallelLowConfig(self):
-        """
-        get plo0, plo1, plo2 existing values of pclkLowP
-        """
-        command = "printConfigurableParameters"
-        res = str(self.sub.ts8dac0.synchCommand(10, command))
-        m = re.search(r"pclkLowP: ([-\d]+\.\d+),", res)
-        if not m:
-            self.logger.info("m is None, res=%s", res)
-            return None
-        plo0 = float(m.group(1))
-        if plo0 > 0.5:
-            self.logger.info("ts8dac0.pclkLowP: %s > 0.5", plo0)
-            return None
-        res = str(self.sub.ts8dac1.synchCommand(10, command))
-        m = re.search(r"pclkLowP: ([-\d]+\.\d+),", res)
-        if not m:
-            self.logger.info("m is None, res=%s", res)
-            return None
-        plo1 = float(m.group(1))
-        if plo1 > 0.5:
-            self.logger.info("ts8dac1.pclkLowP: %s > 0.5", plo1)
-            return None
-        res = str(self.sub.ts8dac2.synchCommand(10, command))
-        m = re.search(r"pclkLowP: ([-\d]+\.\d+),", res)
-        if not m:
-            self.logger.info("m is None, res=%s", res)
-            return None
-        plo2 = float(m.group(1))
-        if plo2 > 0.5:
-            self.logger.info("ts8dac2.pclkLowP: %s > 0.5", plo2)
-            return None
-        return (plo0, plo1, plo2)
 
     def get_ccdtype(self):
         """ return ccdtype as a string"""
@@ -531,68 +468,11 @@ class EOAcquisition(object):
 
     def ccd_clear(self, nclears):
         """
-        clear the ccd according to type and conditions
-        ccdtype==itl: just run clear main as is
-        ccdtype==e2v: if running unipolar mode do shifted clearing
-        where shifted clear drops/raises P-High before/after clearing
-        and where the shifted value "phi_shifted" is hardcoded below
+        clear the ccd
         """
         if nclears < 1:
             return
-        ccdtype = self.get_ccdtype()
-        if ccdtype == 'e2v':
-            phi_shifted = 5.5  #- hard coded value for now
-            #- verify input value makes sense
-            #
-            if phi_shifted < 5.0 or phi_shifted > 7.0:
-                self.logger.info("P-HI:%s not in range 5.0..7.0", phi_shifted)
-                raise java.lang.Exception("Bad phi_shifted value {}".format(phi_shifted))
-            #
-            #- get original values for Parallel high and low rails
-            #
-            phi = self.getParallelHighConfig()
-            if phi is None:
-                self.logger.info("getParallelHighConfig() = None")
-                #- throw an exception here or something
-                raise java.lang.Exception("failed getting PHi config")
-            #
-            plo = self.getParallelLowConfig()
-            if plo is None:
-                self.logger.info("getParallelLowConfig() = None")
-                #- throw an exception here or something
-                raise java.lang.Exception("failed getting PLow config")
-            #
-            #- determine operating mode (unipolar (3) or bipolar (0))
-            #
-            self.logger.info("phi[]= %s", phi)
-            self.logger.info("plo[]= %s", plo)
-            cnt = 0
-            for i in range(len(phi)):
-                if phi[i] > 7.5 and plo[i] >= 0.0  and plo[i] < 2.0:
-                    cnt += 1
-                if phi[i] > 2.0 and phi[i] < 7.0  and plo[i] < -3.0:
-                    cnt -= 1
-            if cnt == 3:
-                unipolar = True
-                self.logger.info("Parallel Voltages are unipolar => Shifted Clearing")
-            elif cnt == -3:
-                unipolar = False
-                self.logger.info("Parallel Voltages are bipolar => Regular Clearing")
-            else:
-                raise java.lang.Exception(
-                    "invalid mode: must be bipolar (+/-) or unipolar (>0)")
-            if unipolar:
-                #
-                #- change to the new value
-                #
-                self.logger.info("changing dac %s to %s...",
-                                 "pclkHighP", phi_shifted)
-                self.sub.ts8dac0.synchCommand(10, "change", "pclkHighP", phi_shifted)
-                self.sub.ts8dac1.synchCommand(10, "change", "pclkHighP", phi_shifted)
-                self.sub.ts8dac2.synchCommand(10, "change", "pclkHighP", phi_shifted)
-                self.sub.ts8.synchCommand(10, "loadDacs true")
-                #
-        #- Perform the Clear main
+        #  Perform the Clear main
         #
         self.logger.info("Clearing CCD %s times...", nclears)
         for _ in range(nclears):
@@ -600,18 +480,7 @@ class EOAcquisition(object):
             self.sub.ts8.synchCommand(10, "startSequencer")
             self.sub.ts8.synchCommand(10, "waitSequencerDone", 1000)
             self.sub.ts8.synchCommand(10, "setSequencerStart", "Bias")
-        if ccdtype == 'e2v':
-            if unipolar:
-                #
-                #- change back to original value
-                #
-                self.logger.info("changing dac %s to %s...",
-                                 "pclkHighP", phi)
-                self.sub.ts8dac0.synchCommand(10, "change", "pclkHighP", phi[0])
-                self.sub.ts8dac1.synchCommand(10, "change", "pclkHighP", phi[1])
-                self.sub.ts8dac2.synchCommand(10, "change", "pclkHighP", phi[2])
-                self.sub.ts8.synchCommand(10, "loadDacs true")
-                #
+
 
 class PhotodiodeReadout(object):
     """
