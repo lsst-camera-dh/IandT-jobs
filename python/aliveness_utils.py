@@ -7,7 +7,7 @@ import numpy as np
 import lsst.eotest.image_utils as imutils
 import lsst.eotest.sensor as sensorTest
 
-__all__ = ['compoute_response_diffs', 'get_read_noise', 'get_mean_image_adu',
+__all__ = ['compute_response_diffs', 'get_read_noise', 'get_mean_image_adu',
            'get_median_signal_levels', 'raft_channel_statuses']
 
 
