@@ -506,17 +506,17 @@ class PhotodiodeReadout(object):
         # for exposures over 0.5 sec, nominal PD readout at 60Hz,
         # otherwise 240Hz
         if exptime > 0.5:
-            nplc = 1.
+            nplc = 0.5
         else:
             nplc = 0.25
 
+        self.navg = int(10)
+
         # add a buffer to duration of PD readout
-        nreads = min((exptime + self._buffertime)*60./nplc, max_reads)
+        nreads = min((exptime + self._buffertime)*60./nplc/self.navg, max_reads)
         self.nreads = int(nreads)
 
-        # adjust PD readout when max_reads is reached
-        # (needs to be between 0.001 and 60 - add code to check)
-        self.nplc = (exptime + self._buffertime)*60./nreads
+        self.nplc = nplc
         self._pd_result = None
         self._start_time = None
 
@@ -529,7 +529,19 @@ class PhotodiodeReadout(object):
         self.sub.pd.synchCommand(60, "reset")
         self.sub.pd.synchCommand(60, "clrbuff")
 
+        # set Keithely picoAmmeters to be the fixed range mode
+        self.sub.pd.synchCommand(60, "setCurrentRange 2e-6")
+
+        #
+        if self.navg != 1:
+            self.sub.pd.synchCommand(60, "send AVER:COUNT %d" % self.navg)
+            self.sub.pd.synchCommand(60, "send AVER:TCON REP")
+            self.sub.pd.synchCommand(60, "send AVER ON")
+        else:
+            self.sub.pd.synchCommand(60, "send AVER OFF")
+
         # start accummulating current readings
+        self.sub.pd.synchCommand(60, "setRate %f" % self.nplc)
         self._pd_result = self.sub.pd.asynchCommand("accumBuffer", self.nreads,
                                                     self.nplc, True)
         self._start_time = time.time()
