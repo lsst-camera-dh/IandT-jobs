@@ -503,13 +503,14 @@ class PhotodiodeReadout(object):
         self._exptime = exptime
         self._buffertime = 2.0
 
-        # for exposures over 0.5 sec, nominal PD readout at 60Hz,
+        # for exposures over 0.5 sec, nominal PD readout at 120Hz,
         # otherwise 240Hz
         if exptime > 0.5:
             nplc = 0.5
         else:
             nplc = 0.25
 
+        # set a number of bins to be averaged
         self.navg = int(10)
 
         # add a buffer to duration of PD readout
@@ -532,7 +533,7 @@ class PhotodiodeReadout(object):
         # set Keithely picoAmmeters to be the fixed range mode
         self.sub.pd.synchCommand(60, "setCurrentRange 2e-6")
 
-        #
+        # make averaged mode enabled if self.navg > 1
         if self.navg != 1:
             self.sub.pd.synchCommand(60, "send AVER:COUNT %d" % self.navg)
             self.sub.pd.synchCommand(60, "send AVER:TCON REP")
