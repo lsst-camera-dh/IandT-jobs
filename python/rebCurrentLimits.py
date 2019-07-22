@@ -37,7 +37,7 @@ class RebCurrentLimits(OrderedDict):
         self.ts8 = ts8
         self.logger = rebps.logger
         #- new values and change to IbefLDO
-        self['DigI'] = ChannelLimits('digital.IbefLDO', 450., 560., 100.)
+        self['DigI'] = ChannelLimits('digital.IbefLDO', 450., 570., 100.)
         self['AnaI'] = ChannelLimits('analog.IbefLDO', 500., 660., 50.)
         #- setting ClkHI anomolously high for REB4 board on aliveness bench
         self['ClkHI'] = ChannelLimits('clockhi.IbefLDO', 80., 180., 25.)
