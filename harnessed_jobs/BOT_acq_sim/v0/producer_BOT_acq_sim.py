@@ -10,7 +10,7 @@ from simulation import fake_camera
 if 'LCATR_ACQ_RUN' in os.environ:
     sys.exit(0)
 
-command = 'ln -s /gpfs/slac/lsst/fs2/u1/devel/jchiang/BOT_sims/BOT_acq_sim_data/* .'
+command = 'ln -s /gpfs/slac/lsst/fs3/g/data/jchiang/BOT_testing/BOT_acq_6549D/* .'
 subprocess.check_call(command, shell=True)
 subprocess.check_call('touch PRESERVE_SYMLINKS', shell=True)
 sys.exit(0)
