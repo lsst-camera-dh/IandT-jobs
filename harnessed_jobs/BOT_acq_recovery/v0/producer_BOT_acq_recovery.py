@@ -23,17 +23,30 @@ import siteUtils
 # lcatr.cfg.
 acq_run = os.environ['LCATR_ACQ_RUN']
 
+# Get any bad frames from a text file specified in lcatr.cfg.
+try:
+    with open(os.environ['LCATR_BAD_FRAME_LIST'], 'r') as fd:
+        bad_frames = [_.strip() for _ in fd]
+except KeyError:
+    bad_frames = []
+
 staging_dir = os.path.join(os.environ['LCATR_STAGE_ROOT'],
                            siteUtils.getUnitType(), siteUtils.getUnitId())
 outdir = '.'
 acqs_dir = os.path.join(staging_dir, acq_run, 'BOT_acq', 'v0')
 job_id_dirs = sorted(glob.glob(os.path.join(acqs_dir, '[0-9]*')), reverse=True)
 for job_id_dir in job_id_dirs:
-    items = glob.glob(os.path.join(job_id_dir, '*'))
-    for item in items:
-        dest = os.path.join(outdir, os.path.basename(item))
-        if ((os.path.islink(item) or item.endswith('.cfg'))
-            and not os.path.lexists(dest)):
-            shutil.copyfile(item, dest, follow_symlinks=False)
+    frame_dirs = glob.glob(os.path.join(job_id_dir, '*'))
+    for frame_dir in frame_dirs:
+        if bad_frames:
+            fits_images = []
+            for bad_frame in bad_frames:
+                pattern = os.path.join(frame_dir, f'*{bad_frame}*.fits')
+                fits_images.extend(glob.glob(pattern))
+        dest = os.path.join(outdir, os.path.basename(frame_dir))
+        if ((os.path.islink(frame_dir) or frame_dir.endswith('.cfg'))
+            and not os.path.lexists(dest)
+            and not fits_images):
+            shutil.copyfile(frame_dir, dest, follow_symlinks=False)
 
 pathlib.Path('PRESERVE_SYMLINKS').touch()
