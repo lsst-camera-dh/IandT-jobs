@@ -38,15 +38,19 @@ job_id_dirs = sorted(glob.glob(os.path.join(acqs_dir, '[0-9]*')), reverse=True)
 for job_id_dir in job_id_dirs:
     frame_dirs = glob.glob(os.path.join(job_id_dir, '*'))
     for frame_dir in frame_dirs:
-        if bad_frames:
-            fits_images = []
-            for bad_frame in bad_frames:
-                pattern = os.path.join(frame_dir, f'*{bad_frame}*.fits')
-                fits_images.extend(glob.glob(pattern))
         dest = os.path.join(outdir, os.path.basename(frame_dir))
         if ((os.path.islink(frame_dir) or frame_dir.endswith('.cfg'))
-            and not os.path.lexists(dest)
-            and not fits_images):
+            and not os.path.lexists(dest)):
             shutil.copyfile(frame_dir, dest, follow_symlinks=False)
+
+# Delete any folders with bad data
+for bad_frame in bad_frames:
+    fits_images = []
+    for bad_frame in bad_frames:
+        pattern = os.path.join('*', f'*{bad_frame}*.fits')
+        fits_images.extend(glob.glob(pattern))
+bad_symlinks = set([os.path.dirname(_) for _ in fits_images])
+for bad_symlink in bad_symlinks:
+    os.remove(bad_symlink)
 
 pathlib.Path('PRESERVE_SYMLINKS').touch()
