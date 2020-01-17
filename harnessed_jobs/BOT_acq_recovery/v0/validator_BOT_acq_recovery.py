@@ -18,12 +18,8 @@ for det_name in det_names:
 pd_files = sorted(glob.glob('*/Photodiode_Readings.txt'))
 results.extend([lcatr.schema.fileref.make(_) for _ in pd_files])
 
-try:
-    bot_eo_acq_cfg = glob.glob('*.cfg')[0]
-except IndexError:
-    pass
-else:
-    results.append(lcatr.schema.fileref.make(bot_eo_acq_cfg))
+cfg_files = glob.glob('*.cfg')
+results.extend([lcatr.schema.fileref.make(_) for _ in cfg_files])
 
 results.extend(siteUtils.jobInfo())
 
