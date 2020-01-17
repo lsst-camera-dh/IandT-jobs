@@ -24,8 +24,9 @@ job_id = os.environ['LCATR_JOB_ID']
 
 acq_config = siteUtils.get_job_acq_configs()
 bot_eo_acq_cfg = acq_config['bot_eo_acq_cfg']
-outfile = bot_eo_acq_cfg.replace('.cfg', '') + f'_{run_number}_{job_id}.cfg'
-shutil.copy(bot_eo_acq_cfg, outfile)
+outfile = os.path.basename(bot_eo_acq_cfg).replace('.cfg', '') \
+          + f'_{run_number}_{job_id}.cfg'
+shutil.copy(bot_eo_acq_cfg, os.path.join('.', outfile))
 
 command = '/home/ccs/bot-data.py --symlink . --run {} {}'\
     .format(run_number, bot_eo_acq_cfg)
