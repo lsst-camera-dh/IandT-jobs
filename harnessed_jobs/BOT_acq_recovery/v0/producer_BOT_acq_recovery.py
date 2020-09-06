@@ -44,11 +44,10 @@ for job_id_dir in job_id_dirs:
             shutil.copyfile(frame_dir, dest, follow_symlinks=False)
 
 # Delete any folders with bad data
+fits_images = []
 for bad_frame in bad_frames:
-    fits_images = []
-    for bad_frame in bad_frames:
-        pattern = os.path.join('*', f'*{bad_frame}*.fits')
-        fits_images.extend(glob.glob(pattern))
+    pattern = os.path.join('*', f'*{bad_frame}*.fits')
+    fits_images.extend(glob.glob(pattern))
 bad_symlinks = set([os.path.dirname(_) for _ in fits_images])
 for bad_symlink in bad_symlinks:
     os.remove(bad_symlink)
