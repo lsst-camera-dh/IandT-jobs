@@ -20,6 +20,9 @@ if 'LCATR_ACQ_RUN' not in os.environ:
     pd_files = sorted(glob.glob('*/Photodiode_Readings*.txt'))
     results.extend([lcatr.schema.fileref.make(_) for _ in pd_files])
 
+    seq_files = glob.glob('*.seq')
+    results.extend([lcatr.schema.fileref.make(_) for _ in seq_files])
+
     acq_config = siteUtils.get_job_acq_configs()
     bot_eo_acq_cfg = os.path.basename(acq_config['bot_eo_acq_cfg'])
     cfg_files = glob.glob(bot_eo_acq_cfg.replace('.cfg', '') + '*.cfg')
