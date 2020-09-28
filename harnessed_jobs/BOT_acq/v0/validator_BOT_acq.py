@@ -17,7 +17,7 @@ if 'LCATR_ACQ_RUN' not in os.environ:
         for item in fits_files:
             results.append(lcatr.schema.fileref.make(item))
 
-    pd_files = sorted(glob.glob('*/Photodiode_Readings.txt'))
+    pd_files = sorted(glob.glob('*/Photodiode_Readings*.txt'))
     results.extend([lcatr.schema.fileref.make(_) for _ in pd_files])
 
     acq_config = siteUtils.get_job_acq_configs()
