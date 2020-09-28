@@ -1,0 +1,7 @@
+# -*- python -*-
+{
+    'schema_name' : 'BOT_acq',
+    'schema_version' : 0,
+    'fp-scripts_git_hash' : str,
+    'fp-scripts_git_tag' : str
+}

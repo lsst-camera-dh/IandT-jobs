@@ -25,6 +25,19 @@ if 'LCATR_ACQ_RUN' not in os.environ:
     cfg_files = glob.glob(bot_eo_acq_cfg.replace('.cfg', '') + '*.cfg')
     results.extend([lcatr.schema.fileref.make(_) for _ in cfg_files])
 
+    # Get fp-scripts commit and tag info.
+    repo_path = os.environ.get('LCATR_FP_SCRIPTS_REPO_DIR', None)
+    if repo_path is not None:
+        try:
+            git_hash, git_tag = siteUtils.get_git_commit_info(repo_path)
+        except Exception as eobj:
+            print('Error encountered retrieving fp-scripts git info:\n', eobj)
+        else:
+            schema_values = {'fp-scripts_git_hash': git_hash,
+                             'fp-scripts_git_tag': str(git_tag)}
+            results.append(lcatr.schema.valid(lcatr.schema.get('BOT_acq'),
+                                              **schema_values))
+
 results.extend(siteUtils.jobInfo())
 
 lcatr.schema.write_file(results)
