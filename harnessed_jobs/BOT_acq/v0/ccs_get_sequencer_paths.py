@@ -5,8 +5,7 @@ import sys
 import json
 from org.lsst.ccs.scripting import CCS
 
-fp = CCS.attachSubsystem('aliveness-fp')
-#fp = CCS.attachSubsystem('focal-plane')
+fp = CCS.attachSubsystem('focal-plane')
 
 ccs_output = fp.sendSynchCommand('getSequencerPaths')
 output = {str(key): str(value) for key, value in ccs_output.items()}
