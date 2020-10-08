@@ -3,6 +3,7 @@
 Validator script for BOT_acq harnessed job.
 """
 import os
+import shutil
 import glob
 import lcatr.schema
 import siteUtils
@@ -22,6 +23,14 @@ if 'LCATR_ACQ_RUN' not in os.environ:
 
     seq_files = glob.glob('*.seq')
     results.extend([lcatr.schema.fileref.make(_) for _ in seq_files])
+
+    ccs_config_file = 'ccs_config.txt'
+    if os.path.isfile(ccs_config_file):
+        # Add the run number to filename.
+        run_number = siteUtils.getRunNumber()
+        outfile = f'ccs_config_{run_number}.txt'
+        shutil.copy(ccs_config_file, outfile)
+        results.append(lcatr.schema.fileref.make(outfile))
 
     acq_config = siteUtils.get_job_acq_configs()
     bot_eo_acq_cfg = os.path.basename(acq_config['bot_eo_acq_cfg'])
