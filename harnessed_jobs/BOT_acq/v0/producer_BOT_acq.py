@@ -13,7 +13,7 @@ import shutil
 import subprocess
 import pathlib
 import siteUtils
-
+from bot_acq_retry import copy_exposure_symlinks
 
 def copy_sequencer_files():
     """
@@ -27,7 +27,7 @@ def copy_sequencer_files():
     subprocess.check_call(command, shell=True)
     with open(json_file, 'r') as fd:
         seq_paths = json.load(fd)
-    for key, value in seq_paths.items():
+    for _, value in seq_paths.items():
         command = f'scp {value} .'
         print(command)
         subprocess.check_call(command, shell=True)
@@ -49,9 +49,11 @@ outfile = os.path.basename(bot_eo_acq_cfg).replace('.cfg', '') \
 shutil.copy(bot_eo_acq_cfg, os.path.join('.', outfile))
 
 copy_sequencer_files()
+skip = copy_exposure_symlinks()
 
-command = '/home/ccs/bot-data.py --symlink . --run {} {}'\
-    .format(run_number, bot_eo_acq_cfg)
+command = (f'/home/ccs/bot-data.py --symlink . --skip {skip} '
+           f'--run {run_number} {bot_eo_acq_cfg}')
+
 subprocess.check_call(command, shell=True)
 
 pathlib.Path('PRESERVE_SYMLINKS').touch()
