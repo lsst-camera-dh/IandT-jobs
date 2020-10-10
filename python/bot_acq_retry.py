@@ -1,4 +1,5 @@
 import os
+import shutil
 import glob
 
 def copy_exposure_symlinks(copy_links=True):
@@ -24,5 +25,5 @@ def copy_exposure_symlinks(copy_links=True):
             exposure_name = os.path.basename(item)
             num_symlinks += 1
             if copy_links and not os.path.islink(exposure_name):
-                os.symlink(os.path.realpath(item), exposure_name)
+                shutil.copy(item, exposure_name, follow_symlinks=False)
     return num_symlinks
