@@ -11,9 +11,9 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('bot_data_folder', type=str,
                     help='Name of BOT data folder to ingest')
-parser.add_argument('repo', type=str, help='Gen3 repo',
+parser.add_argument('--repo', type=str, help='Gen3 repo',
                     default='/sdf/group/lsst/camera/IandT/repo_gen3/bot_data')
-parser.add_argument('frame_prefix', type=str, default='MC_C_',
+parser.add_argument('--frame_prefix', type=str, default='MC_C_',
                     help='Folder name prefix for each frame')
 
 args = parser.parse_args()
