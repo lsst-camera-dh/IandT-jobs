@@ -23,6 +23,7 @@ pattern = os.path.join(args.bot_data_folder, f'{args.frame_prefix}*')
 frame_folders = [_ for _ in sorted(glob.glob(pattern)) if
                  glob.glob(os.path.join(_, '*.fits'))]
 
+index_name = '_index.json'
 # Add the index files to each folder.
 access_restricted = []
 for folder in frame_folders:
@@ -31,17 +32,19 @@ for folder in frame_folders:
         # add to list for later reporting.
         access_restricted.append(folder)
         continue
-    if os.path.isfile(os.path.join(folder, '_index.json')):
+    if os.path.isfile(os.path.join(folder, index_name)):
         # Skip if index file already exists.
         continue
-    command = ('astrometadata -p lsst.obs.lsst.translators write-index '
-               f'--content=metadata {folder}')
+#    command = ('astrometadata -p lsst.obs.lsst.translators write-index '
+#               f'--content=metadata {folder}')
+    # Use Tony's faster fhe tool to make the index files.
+    command = f'/sdf/group/lsst/sw/ccs/bin/fhe --dir {folder} -vvv'
     subprocess.check_call(command, shell=True)
 
 # Run butler ingest-raws on each folder.
 required_keywords = ['EXPTIME', 'RUNNUM']
 for folder in frame_folders:
-    index_file = os.path.join(folder, '_index.json')
+    index_file = os.path.join(folder, index_name)
     if not os.path.isfile(index_file):
         # Skip ingest if index file is missing.
         continue
