@@ -42,11 +42,16 @@ for folder in frame_folders:
     if os.path.isfile(os.path.join(folder, INDEX_NAME)):
         # Skip if index file already exists.
         continue
-#    command = ('astrometadata -p lsst.obs.lsst.translators write-index '
-#               f'--content=metadata {folder}')
+    #command = ('astrometadata -p lsst.obs.lsst.translators write-index '
+    #           f'--content=metadata {folder}')
     # Use Tony's faster fhe tool to make the index files.
     command = f'/sdf/group/lsst/sw/ccs/bin/fhe --dir {folder} -vvv'
     subprocess.check_call(command, shell=True)
+
+if access_restricted:
+    logger.info('Access restricted folders:')
+    for folder in access_restricted:
+        logger.info(' %s', folder)
 
 # Run butler ingest-raws on each folder.
 missing_keywords = []
@@ -68,9 +73,7 @@ for folder in frame_folders:
     subprocess.check_call(command, shell=True)
 
 if access_restricted:
-    logger.info('Access restricted folders:')
-    for folder in access_restricted:
-        logger.info(' %s', folder)
+    raise RuntimeError('Access restricted folders')
 
 if missing_keywords:
     logger.info('Frames with missing required keywords:')
