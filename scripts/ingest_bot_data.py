@@ -15,8 +15,8 @@ parser.add_argument('bot_data_folder', type=str,
                     help='Name of BOT data folder to ingest')
 parser.add_argument('--repo', type=str, help='Gen3 repo',
                     default='/sdf/group/lsst/camera/IandT/repo_gen3/bot_data')
-parser.add_argument('--frame_prefix', type=str, default='MC_C_',
-                    help='Folder name prefix for each frame')
+parser.add_argument('--frame_prefix', type=str, default='[MT][CS]_C_',
+                    help='glob pattern prefix for each frame')
 
 args = parser.parse_args()
 
@@ -79,3 +79,4 @@ if missing_keywords:
     logger.info('Frames with missing required keywords:')
     for folder in missing_keywords:
         logger.info(' %s', folder)
+    raise RuntimeError('Frames with missing required keywords.')
