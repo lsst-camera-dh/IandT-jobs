@@ -72,6 +72,13 @@ for folder in frame_folders:
     command = (f'butler ingest-raws --transfer=direct {args.repo} {folder}')
     subprocess.check_call(command, shell=True)
 
+    # Run eotask-gen3/eoIngestPd.py to ingest photodiode readings files.
+    pd_files = glob.glob(os.path.join(folder, 'Photodiode_Readings*.txt'))
+    if pd_files:
+        file_list = ' '.join(pd_files)
+        command = f'eoIngestPd.py -b {args.repo} {file_list}'
+        subprocess.check_call(command, shell=True)
+
 if access_restricted:
     raise RuntimeError('Access restricted folders')
 
