@@ -1,10 +1,14 @@
 #!/usr/bin/bash
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-repo=/sdf/group/lsst/camera/IandT/repo_gen3/BOT_data
-#repo=/sdf/home/j/jchiang/BOT_gen3_testing/file_transfer/transfer_test_repo
 bot_data_folder=$1
+if [[ $# == 2 ]];
+then
+    repo=$2
+else
+    repo=/sdf/group/lsst/camera/IandT/repo_gen3/BOT_data
+fi
 
-weekly=w_2021_39
+weekly=w_2021_43
 source /cvmfs/sw.lsst.eu/linux-x86_64/lsst_distrib/${weekly}/loadLSST.bash
 setup lsst_distrib
 setup -r /sdf/group/lsst/software/IandT/eotask-gen3 -j
