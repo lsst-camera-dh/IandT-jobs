@@ -17,6 +17,8 @@ parser.add_argument('--repo', type=str, help='Gen3 repo',
                     default='/sdf/group/lsst/camera/IandT/repo_gen3/bot_data')
 parser.add_argument('--frame_prefix', type=str, default='[MT][CS]_C_',
                     help='glob pattern prefix for each frame')
+parser.add_argument('--min_seqnum', type=int, default=None,
+                    help='mininum sequence number to ingest')
 
 args = parser.parse_args()
 
@@ -25,10 +27,16 @@ logging.basicConfig(format='%(asctime)s %(name)s: %(message)s',
 logger = logging.getLogger('ingest_bot_data.py')
 logger.setLevel(logging.INFO)
 
-# Make a list of non-empty frame subfolders
+def get_seqnum(frame):
+    return int(frame.split('_')[-1])
+
+# Make a list of non-empty frame subfolders with seqnum >= args.min_seqnum
 pattern = os.path.join(args.bot_data_folder, f'{args.frame_prefix}*')
 frame_folders = [_ for _ in sorted(glob.glob(pattern)) if
-                 glob.glob(os.path.join(_, '*.fits'))]
+                 (glob.glob(os.path.join(_, '*.fits')) and
+                  (args.min_seqnum is None or
+                   get_seqnum(_) >= args.min_seqnum))]
+print(frame_folders)
 
 INDEX_NAME = '_index.json'
 # Add the index files to each folder.
