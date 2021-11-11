@@ -37,7 +37,7 @@ def copy_exposure_symlinks(copy_links=True):
             num_symlinks += 1
             if copy_links and not os.path.islink(exposure_name):
                 shutil.copy(item, exposure_name, follow_symlinks=False)
-    next_seqnum = max(seqnums) + 1
+    next_seqnum = max(seqnums) + 1 if seqnums else 0
     if next_seqnum != num_symlinks:
         warnings.warn(f"There were {next_seqnum - num_symlinks} "
                       f"missing frames in {last_dir}.")
