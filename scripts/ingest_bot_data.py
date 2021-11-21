@@ -83,13 +83,14 @@ for folder in frame_folders:
         subprocess.check_call(command, shell=True)
 
 if access_restricted:
-    logger.info('Access restricted folders:')
+    logger.info(f'{len(access_restricted)} access restricted folders:')
     for folder in access_restricted:
         logger.info(' %s', folder)
     logger.info('\n')
 
 if missing_keywords:
-    logger.info('Frames with missing required keywords:')
+    logger.info(f'{len(missing_keywords)} frames with '
+                'missing required keywords:')
     for folder in missing_keywords:
         logger.info(' %s', folder)
 
