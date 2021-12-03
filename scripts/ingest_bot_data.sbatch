@@ -3,7 +3,6 @@
 #SBATCH --mail-user=cam-bot-gen3-ingest-aaaaeubc3mngg4xb2sq6gvwc4e@lsstc.slack.com
 #SBATCH --mail-type=FAIL
 #SBATCH --cpus-per-task=1
-#SBATCH --time=05:00:00
 
 weekly=w_2021_43
 source /cvmfs/sw.lsst.eu/linux-x86_64/lsst_distrib/${weekly}/loadLSST.bash
