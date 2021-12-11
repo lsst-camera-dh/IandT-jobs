@@ -13,4 +13,5 @@ timestamp=`date +%Y-%m-%d_%H.%M.%S`
 
 echo ${REPO} ${BOT_DATA_FOLDER}
 eups list lsst_distrib
-python ${SCRIPT_DIR}/ingest_bot_data.py --repo ${REPO} ${BOT_DATA_FOLDER}
+python ${SCRIPT_DIR}/ingest_bot_data.py --repo ${REPO} ${BOT_DATA_FOLDER} \
+    --bad_frame_file ${SCRIPT_DIR}/bad_frames.txt

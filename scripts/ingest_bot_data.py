@@ -19,6 +19,8 @@ parser.add_argument('--frame_prefix', type=str, default='[MT][CS]_C_',
                     help='glob pattern prefix for each frame')
 parser.add_argument('--min_seqnum', type=int, default=None,
                     help='mininum sequence number to ingest')
+parser.add_argument('--bad_frame_file', type=str, default=None,
+                    help='file containing list of bad frames to skip')
 
 args = parser.parse_args()
 
@@ -26,6 +28,13 @@ logging.basicConfig(format='%(asctime)s %(name)s: %(message)s',
                     stream=sys.stdout)
 logger = logging.getLogger('ingest_bot_data.py')
 logger.setLevel(logging.INFO)
+
+bad_frames = set()
+if args.bad_frame_file is not None and os.path.isfile(args.bad_frame_file):
+    with open(args.bad_frame_file) as fd:
+        for line in fd:
+            bad_frames.add(line.strip('\n'))
+print('bad frames:', bad_frames)
 
 def get_seqnum(frame):
     return int(frame.split('_')[-1])
@@ -49,6 +58,8 @@ for folder in frame_folders:
         # Need write access to make the index file. If not accessible,
         # add to list for later reporting.
         access_restricted.append(folder)
+        continue
+    if os.path.basename(folder) in bad_frames:
         continue
     #command = ('astrometadata -p lsst.obs.lsst.translators write-index '
     #           f'--content=metadata {folder}')

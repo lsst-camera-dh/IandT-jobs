@@ -16,7 +16,6 @@ timestamp=`date +%Y-%m-%d_%H.%M.%S`
 log_file=${script_dir}/bot_ingest_${timestamp}.log
 job_name=ingest-bot-${bot_data_folder}
 job_time=`python ${script_dir}/estimate_job_time.py ${bot_data_folder}`
-echo ${job_time}
 
 sbatch --export=ALL --output=${log_file} --job-name=${job_name} \
     --time=${job_time} ${script_dir}/ingest_bot_data.sbatch

@@ -20,4 +20,5 @@ job_name=ingest-bot-${bot_data_folder}
 srun --time=05:00:00 --output=${log_file} --job-name=${job_name} \
     --mail-user=cam-bot-gen3-ingest-aaaaeubc3mngg4xb2sq6gvwc4e@lsstc.slack.com \
     --mail-type=FAIL \
-    python ${script_dir}/ingest_bot_data.py --repo ${repo} ${bot_data_folder} &
+    python ${script_dir}/ingest_bot_data.py --repo ${repo} ${bot_data_folder} \
+         --bad_frame_file ${script_dir}/bad_frames.txt &
