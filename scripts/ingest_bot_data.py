@@ -105,6 +105,5 @@ if missing_keywords:
     for folder in missing_keywords:
         logger.info(' %s', folder)
 
-if access_restricted or missing_keywords:
-    raise RuntimeError('Access restricted folders or '
-                       'frames with missing keywords')
+if access_restricted:
+    raise RuntimeError('Access restricted folders')
