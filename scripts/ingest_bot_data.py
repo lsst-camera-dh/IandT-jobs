@@ -40,11 +40,18 @@ def get_seqnum(frame):
     return int(frame.split('_')[-1])
 
 # Make a list of non-empty frame subfolders with seqnum >= args.min_seqnum
-pattern = os.path.join(args.bot_data_folder, f'{args.frame_prefix}*')
-frame_folders = [_ for _ in sorted(glob.glob(pattern)) if
-                 (glob.glob(os.path.join(_, '*.fits')) and
-                  (args.min_seqnum is None or
-                   get_seqnum(_) >= args.min_seqnum))]
+if os.path.basename(args.bot_data_folder).startswith('MC_C_'):
+    # args.bot_data_folder is pointing at a single BOT frame, rather
+    # than its parent directory, so just make a single element list with
+    # args.bot_data_folder as the entry.
+    frame_folders = [args.bot_data_folder]
+else:
+    # Assume args.bot_data_folder is a day's worth of BOT frames.
+    pattern = os.path.join(args.bot_data_folder, f'{args.frame_prefix}*')
+    frame_folders = [_ for _ in sorted(glob.glob(pattern)) if
+                     (glob.glob(os.path.join(_, '*.fits')) and
+                      (args.min_seqnum is None or
+                       get_seqnum(_) >= args.min_seqnum))]
 print(frame_folders)
 
 INDEX_NAME = '_index.json'
