@@ -50,6 +50,7 @@ print(frame_folders)
 INDEX_NAME = '_index.json'
 # Add the index files to each folder.
 access_restricted = []
+fhe_failures = []
 for folder in frame_folders:
     if os.path.isfile(os.path.join(folder, INDEX_NAME)):
         # Skip if index file already exists.
@@ -65,7 +66,13 @@ for folder in frame_folders:
     #           f'--content=metadata {folder}')
     # Use Tony's faster fhe tool to make the index files.
     command = f'/sdf/group/lsst/sw/ccs/bin/fhe --dir {folder} -vvv'
-    subprocess.check_call(command, shell=True)
+    try:
+        subprocess.check_call(command, shell=True)
+    except subprocess.CalledProcessError:
+        fhe_failures.append(folder)
+        # Delete any _index.json file that was written.
+        command = f'rm -f {folder}/{INDEX_NAME}'
+        subprocess.check_call(command, shell=True)
 
 # Run butler ingest-raws on each folder.
 missing_keywords = []
@@ -104,6 +111,13 @@ if missing_keywords:
                 'missing required keywords:')
     for folder in missing_keywords:
         logger.info(' %s', folder)
+    logger.info('\n')
 
-if access_restricted:
-    raise RuntimeError('Access restricted folders')
+if fhe_failures:
+    logger.info(f'{len(fhe_failures)} frames that failed _index.json '
+                'generation:')
+    for folder in fhe_failures:
+        logger.info(' %s', folder)
+
+if access_restricted or fhe_failures:
+    raise RuntimeError('access_restricted or fhe_failures')
