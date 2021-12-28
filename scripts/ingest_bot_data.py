@@ -58,6 +58,7 @@ INDEX_NAME = '_index.json'
 # Add the index files to each folder.
 access_restricted = []
 fhe_failures = []
+corrupted = []
 for folder in frame_folders:
     if os.path.isfile(os.path.join(folder, INDEX_NAME)):
         # Skip if index file already exists.
@@ -68,6 +69,12 @@ for folder in frame_folders:
         access_restricted.append(folder)
         continue
     if os.path.basename(folder) in bad_frames:
+        continue
+    # Skip folder if any file sizes are zero, possibly indicating
+    # corrupted data.
+    pattern = os.path.join(folder, 'MC*')
+    if any([os.path.getsize(_) == 0 for _ in glob.glob(pattern)]):
+        corrupted.append(folder)
         continue
     #command = ('astrometadata -p lsst.obs.lsst.translators write-index '
     #           f'--content=metadata {folder}')
@@ -124,6 +131,11 @@ if fhe_failures:
     logger.info(f'{len(fhe_failures)} frames that failed _index.json '
                 'generation:')
     for folder in fhe_failures:
+        logger.info(' %s', folder)
+
+if corrupted:
+    logger.info(f'{len(corrupted)} frames:')
+    for folder in corrupted:
         logger.info(' %s', folder)
 
 if access_restricted or fhe_failures:
