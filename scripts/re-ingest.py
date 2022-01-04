@@ -63,6 +63,7 @@ for frame_dir in frame_dirs.values():
 # Check that the re-ingested run has the same number of datasets
 # as before.
 butler = Butler(repo, collections=[collection])
+where = f"instrument='LSSTCam' and exposure.science_program='{Run}'"
 num_ds = len(list(butler.registry.queryDatasets('raw', where=where)))
 if num_ds != num_ds_orig:
     raise RuntimeError('mismatch in numbers of original files and re-ingested:'
