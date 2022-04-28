@@ -39,7 +39,7 @@ if 'LCATR_ACQ_RUN' not in os.environ:
 
 try:
     results = siteUtils.persist_ccs_versions(results)
-except RuntimeError as eobj:
+except Exception as eobj:
     print('Error encountered in persisting CCS versions:\n', eobj)
 
 results.extend(siteUtils.jobInfo())
