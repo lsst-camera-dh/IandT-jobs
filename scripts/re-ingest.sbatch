@@ -4,14 +4,13 @@
 #SBATCH --mail-type=FAIL
 #SBATCH --cpus-per-task=1
 
+REPO=/sdf/group/lsst/camera/IandT/repo_gen3/BOT_data
 weekly=w_2021_43
 source /cvmfs/sw.lsst.eu/linux-x86_64/lsst_distrib/${weekly}/loadLSST.bash
 setup lsst_distrib
-setup -r /sdf/group/lsst/software/IandT/eotask-gen3 -j
 export OMP_NUM_THREADS=1
 timestamp=`date +%Y-%m-%d_%H.%M.%S`
 
-echo ${REPO} ${BOT_DATA_FOLDER}
+echo ${RUN} ${REPO}
 eups list lsst_distrib
-python ${SCRIPT_DIR}/ingest_bot_data.py --repo ${REPO} ${BOT_DATA_FOLDER} \
-    --bad_frame_file ${SCRIPT_DIR}/bad_frames.txt
+python ${SCRIPT_DIR}/re-ingest.py ${RUN} ${REPO}
