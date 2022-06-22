@@ -19,6 +19,8 @@ parser.add_argument('--frame_prefix', type=str, default='[MT][CS]_C_',
                     help='glob pattern prefix for each frame')
 parser.add_argument('--min_seqnum', type=int, default=None,
                     help='mininum sequence number to ingest')
+parser.add_argument('--max_seqnum', type=int, default=None,
+                    help='maximum sequence number to ingest')
 parser.add_argument('--bad_frame_file', type=str, default=None,
                     help='file containing list of bad frames to skip')
 
@@ -36,6 +38,10 @@ if args.bad_frame_file is not None and os.path.isfile(args.bad_frame_file):
             bad_frames.add(line.strip('\n'))
 print('bad frames:', bad_frames)
 
+def run_command(command):
+    subprocess.check_call(command, shell=True)
+    print(command)
+
 def get_seqnum(frame):
     return int(frame.split('_')[-1])
 
@@ -51,7 +57,9 @@ else:
     frame_folders = [_ for _ in sorted(glob.glob(pattern)) if
                      (glob.glob(os.path.join(_, '*.fits')) and
                       (args.min_seqnum is None or
-                       get_seqnum(_) >= args.min_seqnum))]
+                       get_seqnum(_) >= args.min_seqnum) and
+                      (args.max_seqnum is None or
+                       get_seqnum(_) <= args.max_seqnum))]
 print(frame_folders)
 
 INDEX_NAME = '_index.json'
@@ -81,17 +89,18 @@ for folder in frame_folders:
     # Use Tony's faster fhe tool to make the index files.
     command = f'/sdf/group/lsst/sw/ccs/bin/fhe --dir {folder} -vvv'
     try:
-        subprocess.check_call(command, shell=True)
+        run_command(command)
     except subprocess.CalledProcessError:
         fhe_failures.append(folder)
         # Delete any _index.json file that was written.
         command = f'rm -f {folder}/{INDEX_NAME}'
-        subprocess.check_call(command, shell=True)
+        run_command(command)
 
 # Run butler ingest-raws on each folder.
 missing_keywords = []
 required_keywords = ['EXPTIME', 'RUNNUM']
 for folder in frame_folders:
+    print('processing', folder)
     index_file = os.path.join(folder, INDEX_NAME)
     if not os.path.isfile(index_file):
         # Skip ingest if index file is missing.
@@ -105,14 +114,14 @@ for folder in frame_folders:
         continue
     logger.info('ingesting %s', folder)
     command = (f'butler ingest-raws --transfer=direct {args.repo} {folder}')
-    subprocess.check_call(command, shell=True)
+    run_command(command)
 
     # Run eotask-gen3/eoIngestPd.py to ingest photodiode readings files.
     pd_files = glob.glob(os.path.join(folder, 'Photodiode_Readings*.txt'))
     if pd_files:
         file_list = ' '.join(pd_files)
         command = f'eoIngestPd.py -b {args.repo} {file_list}'
-        subprocess.check_call(command, shell=True)
+        run_command(command)
 
 if access_restricted:
     logger.info(f'{len(access_restricted)} access restricted folders:')
