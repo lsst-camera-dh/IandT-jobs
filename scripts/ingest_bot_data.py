@@ -46,13 +46,15 @@ def get_seqnum(frame):
     return int(frame.split('_')[-1])
 
 # Make a list of non-empty frame subfolders with seqnum >= args.min_seqnum
-if os.path.basename(args.bot_data_folder).startswith('MC_C_'):
-    # args.bot_data_folder is pointing at a single BOT frame, rather
+# and seqnum <= args.max_seqnum.
+if (os.path.basename(args.bot_data_folder).startswith('MC_C_') or
+    os.path.basename(args.bot_data_folder).startswith('TS_C_')):
+    # args.bot_data_folder is pointing at a single BOT/TS8 frame, rather
     # than its parent directory, so just make a single element list with
     # args.bot_data_folder as the entry.
     frame_folders = [args.bot_data_folder]
 else:
-    # Assume args.bot_data_folder is a day's worth of BOT frames.
+    # Assume args.bot_data_folder is a day's worth of BOT/TS8 frames.
     pattern = os.path.join(args.bot_data_folder, f'{args.frame_prefix}*')
     frame_folders = [_ for _ in sorted(glob.glob(pattern)) if
                      (glob.glob(os.path.join(_, '*.fits')) and
@@ -80,7 +82,7 @@ for folder in frame_folders:
         continue
     # Skip folder if any file sizes are zero, possibly indicating
     # corrupted data.
-    pattern = os.path.join(folder, 'MC*')
+    pattern = os.path.join(folder, f'{args.frame_prefix}*')
     if any([os.path.getsize(_) == 0 for _ in glob.glob(pattern)]):
         corrupted.append(folder)
         continue
