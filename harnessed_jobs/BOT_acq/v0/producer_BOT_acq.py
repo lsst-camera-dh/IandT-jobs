@@ -15,6 +15,7 @@ import pathlib
 import siteUtils
 from bot_acq_retry import copy_exposure_symlinks
 
+
 def copy_sequencer_files():
     """
     Run ccs_get_sequencer_paths.py script to get sequencer files. Copy
@@ -49,11 +50,12 @@ outfile = os.path.basename(bot_eo_acq_cfg).replace('.cfg', '') \
 shutil.copy(bot_eo_acq_cfg, os.path.join('.', outfile))
 
 copy_sequencer_files()
-skip = copy_exposure_symlinks()
+skip = os.environ.get('LCATR_SKIP_EXPOSURES', copy_exposure_symlinks())
 
 command = (f'/home/ccs/bot-data.py --symlink . --skip {skip} '
            f'--run {run_number} {bot_eo_acq_cfg}')
 
+print("executing: {command}")
 subprocess.check_call(command, shell=True)
 
 pathlib.Path('PRESERVE_SYMLINKS').touch()
